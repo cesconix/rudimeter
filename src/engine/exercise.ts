@@ -23,7 +23,10 @@ export function parseSteps(text: string): Step[] {
       continue
     }
     if (ch === 'R' || ch === 'L') steps.push({ hand: ch, accent })
-    else if (ch === '-') steps.push({ hand: null, accent: false })
+    else if (ch === '-') {
+      if (accent) throw new Error('accento ">" senza colpo')
+      steps.push({ hand: null, accent: false })
+    }
     else throw new Error(`carattere non valido nello sticking: "${ch}"`)
     accent = false
   }

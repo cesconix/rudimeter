@@ -17,6 +17,9 @@ describe('parseSteps', () => {
   it('rifiuta un accento senza colpo', () => {
     expect(() => parseSteps('RL>')).toThrow(/accento/)
   })
+  it('rifiuta un accento prima di una pausa', () => {
+    expect(() => parseSteps('R>-L')).toThrow(/accento/)
+  })
 })
 
 describe('stepsPerBar', () => {
