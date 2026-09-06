@@ -1,4 +1,4 @@
-import { fitRamp, latencyFromOffsets, matchOffsets, rampGainsDb, type RampFit, type RampPoint } from '../engine/calibration'
+import { fitRamp, latencyFromOffsets, matchOffsets, matchRampPoints, rampGainsDb, type RampFit, type RampPoint } from '../engine/calibration'
 import type { Hit } from '../engine/types'
 import { scheduleClick } from './click'
 import type { Capture, Thresholds } from './capture'
@@ -31,10 +31,7 @@ export async function runRampCalibration(ctx: AudioContext, capture: Capture, th
     const clicks = rampGainsDb().map((db, i) => ({ t: t0 + i * 0.4, db }))
     clicks.forEach((c) => scheduleClick(ctx, c.t, { gain: Math.pow(10, c.db / 20), dur: 0.01 }))
     const hits = await collectHits(ctx, capture, t0 + clicks.length * 0.4 + 0.3)
-    const points: RampPoint[] = clicks.map((c) => {
-      const o = hits.find((h) => h.t >= c.t - 0.005 && h.t < c.t + 0.3)
-      return { expectedDb: c.db, measuredDb: o ? o.peakDb : null }
-    })
+    const points = matchRampPoints(clicks, hits)
     return { fit: fitRamp(points), points }
   } finally {
     capture.setThresholds(thresholds)

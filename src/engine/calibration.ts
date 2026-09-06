@@ -31,6 +31,34 @@ export function matchOffsets(clickTimes: number[], onsetTimes: number[], maxMs =
   return out
 }
 
+/** Per ogni click della rampa, il primo hit in [click − 5 ms, click + maxMs). Ritorna RampPoint[] con expectedDb e measuredDb. */
+export function matchRampPoints(
+  clicks: { t: number; db: number }[],
+  hits: { t: number; peakDb: number }[],
+  maxMs = 300,
+): RampPoint[] {
+  const out: RampPoint[] = []
+  let cursor = 0
+  const maxSec = maxMs / 1000
+
+  for (const c of clicks) {
+    // Advance cursor past hits too early for this click
+    while (cursor < hits.length && hits[cursor].t < c.t - 0.005) {
+      cursor++
+    }
+
+    // Check if current hit is in range [c.t - 0.005, c.t + maxSec)
+    if (cursor < hits.length && hits[cursor].t < c.t + maxSec) {
+      out.push({ expectedDb: c.db, measuredDb: hits[cursor].peakDb })
+      cursor++
+    } else {
+      out.push({ expectedDb: c.db, measuredDb: null })
+    }
+  }
+
+  return out
+}
+
 export function median(xs: number[]): number | null {
   if (!xs.length) return null
   const s = [...xs].sort((a, b) => a - b)
