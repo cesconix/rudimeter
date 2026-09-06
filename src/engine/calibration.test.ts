@@ -11,6 +11,11 @@ describe('matchOffsets', () => {
     expect(matchOffsets([1], [0.997])).toHaveLength(1)
     expect(matchOffsets([1], [0.99])).toHaveLength(0)
   })
+  it('ogni onset viene abbinato al massimo una volta anche con finestre sovrapposte', () => {
+    const clicks = [1, 1.01]
+    const onsets = [1.005]
+    expect(matchOffsets(clicks, onsets)).toEqual([5])
+  })
 })
 
 describe('median / latencyFromOffsets', () => {

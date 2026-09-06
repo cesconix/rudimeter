@@ -12,10 +12,22 @@ export interface RampFit {
 /** Per ogni click, il primo onset in [click − 5 ms, click + maxMs). Ritorna gli offset in ms. */
 export function matchOffsets(clickTimes: number[], onsetTimes: number[], maxMs = 300): number[] {
   const out: number[] = []
+  let cursor = 0
+  const maxSec = maxMs / 1000
+
   for (const c of clickTimes) {
-    const o = onsetTimes.find((t) => t >= c - 0.005 && t < c + maxMs / 1000)
-    if (o !== undefined) out.push(Math.round((o - c) * 1e6) / 1000)
+    // Advance cursor past onsets too early for this click
+    while (cursor < onsetTimes.length && onsetTimes[cursor] < c - 0.005) {
+      cursor++
+    }
+
+    // Check if current onset is in range [c - 0.005, c + maxSec)
+    if (cursor < onsetTimes.length && onsetTimes[cursor] < c + maxSec) {
+      out.push(Math.round((onsetTimes[cursor] - c) * 1e6) / 1000)
+      cursor++
+    }
   }
+
   return out
 }
 
