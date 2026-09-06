@@ -16,6 +16,7 @@ export class ClickScheduler {
   constructor(private ctx: AudioContext, private times: number[], private opts: ClickSchedulerOptions = {}) {}
 
   start(): void {
+    this.stop()
     const { lookahead = 0.1, intervalMs = 25, accentEvery = 0 } = this.opts
     const tick = () => {
       const { indices, next } = dueIndices(this.times, this.next, this.ctx.currentTime, lookahead)
