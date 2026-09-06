@@ -1,0 +1,97 @@
+import type { Hand, JudgeResult, Judged } from './types'
+
+export interface HandStats {
+  hand: Hand
+  slots: number
+  hits: number
+  meanOffsetMs: number | null
+  sdOffsetMs: number | null
+  meanDb: number | null
+  sdDb: number | null
+}
+
+export interface BlockStats {
+  fromRepeat: number
+  toRepeat: number
+  slots: number
+  miss: number
+  sdOffsetMs: number | null
+  meanDb: number | null
+}
+
+export interface SessionStats {
+  slots: number
+  good: number
+  ok: number
+  off: number
+  miss: number
+  pending: number
+  extras: number
+  meanOffsetMs: number | null
+  sdOffsetMs: number | null
+  hands: HandStats[]
+  blocks: BlockStats[]
+}
+
+export function mean(xs: number[]): number | null {
+  return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null
+}
+
+/** Deviazione standard campionaria (n − 1). */
+export function sd(xs: number[]): number | null {
+  if (xs.length < 2) return null
+  const m = mean(xs) as number
+  return Math.sqrt(xs.reduce((a, x) => a + (x - m) ** 2, 0) / (xs.length - 1))
+}
+
+const offsets = (js: Judged[]): number[] => js.flatMap((j) => (j.offsetMs === null ? [] : [j.offsetMs]))
+const dbs = (js: Judged[]): number[] => js.flatMap((j) => (j.hit ? [j.hit.peakDb] : []))
+
+export function computeStats(result: JudgeResult, blockSize = 5): SessionStats {
+  const js = result.judged
+  const count = (g: Judged['grade']) => js.filter((j) => j.grade === g).length
+
+  const hands: HandStats[] = (['R', 'L'] as Hand[])
+    .map((hand) => {
+      const own = js.filter((j) => j.slot.step.hand === hand)
+      return {
+        hand,
+        slots: own.length,
+        hits: own.filter((j) => j.hit).length,
+        meanOffsetMs: mean(offsets(own)),
+        sdOffsetMs: sd(offsets(own)),
+        meanDb: mean(dbs(own)),
+        sdDb: sd(dbs(own)),
+      }
+    })
+    .filter((h) => h.slots > 0)
+
+  const maxRepeat = js.reduce((m, j) => Math.max(m, j.slot.repeat), -1)
+  const blocks: BlockStats[] = []
+  for (let from = 0; from <= maxRepeat; from += blockSize) {
+    const to = Math.min(from + blockSize - 1, maxRepeat)
+    const own = js.filter((j) => j.slot.repeat >= from && j.slot.repeat <= to)
+    blocks.push({
+      fromRepeat: from,
+      toRepeat: to,
+      slots: own.length,
+      miss: own.filter((j) => j.grade === 'miss').length,
+      sdOffsetMs: sd(offsets(own)),
+      meanDb: mean(dbs(own)),
+    })
+  }
+
+  return {
+    slots: js.length,
+    good: count('good'),
+    ok: count('ok'),
+    off: count('off'),
+    miss: count('miss'),
+    pending: count('pending'),
+    extras: result.extras.length,
+    meanOffsetMs: mean(offsets(js)),
+    sdOffsetMs: sd(offsets(js)),
+    hands,
+    blocks,
+  }
+}
