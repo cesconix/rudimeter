@@ -10,6 +10,10 @@
       #viewport { overflow: hidden; width: 100vw; border-top: 1px solid #ccc; border-bottom: 1px solid #ccc; }
       #score { will-change: transform; }
       pre { padding: 8px; white-space: pre-wrap; }
+      h2 { margin: 24px 8px 4px; font-size: 16px; }
+      .figure { margin: 0 8px 16px; }
+      .figure h3 { margin: 0 0 4px; font-size: 13px; font-weight: 600; color: #333; }
+      .score-box { overflow-x: auto; border: 1px solid #ddd; }
     </style>
   </head>
   <body>
@@ -21,6 +25,49 @@
     </div>
     <div id="viewport"><div id="score"></div></div>
     <pre id="log"></pre>
+
+    <h2>Galleria — verifica manuale di ogni figura</h2>
+
+    <div class="figure">
+      <h3>Durate — movimento di 1, 2, 4, 8 figure (q, 8, 16, 32)</h3>
+      <div id="gallery-durations" class="score-box"></div>
+    </div>
+
+    <div class="figure">
+      <h3>Gruppi irregolari — 3-in-2, 5-in-4, 6-in-4, 7-in-4</h3>
+      <div id="gallery-tuplets" class="score-box"></div>
+    </div>
+
+    <div class="figure">
+      <h3>Pause — una per durata (q, 8, 16, 32) + una dentro una terzina</h3>
+      <div id="gallery-rests" class="score-box"></div>
+    </div>
+
+    <div class="figure">
+      <h3>Ornamenti — flam, drag, buzz roll, tremolo</h3>
+      <div id="gallery-ornaments" class="score-box"></div>
+    </div>
+
+    <div class="figure">
+      <h3>Accento + ornamento sulla stessa nota — flam accentato, buzz accentato</h3>
+      <div id="gallery-accent-ornament" class="score-box"></div>
+    </div>
+
+    <div class="figure">
+      <h3>Travi per movimento — 4 ottavi in 4/4, una trave per movimento (non una per battuta)</h3>
+      <div id="gallery-beams" class="score-box"></div>
+    </div>
+
+    <div class="figure">
+      <h3>Showcase — tutte le figure in 1 battuta (identica al bottone "1 battuta")</h3>
+      <div id="gallery-showcase" class="score-box"></div>
+    </div>
+
+    <div class="figure">
+      <h3>Esercizio realistico — paradiddle singolo, 2 ripetizioni</h3>
+      <div id="gallery-realistic" class="score-box"></div>
+    </div>
+
     <script type="module" src="/src/notation/spike.ts"></script>
   </body>
 </html>

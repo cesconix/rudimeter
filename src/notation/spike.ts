@@ -1,145 +1,101 @@
-// Spike (pagina dev): VexFlow 5 su rigo a 1 linea. Verifica resa delle figure,
-// tempo di render di 40 battute, ricolorazione via DOM a 20 note/s, scroll con translateX.
-import {
-  Annotation,
-  AnnotationVerticalJustify,
-  Articulation,
-  Beam,
-  Formatter,
-  GraceNote,
-  GraceNoteGroup,
-  Metrics,
-  Modifier,
-  ModifierPosition,
-  Renderer,
-  RendererBackends,
-  Stave,
-  StaveNote,
-  Stem,
-  Tremolo,
-  Tuplet,
-} from 'vexflow/bravura'
+// Pagina dev: galleria di tutte le figure che notation/plan + notation/build possono produrre
+// (verifica visiva manuale, VexFlow disegna nel DOM) e controlli di misura (render di 40 battute,
+// ricolorazione via DOM a 20 note/s, scroll con translateX) ereditati dallo spike originale.
+import { parseExercise } from '../engine/exercise'
+import type { Exercise } from '../engine/types'
+import { planExercise } from './plan'
+import { renderScore, type RenderedScore } from './render'
+import type { StaveNote } from 'vexflow/bravura'
 
-const KEY = 'f/5' // con numLines: 1 la linea disegnata è la 0 = quella di f/5 in chiave di percussioni
-const BEAT_PX = 96
-const HEAD_PX = 70 // chiave + tempo nella prima battuta
-const HEIGHT = 140
+// --- Esercizi per i controlli di misura (bottoni "1 battuta" / "40 battute") ---
 
-/** Buzz roll: VexFlow ha il glifo SMuFL (U+E22A) ma nessun modificatore che lo disegni. Stessa geometria di Tremolo. */
-class BuzzRoll extends Modifier {
-  static override get CATEGORY(): string {
-    return 'Tremolo'
-  }
+const SHOWCASE = parseExercise({ id: 'showcase', name: 'showcase', timeSignature: [4, 4], steps: '>fRLRL dRLR zR- tRtL', repeats: 1 })
+const PARADIDDLE = parseExercise({ id: 'para', name: 'para', timeSignature: [4, 4], steps: '>RLRR >LRLL >RLRR >LRLL', repeats: 40 })
 
-  constructor() {
-    super()
-    this.position = ModifierPosition.CENTER
-    this.text = '\ue22a' // SMuFL buzzRoll: VexFlow lo ha in Glyphs ma l'entry non lo esporta
-  }
+// --- Esercizi della galleria statica: ogni sezione isola le figure che il titolo promette ---
 
-  override draw(): void {
-    const ctx = this.checkContext()
-    const note = this.checkAttachedNote()
-    this.setRendered()
-    const dir = note.getStemDirection()
-    const scale = note.getFontScale()
-    const x = note.getAbsoluteX() + (dir === Stem.UP ? note.getGlyphWidth() - Stem.WIDTH / 2 : Stem.WIDTH / 2)
-    const y = note.getStemExtents().topY + Metrics.get('Tremolo.spacing') * dir * scale
-    this.fontInfo.size = Metrics.get('Tremolo.fontSize') * scale
-    this.renderText(ctx, x, y)
-  }
-}
+/** Battuta di 1 movimento: la suddivisione n del movimento fissa la durata (1→q, 2→8, 4→16, 8→32). */
+const GALLERY_DURATIONS = parseExercise({
+  id: 'gallery-durations',
+  name: 'durate',
+  timeSignature: [1, 4],
+  steps: 'R | RL | RLRL | RLRLRLRL',
+  repeats: 1,
+})
 
-interface Fig {
-  dur: string
-  rest?: boolean
-  accent?: boolean
-  sticking?: string
-  grace?: 1 | 2
-  tremolo?: boolean
-  buzz?: boolean
-}
+/** n=3,5,6,7 sono gruppi irregolari: 3-in-2, 5-in-4, 6-in-4, 7-in-4. */
+const GALLERY_TUPLETS = parseExercise({
+  id: 'gallery-tuplets',
+  name: 'gruppi irregolari',
+  timeSignature: [1, 4],
+  steps: 'RLR | RLRLR | RLRLRL | RLRLRLR',
+  repeats: 1,
+})
 
-function makeNote(f: Fig): StaveNote {
-  const n = new StaveNote({ keys: [KEY], duration: f.rest ? `${f.dur}r` : f.dur, stemDirection: Stem.UP })
-  if (f.rest) return n
-  if (f.sticking) n.addModifier(new Annotation(f.sticking).setVerticalJustification(AnnotationVerticalJustify.BOTTOM), 0)
-  if (f.accent) n.addModifier(new Articulation('a>').setPosition(ModifierPosition.ABOVE), 0)
-  if (f.grace) {
-    const flam = f.grace === 1
-    const gs = Array.from({ length: f.grace }, () => new GraceNote({ keys: [KEY], duration: flam ? '8' : '16', slash: flam, stemDirection: Stem.UP }))
-    const g = new GraceNoteGroup(gs, true)
-    g.beamNotes()
-    n.addModifier(g, 0)
-  }
-  if (f.tremolo) n.addModifier(new Tremolo(1), 0)
-  if (f.buzz) n.addModifier(new BuzzRoll(), 0)
-  return n
-}
+/** Una pausa per durata (q, 8, 16, 32), più una pausa dentro un movimento in terzina (3-in-2). */
+const GALLERY_RESTS = parseExercise({
+  id: 'gallery-rests',
+  name: 'pause',
+  timeSignature: [1, 4],
+  steps: '- | -R | -RLR | -RLRLRLR | RL-',
+  repeats: 1,
+})
 
-interface BarSpec {
-  beats: Fig[][]
-  tuplets?: { beat: number; num: number; occupied: number }[]
-}
+/** flam (1 acciaccatura, slash), drag (2 acciaccature travate), buzz (glifo sullo stelo), tremolo (1 barra sullo stelo). */
+const GALLERY_ORNAMENTS = parseExercise({
+  id: 'gallery-ornaments',
+  name: 'ornamenti',
+  timeSignature: [1, 4],
+  steps: 'fR | dR | zR | tR',
+  repeats: 1,
+})
 
-/** 4/4: >fR L R L | dR L R (terzina) | zR - | tR tL */
-const SHOWCASE: BarSpec = {
-  beats: [
-    [{ dur: '16', accent: true, grace: 1, sticking: 'R' }, { dur: '16', sticking: 'L' }, { dur: '16', sticking: 'R' }, { dur: '16', sticking: 'L' }],
-    [{ dur: '8', grace: 2, sticking: 'R' }, { dur: '8', sticking: 'L' }, { dur: '8', sticking: 'R' }],
-    [{ dur: '8', buzz: true, sticking: 'R' }, { dur: '8', rest: true }],
-    [{ dur: '8', tremolo: true, sticking: 'R' }, { dur: '8', tremolo: true, sticking: 'L' }],
-  ],
-  tuplets: [{ beat: 1, num: 3, occupied: 2 }],
-}
+/** Accento e ornamento sulla stessa nota: flam accentato, buzz accentato. */
+const GALLERY_ACCENT_ORNAMENT = parseExercise({
+  id: 'gallery-accent-ornament',
+  name: 'accento + ornamento',
+  timeSignature: [1, 4],
+  steps: '>fR | >zR',
+  repeats: 1,
+})
 
-const acc = (s: string): Fig => ({ dur: '16', accent: true, sticking: s })
-const tap = (s: string): Fig => ({ dur: '16', sticking: s })
-/** 4/4: >RLRR >LRLL >RLRR >LRLL */
-const PARADIDDLE: BarSpec = {
-  beats: [
-    [acc('R'), tap('L'), tap('R'), tap('R')],
-    [acc('L'), tap('R'), tap('L'), tap('L')],
-    [acc('R'), tap('L'), tap('R'), tap('R')],
-    [acc('L'), tap('R'), tap('L'), tap('L')],
-  ],
-}
+/** Una battuta in 4/4, 4 movimenti di ottavi: deve uscire una trave per movimento, non una sola trave per battuta. */
+const GALLERY_BEAMS = parseExercise({
+  id: 'gallery-beams',
+  name: 'travi per movimento',
+  timeSignature: [4, 4],
+  steps: 'RL RL RL RL',
+  repeats: 1,
+})
+
+/** Paradiddle singolo, 2 ripetizioni: un esercizio vero, non un campionario di figure sintetico. */
+const GALLERY_REALISTIC = parseExercise({
+  id: 'gallery-realistic',
+  name: 'esercizio realistico',
+  timeSignature: [4, 4],
+  steps: '>RLRR >LRLL >RLRR >LRLL',
+  repeats: 2,
+})
 
 const allNotes: StaveNote[] = []
 
-function drawBars(specs: BarSpec[]): number {
+function draw(ex: typeof SHOWCASE): number {
   const host = document.getElementById('score') as HTMLDivElement
-  host.innerHTML = ''
   allNotes.length = 0
-  const widths = specs.map((s, i) => s.beats.length * BEAT_PX + (i === 0 ? HEAD_PX : 0))
-  const total = widths.reduce((a, b) => a + b, 0)
-  const renderer = new Renderer(host, RendererBackends.SVG)
-  renderer.resize(total, HEIGHT)
-  const ctx = renderer.getContext()
   const t = performance.now()
-  let x = 0
-  specs.forEach((spec, i) => {
-    const stave = new Stave(x, 0, widths[i], { numLines: 1, spaceAboveStaffLn: 5, spaceBelowStaffLn: 4 })
-    if (i === 0) stave.addClef('percussion').addTimeSignature(`${spec.beats.length}/4`)
-    stave.setContext(ctx).draw()
-    const notes: StaveNote[] = []
-    const beams: Beam[] = []
-    const tuplets: Tuplet[] = []
-    spec.beats.forEach((beat, k) => {
-      const ns = beat.map(makeNote)
-      notes.push(...ns)
-      const stemmed = ns.filter((n) => !n.isRest())
-      if (stemmed.length > 1) beams.push(new Beam(stemmed))
-      const tp = spec.tuplets?.find((q) => q.beat === k)
-      if (tp) tuplets.push(new Tuplet(ns, { numNotes: tp.num, notesOccupied: tp.occupied }))
-    })
-    Formatter.FormatAndDraw(ctx, stave, notes)
-    beams.forEach((b) => b.setContext(ctx).draw())
-    tuplets.forEach((tp) => tp.setContext(ctx).draw())
-    allNotes.push(...notes.filter((n) => !n.isRest()))
-    x += widths[i]
-  })
+  const r: RenderedScore = renderScore(host, planExercise(ex), { timeSignature: `${ex.timeSignature[0]}/${ex.timeSignature[1]}`, beatsPerBar: ex.timeSignature[0] })
+  r.notes.forEach((n) => allNotes.push(n.note))
   return performance.now() - t
+}
+
+/**
+ * Render statico di una sezione della galleria: una volta, nessuna misura, nessun bottone.
+ * `beatPx` è più largo del default (96) per le sezioni con movimenti da 5-8 figure: a 96px un
+ * gruppo irregolare 6-in-4/7-in-4 o un movimento di ottavine si sovrappone e diventa illeggibile.
+ */
+function renderGallery(id: string, ex: Exercise, beatPx?: number): void {
+  const host = document.getElementById(id) as HTMLDivElement
+  renderScore(host, planExercise(ex), { beatPx, timeSignature: `${ex.timeSignature[0]}/${ex.timeSignature[1]}`, beatsPerBar: ex.timeSignature[0] })
 }
 
 const COLORS = ['#2a2', '#c90', '#d33', '#888']
@@ -210,10 +166,19 @@ function log(s: string): void {
   pre.textContent += `${s}\n`
 }
 
-document.getElementById('one')!.addEventListener('click', () => log(`1 battuta: ${drawBars([SHOWCASE]).toFixed(1)} ms`))
+document.getElementById('one')!.addEventListener('click', () => log(`1 battuta: ${draw(SHOWCASE).toFixed(1)} ms`))
 document.getElementById('forty')!.addEventListener('click', () => {
-  const ms = drawBars(Array.from({ length: 40 }, () => PARADIDDLE))
+  const ms = draw(PARADIDDLE)
   log(`40 battute: ${ms.toFixed(1)} ms, ${allNotes.length} note`)
 })
 document.getElementById('paint')!.addEventListener('click', paintLoop)
 document.getElementById('scroll')!.addEventListener('click', scrollLoop)
+
+renderGallery('gallery-durations', GALLERY_DURATIONS, 220)
+renderGallery('gallery-tuplets', GALLERY_TUPLETS, 220)
+renderGallery('gallery-rests', GALLERY_RESTS, 220)
+renderGallery('gallery-ornaments', GALLERY_ORNAMENTS)
+renderGallery('gallery-accent-ornament', GALLERY_ACCENT_ORNAMENT)
+renderGallery('gallery-beams', GALLERY_BEAMS)
+renderGallery('gallery-showcase', SHOWCASE)
+renderGallery('gallery-realistic', GALLERY_REALISTIC)
