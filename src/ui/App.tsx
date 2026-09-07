@@ -39,7 +39,7 @@ export function App() {
     try {
       const e = await createEngine()
       setEngine(e)
-      setScreen('calibration')
+      setScreen(calibration ? 'pick' : 'calibration')
     } catch (err) {
       setError(describeMicError(err))
     } finally {

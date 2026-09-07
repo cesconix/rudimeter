@@ -69,7 +69,17 @@ export function SessionScreen({ engine, exercise, bpm, calibration, onDone, onAb
     <main>
       <div className="row">
         <h1>{exercise.name} @ {bpm} bpm</h1>
-        <button className="secondary" onClick={() => { runnerRef.current?.stop(); onAbort() }}>Stop</button>
+        <button
+          className="secondary"
+          onClick={() => {
+            const r = runnerRef.current
+            r?.stop()
+            if (r && r.snapshot().hits.length > 0) onDone(r.stats())
+            else onAbort()
+          }}
+        >
+          Stop
+        </button>
       </div>
       {state.phase === 'count-in' && <p className="big">Count-in…</p>}
       <LiveGrid exercise={exercise} judged={judgedNow} currentStep={currentStep} repeat={repeat} />
