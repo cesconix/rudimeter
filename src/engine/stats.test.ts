@@ -51,7 +51,7 @@ describe('computeStats', () => {
     expect(stats.meanOffsetMs).toBeCloseTo(5)
   })
   it('sessione vuota: tutto zero e null', () => {
-    const s = computeStats({ judged: [], extras: [] })
+    const s = computeStats({ judged: [], extras: [], absorbed: [] })
     expect(s.slots).toBe(0)
     expect(s.meanOffsetMs).toBeNull()
     expect(s.hands).toEqual([])

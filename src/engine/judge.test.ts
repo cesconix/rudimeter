@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { judge } from './judge'
+import { isAbsorbed, judge } from './judge'
 import { buildGrid } from './grid'
 import { parseExercise } from './exercise'
-import type { Slot } from './types'
+import type { Slot, Step } from './types'
 
 const step = { hand: 'R' as const, accent: false }
 const slotsAt = (times: number[], dur = 0.5): Slot[] =>
@@ -94,5 +94,60 @@ describe('la finestra è per slot: il buco reale fra terzina e sedicesimo', () =
     expect(r.judged[2].hit?.t).toBe(0.82)
     expect(r.judged[3].hit?.t).toBe(0.88)
     expect(r.extras).toHaveLength(0)
+  })
+})
+
+const withOrnament = (ornament: Step['ornament']): Step => ({ hand: 'R', accent: false, ornament, graceHand: 'L' })
+const slot = (index: number, t: number, dur: number, s: Step = step): Slot => ({ index, t, dur, step: s, repeat: 0, bar: 0, beat: index, sub: 0 })
+
+describe('extra assorbiti dagli ornamenti', () => {
+  it('flam: un colpo fino a 60 ms prima del principale è l acciaccatura', () => {
+    const slots = [slot(0, 1, 0.5, withOrnament('flam')), slot(1, 1.5, 0.5)]
+    const r = judge(slots, [hit(0.96), hit(1.0), hit(1.5)])
+    expect(r.judged[0].hit?.t).toBe(1.0)
+    expect(r.judged[0].grade).toBe('good')
+    expect(r.absorbed.map((h) => h.t)).toEqual([0.96])
+    expect(r.extras).toEqual([])
+  })
+  it('flam: oltre 60 ms prima resta un extra', () => {
+    const slots = [slot(0, 1, 0.5, withOrnament('flam'))]
+    const r = judge(slots, [hit(0.93), hit(1.0)])
+    expect(r.extras.map((h) => h.t)).toEqual([0.93])
+    expect(r.absorbed).toEqual([])
+  })
+  it('flam: un colpo solo, anche in anticipo, è il principale (non viene assorbito)', () => {
+    const r = judge([slot(0, 1, 0.5, withOrnament('flam'))], [hit(0.95)])
+    expect(r.judged[0].offsetMs).toBeCloseTo(-50)
+    expect(r.absorbed).toEqual([])
+  })
+  it('drag: stessa regola del flam', () => {
+    const r = judge([slot(0, 1, 0.5, withOrnament('drag'))], [hit(0.95), hit(0.97), hit(1.0)])
+    expect(r.judged[0].hit?.t).toBe(1.0)
+    expect(r.absorbed).toHaveLength(2)
+  })
+  it('senza ornamento un colpo prima resta un extra', () => {
+    const r = judge([slot(0, 1, 0.5)], [hit(0.96), hit(1.0)])
+    expect(r.extras.map((h) => h.t)).toEqual([0.96])
+  })
+  it('buzz: i rimbalzi dentro la durata dello slot sono assorbiti, anche se rubati allo slot dopo', () => {
+    const slots = [slot(0, 1, 1, withOrnament('buzz')), slot(1, 2, 1)]
+    const r = judge(slots, [hit(1.0), hit(1.05), hit(1.1), hit(1.9), hit(2.0)])
+    expect(r.judged[0].hit?.t).toBe(1.0)
+    expect(r.judged[1].hit?.t).toBe(2.0)
+    expect(r.absorbed.map((h) => h.t)).toEqual([1.05, 1.1, 1.9])
+    expect(r.extras).toEqual([])
+  })
+  it('buzz: un colpo dopo la fine dello slot non è assorbito', () => {
+    const slots = [slot(0, 1, 0.5, withOrnament('buzz'))]
+    const r = judge(slots, [hit(1.0), hit(1.6)])
+    expect(r.extras.map((h) => h.t)).toEqual([1.6])
+  })
+  it('tremolo: come il buzz', () => {
+    const r = judge([slot(0, 1, 0.5, withOrnament('tremolo'))], [hit(1.0), hit(1.2)])
+    expect(r.absorbed.map((h) => h.t)).toEqual([1.2])
+  })
+  it('isAbsorbed è esposta per i test di integrazione', () => {
+    expect(isAbsorbed([slot(0, 1, 0.5, withOrnament('flam'))], hit(0.95))).toBe(true)
+    expect(isAbsorbed([slot(0, 1, 0.5)], hit(0.95))).toBe(false)
   })
 })

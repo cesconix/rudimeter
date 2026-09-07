@@ -68,5 +68,44 @@ export function judge(slots: Slot[], hits: Hit[], opts: JudgeOptions = {}): Judg
   })
 
   extras.sort((a, b) => a.t - b.t)
-  return { judged, extras }
+  const absorbed = extras.filter((h) => isAbsorbed(slots, h))
+  return { judged, extras: extras.filter((h) => !isAbsorbed(slots, h)), absorbed }
+}
+
+/** Un extra fino a 60 ms prima di uno slot flam/drag è l'acciaccatura. */
+export const ABSORB_BEFORE_S = 0.06
+
+/** Primo slot con t > x, o undefined. `slots` ordinati per t. */
+function firstAfter(slots: Slot[], x: number): Slot | undefined {
+  let lo = 0
+  let hi = slots.length
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1
+    if (slots[mid].t <= x) lo = mid + 1
+    else hi = mid
+  }
+  return slots[lo]
+}
+
+/** Ultimo slot con t ≤ x, o undefined. */
+function lastAtOrBefore(slots: Slot[], x: number): Slot | undefined {
+  let lo = 0
+  let hi = slots.length
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1
+    if (slots[mid].t <= x) lo = mid + 1
+    else hi = mid
+  }
+  return slots[lo - 1]
+}
+
+/** Un extra è assorbito se è l'acciaccatura di un flam/drag imminente o un rimbalzo dentro un buzz/tremolo in corso. */
+export function isAbsorbed(slots: Slot[], hit: Hit): boolean {
+  const next = firstAfter(slots, hit.t)
+  const o = next?.step.ornament
+  if (next && (o === 'flam' || o === 'drag') && next.t - hit.t <= ABSORB_BEFORE_S) return true
+  const prev = lastAtOrBefore(slots, hit.t)
+  const p = prev?.step.ornament
+  if (prev && (p === 'buzz' || p === 'tremolo') && hit.t > prev.t && hit.t < prev.t + prev.dur) return true
+  return false
 }

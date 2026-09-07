@@ -79,4 +79,6 @@ export const DEFAULT_WINDOWS: Windows = { goodMs: 20, okMs: 40 }
 export interface JudgeResult {
   judged: Judged[]
   extras: Hit[]
+  /** extra riconosciuti come acciaccature o rimbalzi di rullo: non contano come errore */
+  absorbed: Hit[]
 }
