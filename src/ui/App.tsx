@@ -1,12 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { createEngine, describeMicError, type Engine } from '../audio/engine'
 import { loadCalibration, saveCalibration, type CalibrationData } from '../audio/storage'
+import type { SessionStats } from '../engine/stats'
 import type { Exercise } from '../engine/types'
 import { CalibrationScreen } from './CalibrationScreen'
 import { ExercisePicker } from './ExercisePicker'
+import { SessionScreen } from './SessionScreen'
 import { StartScreen } from './StartScreen'
+import { SummaryScreen } from './SummaryScreen'
 
-type Screen = 'start' | 'calibration' | 'pick' | 'session'
+type Screen = 'start' | 'calibration' | 'pick' | 'session' | 'summary'
 
 export function App() {
   const [screen, setScreen] = useState<Screen>('start')
@@ -15,6 +18,7 @@ export function App() {
   const [error, setError] = useState<string | null>(null)
   const [calibration, setCalibration] = useState<CalibrationData | null>(() => loadCalibration(localStorage))
   const [pick, setPick] = useState<{ exercise: Exercise; bpm: number } | null>(null)
+  const [stats, setStats] = useState<SessionStats | null>(null)
   const [suspended, setSuspended] = useState(false)
 
   // iOS sospende il contesto dopo lock/background: mostra il banner e riprendi al tap.
@@ -49,6 +53,11 @@ export function App() {
     setScreen('pick')
   }
 
+  const onSessionDone = useCallback((s: SessionStats) => {
+    setStats(s)
+    setScreen('summary')
+  }, [])
+
   const banner = suspended && engine && (
     <button onClick={() => engine.ctx.resume().then(() => setSuspended(false))}>Audio in pausa: tocca per riprendere</button>
   )
@@ -58,5 +67,11 @@ export function App() {
   if (screen === 'pick' || !pick || !calibration) {
     return <>{banner}<ExercisePicker onPick={(exercise, bpm) => { setPick({ exercise, bpm }); setScreen('session') }} onRecalibrate={() => setScreen('calibration')} /></>
   }
-  return <main>{banner}<p>Sessione: {pick.exercise.name} @ {pick.bpm} bpm (Task 12)</p><button onClick={() => setScreen('pick')}>Indietro</button></main>
+  if (screen === 'session') {
+    return <>{banner}<SessionScreen engine={engine} exercise={pick.exercise} bpm={pick.bpm} calibration={calibration} onDone={onSessionDone} onAbort={() => setScreen('pick')} /></>
+  }
+  if (screen === 'summary' && stats) {
+    return <SummaryScreen stats={stats} exercise={pick.exercise} bpm={pick.bpm} onRepeat={() => setScreen('session')} onPick={() => setScreen('pick')} />
+  }
+  return <StartScreen onStart={start} busy={busy} error={error} />
 }
