@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { CalibrationData } from '../audio/storage'
 import { toMarkdown } from '../engine/report'
 import type { SessionStats } from '../engine/stats'
 import type { Exercise } from '../engine/types'
@@ -7,15 +8,16 @@ interface Props {
   stats: SessionStats
   exercise: Exercise
   bpm: number
+  calibration: CalibrationData | null
   onRepeat(): void
   onPick(): void
 }
 
 const f = (x: number | null, d = 1) => (x === null ? '—' : x.toFixed(d))
 
-export function SummaryScreen({ stats, exercise, bpm, onRepeat, onPick }: Props) {
+export function SummaryScreen({ stats, exercise, bpm, calibration, onRepeat, onPick }: Props) {
   const [copied, setCopied] = useState<string | null>(null)
-  const md = toMarkdown(stats, exercise, bpm, new Date())
+  const md = toMarkdown(stats, exercise, bpm, new Date(), calibration)
 
   async function copy() {
     try {

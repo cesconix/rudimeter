@@ -48,7 +48,13 @@ export function App() {
   }
 
   function onCalibrated(data: CalibrationData) {
-    saveCalibration(localStorage, data)
+    // In Safari privato setItem lancia: la calibrazione resta valida per questa sessione,
+    // si ricalibrerà al prossimo avvio. Perdere il salvataggio non deve far cadere la pagina.
+    try {
+      saveCalibration(localStorage, data)
+    } catch {
+      // Ignore: memorizzare è un'ottimizzazione, non un requisito.
+    }
     setCalibration(data)
     setScreen('pick')
   }
@@ -71,7 +77,7 @@ export function App() {
     return <>{banner}<SessionScreen engine={engine} exercise={pick.exercise} bpm={pick.bpm} calibration={calibration} onDone={onSessionDone} onAbort={() => setScreen('pick')} /></>
   }
   if (screen === 'summary' && stats) {
-    return <SummaryScreen stats={stats} exercise={pick.exercise} bpm={pick.bpm} onRepeat={() => setScreen('session')} onPick={() => setScreen('pick')} />
+    return <SummaryScreen stats={stats} exercise={pick.exercise} bpm={pick.bpm} calibration={calibration} onRepeat={() => setScreen('session')} onPick={() => setScreen('pick')} />
   }
   return <StartScreen onStart={start} busy={busy} error={error} />
 }

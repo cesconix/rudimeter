@@ -32,6 +32,24 @@ describe('toMarkdown', () => {
     expect(md).toContain('| 1–5 | 2/40 | 11.0 | -17.0 |')
     expect(md).toContain('| 6–10 | 6/40 | 14.0 | -18.2 |')
   })
+
+  it('usa la data locale, non UTC', () => {
+    // Mezzanotte e mezza dell'8 settembre, ora locale: in UTC è ancora il 7.
+    const d = new Date(2026, 8, 8, 0, 30)
+    const expected = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    expect(toMarkdown(stats, EXERCISES[0], 80, d).split('\n')[0]).toBe(`### ${expected} — Stick Control #1 @ 80 bpm`)
+  })
+  it('registra la calibrazione usata, così due log restano confrontabili', () => {
+    const md2 = toMarkdown(stats, EXERCISES[0], 80, new Date(), { latencyMs: 30.63, slope: 0.99, deviceLabel: 'iPad Microphone' })
+    expect(md2).toContain('Calibrazione: latenza 30.6 ms · pendenza 0.99 · iPad Microphone')
+  })
+  it('senza calibrazione non stampa la riga', () => {
+    expect(toMarkdown(stats, EXERCISES[0], 80, new Date())).not.toContain('Calibrazione:')
+  })
+  it('pendenza assente diventa —', () => {
+    const md2 = toMarkdown(stats, EXERCISES[0], 80, new Date(), { latencyMs: 75.6, slope: null, deviceLabel: '' })
+    expect(md2).toContain('Calibrazione: latenza 75.6 ms · pendenza —')
+  })
   it('stampa — al posto dei null', () => {
     const md2 = toMarkdown({ ...stats, meanOffsetMs: null, sdOffsetMs: null }, EXERCISES[0], 80, new Date())
     expect(md2).toContain('Offset medio — ms (σ —)')
