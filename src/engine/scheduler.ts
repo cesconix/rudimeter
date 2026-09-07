@@ -19,7 +19,15 @@ export class ClickQueue<T extends { t: number }> {
     this.items = [...this.items.slice(0, this.next), ...tail]
   }
 
-  /** Rimuove gli item non ancora estratti con t ≥ tCut. */
+  /**
+   * Rimuove gli item non ancora estratti con t ≥ tCut.
+   * Pura: la coda non conosce clock esterni. Gli item già estratti (indice < cursore) sono
+   * strutturalmente immuni — la slice `[0, next)` è ricopiata intatta, qualunque sia tCut. Ma se
+   * chi la usa ha già "committato" altrove (es. schedulato nel motore audio) degli item ancora
+   * pending qui perché non ancora estratti da `due()`, tagliare proprio lì non li rimuove da quel
+   * commit esterno: aggiunge solo un duplicato. È responsabilità del chiamante scegliere tCut oltre
+   * quel punto di non ritorno (vedi `ClickScheduler.dropAfter`, che applica il margine).
+   */
   dropAfter(tCut: number): void {
     this.items = [...this.items.slice(0, this.next), ...this.items.slice(this.next).filter((i) => i.t < tCut)]
   }

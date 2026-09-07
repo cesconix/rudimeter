@@ -20,8 +20,18 @@ export class ClickScheduler {
     if (this.running && this.timer === null) this.arm()
   }
 
+  /**
+   * Un click già estratto da `due()` ha già chiamato `osc.start()` sul clock audio e non può essere
+   * ritirato. Tagliare prima del margine raggiungibile non lo rimuoverebbe: aggiungerebbe solo un
+   * secondo click accanto a quello già suonato. Il taglio effettivo non scende mai sotto
+   * `now + lookahead + intervalMs`, cioè l'orizzonte che il prossimo tick può già aver committato.
+   * Compromesso: al più un click dentro il lookahead sopravvive al tempo vecchio — comunque meglio
+   * di un click duplicato, perché quello vecchio è già irrevocabilmente sull'hardware.
+   */
   dropAfter(t: number): void {
-    this.queue.dropAfter(t)
+    const { lookahead = 0.1, intervalMs = 25 } = this.opts
+    const safe = Math.max(t, this.ctx.currentTime + lookahead + intervalMs / 1000)
+    this.queue.dropAfter(safe)
   }
 
   start(): void {
