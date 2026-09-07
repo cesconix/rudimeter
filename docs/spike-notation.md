@@ -10,9 +10,11 @@ Pagina: `spike-notation.html` (`npx vite --config vite.http.config.ts` → http:
 | Scorri: frame > 32 ms | costo sincrono 3 µs/frame (100 translateX + layout in 0,3 ms); % frame da verificare a mano | da verificare |
 | `getSVGElement()` trova il gruppo | sì | da verificare |
 
-## Decisione
+## Decisione (provvisoria — manca il gate iPad)
 
-**Render unico** dell'esercizio srotolato. Su Mac il rendering di 40 battute costa 130 ms, il 13% del budget complessivo di 1000 ms che il gate impone per l'esercizio intero; la ricolorazione di una nota costa 1,5 microsecondi e uno step di scroll costa 3 microsecondi, cifre trascurabili rispetto al budget di 16 ms per frame. Il gate su iPad non è ancora stato eseguito: se il rendering là superasse il secondo, il Task 11 passerebbe alle finestre da 8 battute — il piano architetturale prevede già entrambi i rami e una modifica localizzata al componente `Score` è sufficiente per fare il switch.
+La decisione è **render unico** dell'esercizio srotolato, ma rimane provvisoria finché il gate iPad non confermasse che il rendering rimane sotto il secondo. Se su iPad il tempo superasse 1000 ms, il Task 11 passerebbe alle finestre da 8 battute — il piano prevede già entrambi i rami e una modifica localizzata a `Score` è sufficiente per cambiare strategia.
+
+Su Mac i numeri supportano il render unico: 40 battute costano 130 ms (il 13% del budget complessivo), la ricolorazione di una nota costa 1,5 microsecondi, uno step di scroll costa 3 microsecondi — tutti valori trascurabili rispetto ai 16 ms di budget per frame.
 
 ## Da verificare a mano
 
@@ -21,6 +23,6 @@ Pagina: `spike-notation.html` (`npx vite --config vite.http.config.ts` → http:
 
 ## Note
 
-La transcription del codice dalla specifica è risultata corretta e ha prodotto tutte le figure giuste al primo tentativo (flam, drag, buzz, tremolo, terzina, accento, sticking, pausa, rest). Non sono stati necessari aggiustamenti.
+La trascrizione del codice dalla specifica è risultata corretta e ha prodotto tutte le figure giuste al primo tentativo (flam, drag, buzz, tremolo, terzina, accento, sticking, pausa, rest). Non sono stati necessari aggiustamenti.
 
-Una nota tecnica: il valore iniziale di `BuzzRoll.text` è stato fornito come escape sequence `''` nella specifica; la trascrizione iniziale ha erroneamente codificato il carattere Unicode grezzo invece dell'escape sequence, ma il valore finale è stato corretto a match perfetto col brief.
+Una nota tecnica: il valore iniziale di `BuzzRoll.text` è stato fornito come escape sequence `` (il glifo SMuFL U+E22A, ``) nella specifica; la trascrizione iniziale ha erroneamente codificato il carattere Unicode grezzo, ma il valore finale è stato corretto a match perfetto col brief.
