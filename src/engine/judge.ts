@@ -67,12 +67,13 @@ export function judge(slots: Slot[], hits: Hit[], opts: JudgeOptions = {}): Judg
     return { slot, hit: null, offsetMs: null, grade: pending ? 'pending' : 'miss' }
   })
 
+  const claimed = new Set(best.keys())
   extras.sort((a, b) => a.t - b.t)
-  const absorbed = extras.filter((h) => isAbsorbed(slots, h))
-  return { judged, extras: extras.filter((h) => !isAbsorbed(slots, h)), absorbed }
+  const absorbed = extras.filter((h) => isAbsorbed(slots, h, claimed))
+  return { judged, extras: extras.filter((h) => !isAbsorbed(slots, h, claimed)), absorbed }
 }
 
-/** Un extra fino a 60 ms prima di uno slot flam/drag è l'acciaccatura. */
+/** Tetto dell'anticipo assorbibile per flam/drag: può essere ridotto (mai esteso) dal tempo, vedi isAbsorbed. */
 export const ABSORB_BEFORE_S = 0.06
 
 /** Primo slot con t > x, o undefined. `slots` ordinati per t. */
@@ -99,13 +100,22 @@ function lastAtOrBefore(slots: Slot[], x: number): Slot | undefined {
   return slots[lo - 1]
 }
 
-/** Un extra è assorbito se è l'acciaccatura di un flam/drag imminente o un rimbalzo dentro un buzz/tremolo in corso. */
-export function isAbsorbed(slots: Slot[], hit: Hit): boolean {
+/**
+ * Un extra è assorbito se è l'acciaccatura di un flam/drag imminente o un rimbalzo dentro un buzz/tremolo in corso.
+ * `claimed` = indici degli slot che hanno un colpo principale assegnato (vedi `judge`): un'acciaccatura senza il
+ * colpo principale non è un'acciaccatura, quindi l'assorbimento vale solo se lo slot ornamentato è stato assegnato.
+ * Per flam/drag l'anticipo assorbibile non supera mai il punto di mezzo verso lo slot precedente: a tempi veloci
+ * i 60 ms fissi arriverebbero a ridosso (o oltre) dello slot prima, inghiottendo un vero errore di tempo lì.
+ */
+export function isAbsorbed(slots: Slot[], hit: Hit, claimed: Set<number>): boolean {
   const next = firstAfter(slots, hit.t)
-  const o = next?.step.ornament
-  if (next && (o === 'flam' || o === 'drag') && next.t - hit.t <= ABSORB_BEFORE_S) return true
   const prev = lastAtOrBefore(slots, hit.t)
+  const o = next?.step.ornament
+  if (next && claimed.has(next.index) && (o === 'flam' || o === 'drag')) {
+    const absorbBefore = prev ? Math.min(ABSORB_BEFORE_S, (next.t - prev.t) / 2) : ABSORB_BEFORE_S
+    if (next.t - hit.t <= absorbBefore) return true
+  }
   const p = prev?.step.ornament
-  if (prev && (p === 'buzz' || p === 'tremolo') && hit.t > prev.t && hit.t < prev.t + prev.dur) return true
+  if (prev && claimed.has(prev.index) && (p === 'buzz' || p === 'tremolo') && hit.t > prev.t && hit.t < prev.t + prev.dur) return true
   return false
 }

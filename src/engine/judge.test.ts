@@ -146,8 +146,72 @@ describe('extra assorbiti dagli ornamenti', () => {
     const r = judge([slot(0, 1, 0.5, withOrnament('tremolo'))], [hit(1.0), hit(1.2)])
     expect(r.absorbed.map((h) => h.t)).toEqual([1.2])
   })
-  it('isAbsorbed è esposta per i test di integrazione', () => {
-    expect(isAbsorbed([slot(0, 1, 0.5, withOrnament('flam'))], hit(0.95))).toBe(true)
-    expect(isAbsorbed([slot(0, 1, 0.5)], hit(0.95))).toBe(false)
+  it('isAbsorbed è esposta per i test di integrazione (richiede il claim dello slot ornamentato)', () => {
+    expect(isAbsorbed([slot(0, 1, 0.5, withOrnament('flam'))], hit(0.95), new Set([0]))).toBe(true)
+    expect(isAbsorbed([slot(0, 1, 0.5, withOrnament('flam'))], hit(0.95), new Set())).toBe(false)
+    expect(isAbsorbed([slot(0, 1, 0.5)], hit(0.95), new Set([0]))).toBe(false)
+  })
+})
+
+describe('assorbimento: richiede il colpo principale, e il guardrail sul tempo (review post-Task-4)', () => {
+  it('colpo tardivo prima di un flam veloce: resta extra, non viene inghiottito dal flam successivo', () => {
+    // A 240 bpm i sedicesimi distano 62.5 ms: il tetto fisso di 60 ms arriverebbe a un soffio dallo slot
+    // precedente. Qui lo slot precedente ha una finestra volutamente più stretta della metà del gap (30 ms
+    // di durata → finestra 15 ms, contro un mezzo-gap di 31.25 ms): questo isola i due confini (finestra dello
+    // slot precedente vs tetto dell'assorbimento) che altrimenti, su una griglia uniforme dove dur = gap,
+    // coinciderebbero esattamente — nessun valore di ritardo potrebbe mai sfuggire a entrambi (vedi report).
+    // Il batterista suona la nota precedente 20 ms in ritardo (fuori dalla finestra di 15 ms del suo slot,
+    // quindi diventa un extra) e il flam quasi a tempo. Prima della fix quell'extra sarebbe stato assorbito
+    // dal tetto fisso di 60 ms (dista solo 42.5 ms dal flam); ora il tetto è limitato a metà del gap (31.25 ms)
+    // e 42.5 ms lo supera: l'extra resta visibile accanto al miss che spiega.
+    const prev = slot(0, 0, 0.03, step)
+    const flamSlot = slot(1, 0.0625, 0.0625, withOrnament('flam'))
+    const r = judge([prev, flamSlot], [hit(0.02), hit(0.063)])
+    expect(r.judged[0].grade).toBe('miss')
+    expect(r.judged[1].hit?.t).toBe(0.063)
+    expect(r.judged[1].grade).toBe('good')
+    expect(r.extras.map((h) => h.t)).toEqual([0.02])
+    expect(r.absorbed).toEqual([])
+  })
+
+  it('flam saltato: lo slot resta miss e il colpo vagante prima di esso resta extra, non assorbito', () => {
+    const flamSlot = slot(0, 1, 0.06, withOrnament('flam'))
+    const r = judge([flamSlot], [hit(0.95)])
+    expect(r.judged[0].grade).toBe('miss')
+    expect(r.judged[0].hit).toBeNull()
+    expect(r.extras.map((h) => h.t)).toEqual([0.95])
+    expect(r.absorbed).toEqual([])
+  })
+
+  it('a tempo lento il tetto non si riduce: la stessa geometria, con il flam suonato, assorbe come prima', () => {
+    // Stessa distanza (50 ms) e stesso slot flam (dur 60 ms) del test "flam saltato" sopra, ma con uno slot
+    // precedente lontano (gap 1 s, tempo lento): il tetto resta 60 ms pieno (min(60, 500) = 60, non si riduce)
+    // e stavolta il flam viene suonato, quindi lo slot è assegnato e l'assorbimento vale.
+    const prev = slot(0, 0, 1, step)
+    const flamSlot = slot(1, 1, 0.06, withOrnament('flam'))
+    const r = judge([prev, flamSlot], [hit(0.95), hit(1.0)])
+    expect(r.judged[1].hit?.t).toBe(1.0)
+    expect(r.judged[1].grade).toBe('good')
+    expect(r.absorbed.map((h) => h.t)).toEqual([0.95])
+    expect(r.extras).toEqual([])
+  })
+
+  it('confine esatto dei 60 ms: dentro (anche al bordo) è assorbito, appena fuori resta extra', () => {
+    // Nessuno slot precedente: il tetto è il pieno ABSORB_BEFORE_S = 60 ms, non ridotto. Finestra dello slot
+    // (100 ms → 50 ms) più stretta di tutti gli scarti sotto, così i tre colpi diventano extra direttamente,
+    // senza competere con il colpo principale.
+    const flamSlot = slot(0, 0.5, 0.1, withOrnament('flam'))
+    const r = judge([flamSlot], [hit(0.439), hit(0.44), hit(0.441), hit(0.5)])
+    expect(r.judged[0].hit?.t).toBe(0.5)
+    expect(r.absorbed.map((h) => h.t)).toEqual([0.44, 0.441]) // 60 ms esatti e 59 ms: dentro
+    expect(r.extras.map((h) => h.t)).toEqual([0.439]) // 61 ms: fuori
+  })
+
+  it('buzz: i bordi esatti della durata sono fuori, intervallo aperto (slot.t, slot.t + dur)', () => {
+    const s = [slot(0, 1, 0.5, withOrnament('buzz'))]
+    const claimed = new Set([0])
+    expect(isAbsorbed(s, hit(1), claimed)).toBe(false) // esattamente slot.t: non ancora dentro
+    expect(isAbsorbed(s, hit(1.5), claimed)).toBe(false) // esattamente slot.t + dur: già fuori
+    expect(isAbsorbed(s, hit(1.25), claimed)).toBe(true) // a metà: dentro, sanity check
   })
 })
