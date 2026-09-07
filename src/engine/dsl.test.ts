@@ -39,14 +39,32 @@ describe('parseToken', () => {
     expect(() => parseToken('x')).toThrow(/non valido/)
     expect(() => parseToken('fzR')).toThrow(/non valido/)
     expect(() => parseToken('f>R')).toThrow(/non valido/)
+    expect(() => parseToken('>>R')).toThrow(/non valido/)
+    expect(() => parseToken('ffR')).toThrow(/non valido/)
+  })
+  it('rifiuta grace hand su non-flam/drag', () => {
+    expect(() => parseToken('t(R)L')).toThrow(/acciaccatura/)
+    expect(() => parseToken('(L)-')).toThrow(/pausa/)
+  })
+  it('rifiuta parentesi malformate e caratteri non validi dentro parentesi', () => {
+    expect(() => parseToken('f()R')).toThrow(/non valido/)
+    expect(() => parseToken('f(X)R')).toThrow(/non valido/)
   })
 })
 
 describe('parseBeat', () => {
   it('la suddivisione è il numero di token', () => {
-    expect(parseBeat('RLR').steps).toHaveLength(3)
-    expect(parseBeat('R').steps).toHaveLength(1)
-    expect(parseBeat('RLRLRLRL').steps).toHaveLength(8)
+    const beat3 = parseBeat('RLR')
+    expect(beat3.steps).toHaveLength(3)
+    expect(beat3.steps.map((s) => s.hand)).toEqual(['R', 'L', 'R'])
+
+    const beat1 = parseBeat('R')
+    expect(beat1.steps).toHaveLength(1)
+    expect(beat1.steps[0].hand).toBe('R')
+
+    const beat8 = parseBeat('RLRLRLRL')
+    expect(beat8.steps).toHaveLength(8)
+    expect(beat8.steps.map((s) => s.hand)).toEqual(['R', 'L', 'R', 'L', 'R', 'L', 'R', 'L'])
   })
   it('rifiuta più di 8 figure e il movimento vuoto', () => {
     expect(() => parseBeat('RLRLRLRLR')).toThrow(/1-8/)
@@ -64,6 +82,8 @@ describe('parseSticking', () => {
   it('suddivisioni miste nella stessa battuta', () => {
     const [bar] = parseSticking('RLR LRLR', 2)
     expect(bar.beats.map((b) => b.steps.length)).toEqual([3, 4])
+    expect(bar.beats[0].steps.map((s) => s.hand)).toEqual(['R', 'L', 'R'])
+    expect(bar.beats[1].steps.map((s) => s.hand)).toEqual(['L', 'R', 'L', 'R'])
   })
   it('tollera spazi attorno alle barre e alle estremità', () => {
     expect(parseSticking('  RL RL |RL RL  ', 2)).toHaveLength(2)
@@ -74,5 +94,10 @@ describe('parseSticking', () => {
   })
   it('rifiuta lo sticking vuoto', () => {
     expect(() => parseSticking('   ', 2)).toThrow(/vuoto/)
+  })
+  it('rifiuta battute vuote (doppio pipe, leading pipe, trailing pipe)', () => {
+    expect(() => parseSticking('RL || RL', 1)).toThrow(/battuta 2: vuota/)
+    expect(() => parseSticking('|RL RL', 2)).toThrow(/battuta 1: vuota/)
+    expect(() => parseSticking('RL RL|', 2)).toThrow(/battuta 2: vuota/)
   })
 })
