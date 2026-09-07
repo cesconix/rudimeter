@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>spike notazione</title>
+    <style>
+      body { margin: 0; font-family: system-ui, sans-serif; background: #fff; color: #000; }
+      #controls { padding: 8px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+      #viewport { overflow: hidden; width: 100vw; border-top: 1px solid #ccc; border-bottom: 1px solid #ccc; }
+      #score { will-change: transform; }
+      pre { padding: 8px; white-space: pre-wrap; }
+    </style>
+  </head>
+  <body>
+    <div id="controls">
+      <button id="one">1 battuta (tutte le figure)</button>
+      <button id="forty">40 battute</button>
+      <button id="paint">Colora 20/s per 5 s</button>
+      <button id="scroll">Scorri</button>
+    </div>
+    <div id="viewport"><div id="score"></div></div>
+    <pre id="log"></pre>
+    <script type="module" src="/src/notation/spike.ts"></script>
+  </body>
+</html>

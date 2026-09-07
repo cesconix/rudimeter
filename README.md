@@ -15,6 +15,8 @@ npm run typecheck
 
 HTTPS è obbligatorio: `getUserMedia` funziona solo in secure context e l'iPad raggiunge il Mac via IP LAN.
 
+Pagina dev notazione: spike-notation.html (non entra nella build).
+
 ## Spike microfono (throwaway)
 
 `public/spike/` — pagina standalone per verificare su iPad se la dinamica sopravvive al processing del microfono e per misurare la latenza. Aprire `https://<ip-lan>:5173/spike/index.html` e seguire i 5 passi in pagina. Il report JSON si copia dal passo 5.
