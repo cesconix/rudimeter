@@ -24,7 +24,16 @@ export function ExercisePicker({ onPick, onRecalibrate }: Props) {
       <p><code>{sticking}</code> · {exercise.timeSignature.join('/')} · {exercise.repeats} ripetizioni</p>
       <div className="row">
         <button className="secondary" onClick={() => setBpm((b) => Math.max(30, b - 5))}>−5</button>
-        <input type="number" value={bpm} min={30} max={240} onChange={(e) => setBpm(Number(e.target.value) || 60)} />
+        <input
+          type="number"
+          value={bpm}
+          min={30}
+          max={240}
+          onChange={(e) => {
+            const n = Number(e.target.value) || 60
+            setBpm(Math.min(240, Math.max(30, n)))
+          }}
+        />
         <span>bpm</span>
         <button className="secondary" onClick={() => setBpm((b) => Math.min(240, b + 5))}>+5</button>
       </div>

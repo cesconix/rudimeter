@@ -11,7 +11,16 @@ export async function createEngine(): Promise<Engine> {
   const ctx = createAudioContext()
   await ensureRunning(ctx)
   const capture = new Capture(ctx, `${import.meta.env.BASE_URL}worklets/onset-processor.js`)
-  await capture.start(DEFAULT_THRESHOLDS)
+  try {
+    await capture.start(DEFAULT_THRESHOLDS)
+  } catch (err) {
+    try {
+      await ctx.close()
+    } catch {
+      // Ignore: a failure here must not mask the original error.
+    }
+    throw err
+  }
   return { ctx, capture }
 }
 
