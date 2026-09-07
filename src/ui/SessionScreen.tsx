@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ClickScheduler } from '../audio/click-scheduler'
 import type { Engine } from '../audio/engine'
 import type { CalibrationData } from '../audio/storage'
-import { gridPosition } from '../engine/grid'
+import { repeatAt, slotIndexAt } from '../engine/grid'
 import type { SessionStats } from '../engine/stats'
 import type { Exercise } from '../engine/types'
 import { SessionRunner, type RunnerState } from '../session/runner'
@@ -26,8 +26,8 @@ export function SessionScreen({ engine, exercise, bpm, calibration, onDone, onAb
     const runner = new SessionRunner(
       {
         now: () => engine.ctx.currentTime,
-        scheduleClicks: (times, accentEvery) => {
-          const s = new ClickScheduler(engine.ctx, times, { accentEvery })
+        scheduleClicks: (clicks) => {
+          const s = new ClickScheduler(engine.ctx, clicks.filter((c) => !c.silent).map((c) => c.t), { accentEvery: exercise.timeSignature[0] })
           s.start()
           return s
         },
@@ -61,8 +61,8 @@ export function SessionScreen({ engine, exercise, bpm, calibration, onDone, onAb
 
   const now = engine.ctx.currentTime
   const { grid } = state
-  const stepsTotal = exercise.steps.length
-  const { repeat, currentStep } = gridPosition(grid, now, stepsTotal, exercise.repeats, state.phase === 'done')
+  const repeat = state.phase === 'done' ? grid.repeats.length - 1 : repeatAt(grid, now)
+  const currentSlot = state.phase === 'done' ? -1 : slotIndexAt(grid, now)
   const judgedNow = state.result.judged.filter((j) => j.slot.repeat === repeat)
 
   return (
@@ -82,7 +82,7 @@ export function SessionScreen({ engine, exercise, bpm, calibration, onDone, onAb
         </button>
       </div>
       {state.phase === 'count-in' && <p className="big">Count-in…</p>}
-      <LiveGrid exercise={exercise} judged={judgedNow} currentStep={currentStep} repeat={repeat} />
+      <LiveGrid exercise={exercise} judged={judgedNow} currentSlot={currentSlot} repeat={repeat} />
       <p>extra: {state.result.extras.length}</p>
       <Meter engine={engine} />
     </main>

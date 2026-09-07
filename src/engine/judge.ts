@@ -2,8 +2,6 @@ import type { Grade, Hit, JudgeResult, Judged, Slot, Windows } from './types'
 import { DEFAULT_WINDOWS } from './types'
 
 export interface JudgeOptions {
-  /** metà finestra di assegnazione, in secondi (= stepDur / 2) */
-  halfWindow: number
   windows?: Windows
   /** tempo corrente: gli slot con finestra ancora aperta restano 'pending' */
   now?: number
@@ -21,6 +19,7 @@ function offsetMs(hit: Hit, slot: Slot): number {
   return Math.round((hit.t - slot.t) * 1e6) / 1000
 }
 
+/** `slots` ordinati per t (lo sono per costruzione: buildGrid). */
 function nearestSlot(slots: Slot[], t: number): Slot | null {
   if (slots.length === 0) return null
   let lo = 0
@@ -36,14 +35,14 @@ function nearestSlot(slots: Slot[], t: number): Slot | null {
   return after
 }
 
-export function judge(slots: Slot[], hits: Hit[], opts: JudgeOptions): JudgeResult {
+export function judge(slots: Slot[], hits: Hit[], opts: JudgeOptions = {}): JudgeResult {
   const w = opts.windows ?? DEFAULT_WINDOWS
   const best = new Map<number, Hit>()
   const extras: Hit[] = []
 
   for (const hit of hits) {
     const slot = nearestSlot(slots, hit.t)
-    if (!slot || Math.abs(hit.t - slot.t) > opts.halfWindow) {
+    if (!slot || Math.abs(hit.t - slot.t) > slot.dur / 2) {
       extras.push(hit)
       continue
     }
@@ -64,7 +63,7 @@ export function judge(slots: Slot[], hits: Hit[], opts: JudgeOptions): JudgeResu
       const o = offsetMs(hit, slot)
       return { slot, hit, offsetMs: o, grade: gradeOf(o, w) }
     }
-    const pending = opts.now !== undefined && slot.t + opts.halfWindow > opts.now
+    const pending = opts.now !== undefined && slot.t + slot.dur / 2 > opts.now
     return { slot, hit: null, offsetMs: null, grade: pending ? 'pending' : 'miss' }
   })
 

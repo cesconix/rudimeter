@@ -1,4 +1,4 @@
-import { buildGrid, type Grid } from '../engine/grid'
+import { buildGrid, DEFAULT_METRONOME, type Click, type Grid, type MetronomeOptions } from '../engine/grid'
 import { judge } from '../engine/judge'
 import { computeStats, type SessionStats } from '../engine/stats'
 import type { Exercise, Hit, JudgeResult, Windows } from '../engine/types'
@@ -7,7 +7,7 @@ import { DEFAULT_WINDOWS } from '../engine/types'
 export interface RunnerDeps {
   /** tempo corrente nel clock audio, secondi */
   now(): number
-  scheduleClicks(times: number[], accentEvery: number): { stop(): void }
+  scheduleClicks(clicks: Click[]): { stop(): void }
   onHit(listener: (hit: Hit) => void): () => void
 }
 
@@ -18,6 +18,7 @@ export interface RunnerConfig {
   slope: number | null
   windows?: Windows
   countInBars?: number
+  metronome?: MetronomeOptions
 }
 
 export type RunnerPhase = 'idle' | 'count-in' | 'playing' | 'done'
@@ -43,10 +44,10 @@ export class SessionRunner {
   start(): void {
     if (this.phase === 'count-in' || this.phase === 'playing') return
     const t0 = this.deps.now() + 0.5
-    this.grid = buildGrid(this.cfg.exercise, this.cfg.bpm, t0, { countInBars: this.cfg.countInBars ?? 1 })
+    this.grid = buildGrid(this.cfg.exercise, this.cfg.bpm, t0, { countInBars: this.cfg.countInBars ?? 1, metronome: this.cfg.metronome ?? DEFAULT_METRONOME })
     this.hits = []
     this.phase = 'count-in'
-    this.clicks = this.deps.scheduleClicks(this.grid.clickTimes, this.cfg.exercise.timeSignature[0])
+    this.clicks = this.deps.scheduleClicks(this.grid.clicks)
     this.unsubscribe = this.deps.onHit((raw) => this.addHit(raw))
     this.emit()
   }
@@ -56,7 +57,7 @@ export class SessionRunner {
     const t = raw.t - this.cfg.latencyMs / 1000
     const s = this.cfg.slope
     const peakDb = s !== null && s > 0 ? raw.peakDb / s : raw.peakDb
-    if (t < this.grid.countInEnd - this.grid.stepDur / 2) return
+    if (t < this.grid.countInEnd - this.grid.minStepDur / 2) return
     this.hits.push({ t, peakDb })
     this.emit()
   }
@@ -66,7 +67,7 @@ export class SessionRunner {
     if (!this.grid || this.phase === 'idle' || this.phase === 'done') return null
     const now = this.deps.now()
     if (this.phase === 'count-in' && now >= this.grid.countInEnd) this.phase = 'playing'
-    if (now >= this.grid.end + this.grid.stepDur / 2) this.finish()
+    if (now >= this.grid.end + this.grid.minStepDur / 2) this.finish()
     return this.snapshot()
   }
 
@@ -92,7 +93,7 @@ export class SessionRunner {
   snapshot(): RunnerState {
     if (!this.grid) throw new Error('runner non avviato')
     const now = this.phase === 'done' ? undefined : this.deps.now()
-    const result = judge(this.grid.slots, this.hits, { halfWindow: this.grid.stepDur / 2, windows: this.cfg.windows ?? DEFAULT_WINDOWS, now })
+    const result = judge(this.grid.slots, this.hits, { windows: this.cfg.windows ?? DEFAULT_WINDOWS, now })
     return { phase: this.phase, grid: this.grid, result, hits: [...this.hits] }
   }
 

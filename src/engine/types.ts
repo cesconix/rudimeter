@@ -21,26 +21,23 @@ export interface Bar {
   beats: Beat[]
 }
 
-/** Valore di ogni step: ottavi, sedicesimi, terzine di ottavi. */
-export type Subdivision = 8 | 16 | '8t'
-
 export interface Exercise {
   id: string
   name: string
   source?: string
   timeSignature: [number, number]
-  subdivision: Subdivision
-  steps: Step[]
+  /** la stringa DSL originale: si mostra nel picker e si riesporta */
+  sticking: string
+  bars: Bar[]
   repeats: number
 }
 
-/** Forma su file: steps come stringa "RLRL RLRL", `-` pausa, `>R` accento. */
+/** Forma su file. `steps` è la DSL v2: spazio = movimento, `|` = battuta, prefissi `>` `f` `d` `z` `t`, `-` pausa. */
 export interface ExerciseJson {
   id: string
   name: string
   source?: string
   timeSignature: [number, number]
-  subdivision: Subdivision
   steps: string
   repeats?: number
 }
@@ -51,14 +48,16 @@ export interface Hit {
   peakDb: number
 }
 
-/** Uno slot atteso (solo step con mano). */
+/** Uno slot atteso (solo step con mano). `dur` = durata dello step in secondi; la finestra di assegnazione è dur/2. */
 export interface Slot {
   index: number
   t: number
+  dur: number
   step: Step
   repeat: number
   bar: number
-  stepIndex: number
+  beat: number
+  sub: number
 }
 
 export type Grade = 'good' | 'ok' | 'off' | 'miss' | 'pending'

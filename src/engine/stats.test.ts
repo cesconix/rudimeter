@@ -4,7 +4,7 @@ import { buildGrid } from './grid'
 import { judge } from './judge'
 import { parseExercise } from './exercise'
 
-const ex = parseExercise({ id: 'e', name: 'e', timeSignature: [2, 4], subdivision: 8, steps: 'RLRL RLRL', repeats: 10 })
+const ex = parseExercise({ id: 'e', name: 'e', timeSignature: [2, 4], steps: 'RL RL | RL RL', repeats: 10 })
 
 describe('mean/sd', () => {
   it('sd campionaria di [1,2,3,4] = 1.291', () => {
@@ -22,7 +22,7 @@ describe('computeStats', () => {
   const hits = grid.slots
     .filter((s) => s.repeat < 9)
     .map((s) => (s.step.hand === 'R' ? { t: s.t, peakDb: -15 } : { t: s.t + 0.01, peakDb: -21 }))
-  const stats = computeStats(judge(grid.slots, hits, { halfWindow: grid.stepDur / 2 }))
+  const stats = computeStats(judge(grid.slots, hits))
 
   it('conta slot, grade e miss', () => {
     expect(stats.slots).toBe(80)

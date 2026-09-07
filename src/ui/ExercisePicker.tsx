@@ -11,7 +11,6 @@ export function ExercisePicker({ onPick, onRecalibrate }: Props) {
   const [id, setId] = useState(EXERCISES[0].id)
   const [bpm, setBpm] = useState(60)
   const exercise = EXERCISES.find((e) => e.id === id) ?? EXERCISES[0]
-  const sticking = exercise.steps.map((s) => (s.hand ? (s.accent ? `>${s.hand}` : s.hand) : '-')).join(' ')
 
   return (
     <main>
@@ -21,7 +20,7 @@ export function ExercisePicker({ onPick, onRecalibrate }: Props) {
           <button key={e.id} className={e.id === id ? '' : 'secondary'} onClick={() => setId(e.id)}>{e.name}</button>
         ))}
       </div>
-      <p><code>{sticking}</code> · {exercise.timeSignature.join('/')} · {exercise.repeats} ripetizioni</p>
+      <p><code>{exercise.sticking}</code> · {exercise.timeSignature.join('/')} · {exercise.repeats} ripetizioni</p>
       <div className="row">
         <button className="secondary" onClick={() => setBpm((b) => Math.max(30, b - 5))}>−5</button>
         <input
