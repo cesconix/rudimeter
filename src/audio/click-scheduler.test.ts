@@ -49,13 +49,27 @@ describe('ClickScheduler', () => {
     s.stop()
   })
 
-  it('dropAfter non taglia mai sotto il margine già committato sul clock audio (now + lookahead + intervalMs)', () => {
+  it('dropAfter non taglia mai sotto il margine già committato sul clock audio (now + lookahead + intervalMs), e ritorna il taglio effettivo', () => {
     const { ctx, set } = fakeCtx(10)
     const s = new ClickScheduler(ctx, { lookahead: 0.1, intervalMs: 25 })
     s.add([click(10.05), click(10.1), click(10.2), click(20)])
     // margine di sicurezza = 10 + 0.1 + 0.025 = 10.125: il taglio richiesto (10.06) cade sotto,
-    // quindi il taglio effettivo si sposta a 10.125 e 10.1 sopravvive.
-    s.dropAfter(10.06)
+    // quindi il taglio effettivo si sposta a 10.125 (non 10.06) e 10.1 sopravvive.
+    const actual = s.dropAfter(10.06)
+    expect(actual).toBeCloseTo(10.125, 6)
+    set(1000)
+    s.start()
+    expect(sounded.map((x) => x.t)).toEqual([10.05, 10.1])
+    s.stop()
+  })
+
+  it('dropAfter senza clamp (taglio già oltre il margine) ritorna esattamente il taglio richiesto', () => {
+    const { ctx, set } = fakeCtx(10)
+    const s = new ClickScheduler(ctx, { lookahead: 0.1, intervalMs: 25 })
+    s.add([click(10.05), click(10.1), click(15), click(20)])
+    // margine di sicurezza = 10.125: il taglio richiesto (15) è già oltre, nessun clamp.
+    const actual = s.dropAfter(15)
+    expect(actual).toBe(15)
     set(1000)
     s.start()
     expect(sounded.map((x) => x.t)).toEqual([10.05, 10.1])

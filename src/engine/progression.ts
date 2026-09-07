@@ -4,7 +4,7 @@ import type { JudgeResult, Judged } from './types'
 export interface AutoIncrement {
   /** bpm da aggiungere */
   step: number
-  /** ripetizioni consecutive pulite richieste */
+  /** ripetizioni consecutive pulite richieste (>= 1: precondizione non validata, vedi `nextBpm`) */
   after: number
   /** (good + ok) / slot minimo */
   minAccuracy: number
@@ -13,11 +13,11 @@ export interface AutoIncrement {
 
 export const DEFAULT_AUTO_INCREMENT: AutoIncrement = { step: 4, after: 4, minAccuracy: 0.9, maxBpm: 240 }
 
-export function repeatAccuracy(judged: Judged[], repeat: number): { slots: number; good: number; miss: number; accuracy: number } {
+export function repeatAccuracy(judged: Judged[], repeat: number): { slots: number; passing: number; miss: number; accuracy: number } {
   const own = judged.filter((j) => j.slot.repeat === repeat)
-  const good = own.filter((j) => j.grade === 'good' || j.grade === 'ok').length
+  const passing = own.filter((j) => j.grade === 'good' || j.grade === 'ok').length
   const miss = own.filter((j) => j.grade === 'miss').length
-  return { slots: own.length, good, miss, accuracy: own.length ? good / own.length : 0 }
+  return { slots: own.length, passing, miss, accuracy: own.length ? passing / own.length : 0 }
 }
 
 /**

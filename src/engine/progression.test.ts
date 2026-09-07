@@ -15,7 +15,20 @@ describe('repeatAccuracy', () => {
   it('conta slot, good+ok e miss della ripetizione', () => {
     const grid = buildGrid(ex, 60, 0)
     const r = judge(grid.slots, perfect(1, [3]))
-    expect(repeatAccuracy(r.judged, 0)).toEqual({ slots: 8, good: 7, miss: 1, accuracy: 7 / 8 })
+    expect(repeatAccuracy(r.judged, 0)).toEqual({ slots: 8, passing: 7, miss: 1, accuracy: 7 / 8 })
+  })
+
+  it('un off riduce il rapporto ma non è un miss: pesa solo al denominatore', () => {
+    const grid = buildGrid(ex, 60, 0)
+    const slots = grid.slots.filter((s) => s.repeat === 0)
+    // good: offset 0 (≤ goodMs 20). ok: ±30ms (tra goodMs 20 e okMs 40). off: ±100ms (> okMs 40,
+    // ma entro la finestra di assegnazione dur/2 = 250ms, quindi assegnato allo slot e non "extra").
+    const offsetsMs = [0, 0, 0, 0, 30, -30, 100, -100]
+    const hits = slots.map((s, i) => ({ t: s.t + offsetsMs[i] / 1000, peakDb: -20 }))
+    const r = judge(slots, hits)
+    expect(r.judged.map((j) => j.grade)).toEqual(['good', 'good', 'good', 'good', 'ok', 'ok', 'off', 'off'])
+    // passing = 4 good + 2 ok = 6; slots = 8 (i due off contano al denominatore, non al numeratore, non come miss)
+    expect(repeatAccuracy(r.judged, 0)).toEqual({ slots: 8, passing: 6, miss: 0, accuracy: 6 / 8 })
   })
 })
 
@@ -29,6 +42,12 @@ describe('nextBpm', () => {
   })
   it('un miss nella finestra → null', () => {
     expect(nextBpm(judge(grid.slots, perfect(2, [5])), grid, 2, ai)).toBeNull()
+  })
+  it('accuratezza sotto soglia per via di off (senza miss) → null', () => {
+    const slots = grid.slots.filter((s) => s.repeat === 0)
+    const offsetsMs = [0, 0, 0, 0, 30, -30, 100, -100] // good×4, ok×2, off×2 → accuracy 6/8 = 0.75
+    const hits = slots.map((s, i) => ({ t: s.t + offsetsMs[i] / 1000, peakDb: -20 }))
+    expect(nextBpm(judge(grid.slots, hits), grid, 1, { ...ai, after: 1, minAccuracy: 0.9 })).toBeNull()
   })
   it('rispetta il tetto e non propone lo stesso bpm', () => {
     expect(nextBpm(judge(grid.slots, perfect(2)), grid, 2, { ...ai, step: 10 })).toBe(66)

@@ -27,11 +27,17 @@ export class ClickScheduler {
    * `now + lookahead + intervalMs`, cioè l'orizzonte che il prossimo tick può già aver committato.
    * Compromesso: al più un click dentro il lookahead sopravvive al tempo vecchio — comunque meglio
    * di un click duplicato, perché quello vecchio è già irrevocabilmente sull'hardware.
+   *
+   * Ritorna il taglio effettivo (`t`, o il margine di sicurezza se più avanti nel tempo): chi
+   * aggiunge nuovi click dopo questa chiamata deve scartare quelli con `t` inferiore al valore
+   * ritornato, altrimenti un nuovo click può cadere esattamente sull'istante del vecchio non
+   * rimosso — un doppio click udibile nello stesso istante.
    */
-  dropAfter(t: number): void {
+  dropAfter(t: number): number {
     const { lookahead = 0.1, intervalMs = 25 } = this.opts
     const safe = Math.max(t, this.ctx.currentTime + lookahead + intervalMs / 1000)
     this.queue.dropAfter(safe)
+    return safe
   }
 
   start(): void {

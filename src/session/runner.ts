@@ -7,7 +7,8 @@ import { DEFAULT_WINDOWS } from '../engine/types'
 
 export interface ClickSink {
   add(clicks: Click[]): void
-  dropAfter(t: number): void
+  /** Ritorna il taglio effettivo (può essere posticipato per clamp): i click aggiunti dopo devono avere `t` ≥ quel valore. */
+  dropAfter(t: number): number
   stop(): void
 }
 
@@ -94,8 +95,12 @@ export class SessionRunner {
     if (bpm === null) return
     this.grid = replanGrid(this.grid, this.cfg.exercise, r + 1, bpm, this.cfg.metronome ?? DEFAULT_METRONOME)
     const from = this.grid.repeats[r + 1].start
-    this.clicks?.dropAfter(from)
-    this.clicks?.add(this.grid.repeats.slice(r + 1).flatMap((rp) => rp.clicks))
+    // dropAfter può posticipare il taglio oltre `from` (clamp sul margine audio già committato): se
+    // aggiungessimo comunque tutti i click da `from`, uno nuovo potrebbe cadere sullo stesso istante
+    // di un vecchio non rimosso e produrre un doppio click. Si aggiungono solo i click a partire dal
+    // taglio effettivo.
+    const actualCut = this.clicks?.dropAfter(from) ?? from
+    this.clicks?.add(this.grid.repeats.slice(r + 1).flatMap((rp) => rp.clicks).filter((c) => c.t >= actualCut))
     this.emit()
   }
 
