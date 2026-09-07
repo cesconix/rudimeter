@@ -15,6 +15,17 @@ export interface ReportCalibration {
   deviceLabel?: string
 }
 
+/** "60 ×4 → 64 ×4": ripetizioni consecutive allo stesso bpm. */
+export function bpmRuns(bpms: number[]): string {
+  const runs: { bpm: number; n: number }[] = []
+  for (const b of bpms) {
+    const last = runs[runs.length - 1]
+    if (last && last.bpm === b) last.n++
+    else runs.push({ bpm: b, n: 1 })
+  }
+  return runs.map((r) => `${r.bpm} ×${r.n}`).join(' → ')
+}
+
 export function toMarkdown(stats: SessionStats, exercise: Exercise, bpm: number, date: Date, calibration?: ReportCalibration | null): string {
   const day = localDay(date)
   const cal = calibration
@@ -23,8 +34,11 @@ export function toMarkdown(stats: SessionStats, exercise: Exercise, bpm: number,
   const lines = [
     `### ${day} — ${exercise.name} @ ${bpm} bpm`,
     '',
-    `Slot ${stats.slots}: good ${stats.good} · ok ${stats.ok} · off ${stats.off} · miss ${stats.miss} · extra ${stats.extras}`,
+    `Slot ${stats.slots}: good ${stats.good} · ok ${stats.ok} · off ${stats.off} · miss ${stats.miss} · extra ${stats.extras}${stats.absorbed > 0 ? ` · assorbiti ${stats.absorbed}` : ''}`,
     `Offset medio ${f(stats.meanOffsetMs)} ms (σ ${f(stats.sdOffsetMs)})`,
+    `Uniformità: σ dB ${f(stats.uniformity.sdDbTaps)} (${stats.uniformity.hands.map((h) => `${h.hand} ${f(h.sdDbTaps)}`).join(' · ')})`,
+    `Accenti: ${stats.accents.hits}/${stats.accents.slots} · ${stats.accents.meanDeltaDb === null ? '—' : `+${f(stats.accents.meanDeltaDb)}`} dB sui colpi normali · ${stats.accents.belowThreshold} sotto +${stats.accents.thresholdDb} dB`,
+    ...(new Set(stats.bpmByRepeat).size > 1 ? [`Bpm: ${bpmRuns(stats.bpmByRepeat)}`] : []),
     ...cal,
     '',
     '| Mano | Colpi | Offset medio | σ | dB medio | σ dB |',

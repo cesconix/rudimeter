@@ -98,7 +98,7 @@ export class SessionRunner {
   }
 
   stats(): SessionStats {
-    return computeStats(this.snapshot().result)
+    return computeStats(this.snapshot().result, { bpmByRepeat: this.grid?.repeats.map((r) => r.bpm) ?? [] })
   }
 
   private emit(): void {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { toMarkdown } from './report'
+import { bpmRuns, toMarkdown } from './report'
 import type { SessionStats } from './stats'
 import { EXERCISES } from '../data/exercises'
 
@@ -14,6 +14,10 @@ const stats: SessionStats = {
     { fromRepeat: 0, toRepeat: 4, slots: 40, miss: 2, sdOffsetMs: 11, meanDb: -17 },
     { fromRepeat: 5, toRepeat: 9, slots: 40, miss: 6, sdOffsetMs: 14, meanDb: -18.2 },
   ],
+  absorbed: 3,
+  uniformity: { sdDbTaps: 1.4, hands: [{ hand: 'R', sdDbTaps: 1.1 }, { hand: 'L', sdDbTaps: 1.7 }] },
+  accents: { slots: 20, hits: 19, meanDeltaDb: 7.2, belowThreshold: 2, thresholdDb: 6 },
+  bpmByRepeat: [60, 60, 60, 60, 64, 64, 64, 64, 68, 68],
 }
 
 describe('toMarkdown', () => {
@@ -53,5 +57,21 @@ describe('toMarkdown', () => {
   it('stampa — al posto dei null', () => {
     const md2 = toMarkdown({ ...stats, meanOffsetMs: null, sdOffsetMs: null }, EXERCISES[0], 80, new Date())
     expect(md2).toContain('Offset medio — ms (σ —)')
+  })
+
+  it('riporta assorbiti, uniformità, accenti e la curva dei bpm compressa', () => {
+    expect(md).toContain('Slot 80: good 60 · ok 10 · off 2 · miss 8 · extra 1 · assorbiti 3')
+    expect(md).toContain('Uniformità: σ dB 1.4 (R 1.1 · L 1.7)')
+    expect(md).toContain('Accenti: 19/20 · +7.2 dB sui colpi normali · 2 sotto +6 dB')
+    expect(md).toContain('Bpm: 60 ×4 → 64 ×4 → 68 ×2')
+  })
+  it('a bpm costante non stampa la curva; a zero assorbiti non li nomina', () => {
+    const md2 = toMarkdown({ ...stats, absorbed: 0, bpmByRepeat: [60, 60] }, EXERCISES[0], 60, new Date())
+    expect(md2).not.toContain('Bpm:')
+    expect(md2).not.toContain('assorbiti')
+  })
+  it('bpmRuns comprime le ripetizioni consecutive', () => {
+    expect(bpmRuns([60, 60, 64])).toBe('60 ×2 → 64 ×1')
+    expect(bpmRuns([])).toBe('')
   })
 })

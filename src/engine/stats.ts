@@ -1,4 +1,4 @@
-import type { Hand, JudgeResult, Judged } from './types'
+import type { Hand, Hit, JudgeResult, Judged } from './types'
 
 export interface HandStats {
   hand: Hand
@@ -19,6 +19,28 @@ export interface BlockStats {
   meanDb: number | null
 }
 
+export interface UniformityStats {
+  /** σ dei dB dei colpi non accentati */
+  sdDbTaps: number | null
+  hands: { hand: Hand; sdDbTaps: number | null }[]
+}
+
+export interface AccentStats {
+  slots: number
+  hits: number
+  /** media dB(accenti) − media dB(non accentati) */
+  meanDeltaDb: number | null
+  /** accenti colpiti che stanno sotto la soglia rispetto alla media dei non accentati */
+  belowThreshold: number
+  thresholdDb: number
+}
+
+export interface StatsOptions {
+  blockSize?: number
+  bpmByRepeat?: number[]
+  accentThresholdDb?: number
+}
+
 export interface SessionStats {
   slots: number
   good: number
@@ -31,6 +53,10 @@ export interface SessionStats {
   sdOffsetMs: number | null
   hands: HandStats[]
   blocks: BlockStats[]
+  absorbed: number
+  uniformity: UniformityStats
+  accents: AccentStats
+  bpmByRepeat: number[]
 }
 
 export function mean(xs: number[]): number | null {
@@ -47,7 +73,9 @@ export function sd(xs: number[]): number | null {
 const offsets = (js: Judged[]): number[] => js.flatMap((j) => (j.offsetMs === null ? [] : [j.offsetMs]))
 const dbs = (js: Judged[]): number[] => js.flatMap((j) => (j.hit ? [j.hit.peakDb] : []))
 
-export function computeStats(result: JudgeResult, blockSize = 5): SessionStats {
+export function computeStats(result: JudgeResult, opts: StatsOptions = {}): SessionStats {
+  const blockSize = opts.blockSize ?? 5
+  const thresholdDb = opts.accentThresholdDb ?? 6
   const js = result.judged
   const count = (g: Judged['grade']) => js.filter((j) => j.grade === g).length
 
@@ -81,6 +109,25 @@ export function computeStats(result: JudgeResult, blockSize = 5): SessionStats {
     })
   }
 
+  const taps = js.filter((j) => j.hit && !j.slot.step.accent)
+  const accented = js.filter((j) => j.slot.step.accent)
+  const tapMean = mean(dbs(taps))
+  const accentHits = accented.filter((j) => j.hit)
+  const uniformity: UniformityStats = {
+    sdDbTaps: sd(dbs(taps)),
+    hands: (['R', 'L'] as Hand[])
+      .map((hand) => ({ hand, sdDbTaps: sd(dbs(taps.filter((j) => j.slot.step.hand === hand))) }))
+      .filter((h) => taps.some((j) => j.slot.step.hand === h.hand)),
+  }
+  const accentMean = mean(dbs(accentHits))
+  const accents: AccentStats = {
+    slots: accented.length,
+    hits: accentHits.length,
+    meanDeltaDb: accentMean !== null && tapMean !== null ? accentMean - tapMean : null,
+    belowThreshold: tapMean === null ? 0 : accentHits.filter((j) => (j.hit as Hit).peakDb - tapMean < thresholdDb).length,
+    thresholdDb,
+  }
+
   return {
     slots: js.length,
     good: count('good'),
@@ -93,5 +140,9 @@ export function computeStats(result: JudgeResult, blockSize = 5): SessionStats {
     sdOffsetMs: sd(offsets(js)),
     hands,
     blocks,
+    absorbed: result.absorbed.length,
+    uniformity,
+    accents,
+    bpmByRepeat: opts.bpmByRepeat ?? [],
   }
 }

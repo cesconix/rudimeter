@@ -56,5 +56,37 @@ describe('computeStats', () => {
     expect(s.meanOffsetMs).toBeNull()
     expect(s.hands).toEqual([])
     expect(s.blocks).toEqual([])
+    expect(s.absorbed).toBe(0)
+  })
+})
+
+describe('uniformità e accenti', () => {
+  const para = parseExercise({ id: 'p', name: 'p', timeSignature: [2, 4], steps: '>RLRR >LRLL', repeats: 2 })
+  const grid = buildGrid(para, 120, 0)
+  // accenti a -10 dB, colpi normali a -20 dB, tranne un accento fiacco a -17 dB
+  const hits = grid.slots.map((s, i) => ({ t: s.t, peakDb: s.step.accent ? (i === 4 ? -17 : -10) : -20 }))
+  const stats = computeStats(judge(grid.slots, hits), { bpmByRepeat: [120, 120] })
+
+  it('uniformità: σ dei dB dei soli colpi non accentati, globale e per mano', () => {
+    expect(stats.uniformity.sdDbTaps).toBeCloseTo(0)
+    expect(stats.uniformity.hands.map((h) => h.hand)).toEqual(['R', 'L'])
+    expect(stats.uniformity.hands[0].sdDbTaps).toBeCloseTo(0)
+  })
+  it('accenti: delta medio rispetto ai colpi normali e quanti sotto +6 dB', () => {
+    expect(stats.accents.slots).toBe(4)
+    expect(stats.accents.hits).toBe(4)
+    expect(stats.accents.meanDeltaDb).toBeCloseTo(8.25)
+    expect(stats.accents.belowThreshold).toBe(1)
+    expect(stats.accents.thresholdDb).toBe(6)
+  })
+  it('riporta bpm per ripetizione e assorbiti', () => {
+    expect(stats.bpmByRepeat).toEqual([120, 120])
+    expect(stats.absorbed).toBe(0)
+  })
+  it('senza accenti: delta null, zero sotto soglia', () => {
+    const s = computeStats(judge(buildGrid(ex, 120, 0).slots, []))
+    expect(s.accents).toEqual({ slots: 0, hits: 0, meanDeltaDb: null, belowThreshold: 0, thresholdDb: 6 })
+    expect(s.uniformity.sdDbTaps).toBeNull()
+    expect(s.bpmByRepeat).toEqual([])
   })
 })
