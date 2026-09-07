@@ -41,6 +41,7 @@ export class SessionRunner {
   constructor(private deps: RunnerDeps, private cfg: RunnerConfig) {}
 
   start(): void {
+    if (this.phase === 'count-in' || this.phase === 'playing') return
     const t0 = this.deps.now() + 0.5
     this.grid = buildGrid(this.cfg.exercise, this.cfg.bpm, t0, { countInBars: this.cfg.countInBars ?? 1 })
     this.hits = []
@@ -92,7 +93,7 @@ export class SessionRunner {
     if (!this.grid) throw new Error('runner non avviato')
     const now = this.phase === 'done' ? undefined : this.deps.now()
     const result = judge(this.grid.slots, this.hits, { halfWindow: this.grid.stepDur / 2, windows: this.cfg.windows ?? DEFAULT_WINDOWS, now })
-    return { phase: this.phase, grid: this.grid, result, hits: this.hits }
+    return { phase: this.phase, grid: this.grid, result, hits: [...this.hits] }
   }
 
   stats(): SessionStats {

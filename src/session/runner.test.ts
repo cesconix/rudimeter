@@ -79,4 +79,36 @@ describe('SessionRunner', () => {
     expect(phases).toEqual(['count-in', 'done'])
     expect(r.tick()).toBeNull()
   })
+
+  it('boundary: hit esattamente al limite countInEnd - stepDur/2 viene mantenuto', () => {
+    const f = fakeDeps()
+    const r = new SessionRunner(f.deps, { exercise: ex, bpm: 60, latencyMs: 0, slope: null })
+    r.start()
+    const grid = r.snapshot().grid
+    const boundary = grid.countInEnd - grid.stepDur / 2
+    f.hit({ t: boundary, peakDb: -20 })
+    expect(r.snapshot().hits).toHaveLength(1)
+    expect(r.snapshot().result.judged[0].grade).not.toBe('miss')
+  })
+
+  it('boundary: hit leggermente prima del limite viene scartato', () => {
+    const f = fakeDeps()
+    const r = new SessionRunner(f.deps, { exercise: ex, bpm: 60, latencyMs: 0, slope: null })
+    r.start()
+    const grid = r.snapshot().grid
+    const boundary = grid.countInEnd - grid.stepDur / 2
+    f.hit({ t: boundary - 0.01, peakDb: -20 })
+    expect(r.snapshot().hits).toHaveLength(0)
+  })
+
+  it('boundary: hit leggermente dopo il limite viene mantenuto', () => {
+    const f = fakeDeps()
+    const r = new SessionRunner(f.deps, { exercise: ex, bpm: 60, latencyMs: 0, slope: null })
+    r.start()
+    const grid = r.snapshot().grid
+    const boundary = grid.countInEnd - grid.stepDur / 2
+    f.hit({ t: boundary + 0.01, peakDb: -20 })
+    expect(r.snapshot().hits).toHaveLength(1)
+    expect(r.snapshot().result.judged[0].grade).not.toBe('miss')
+  })
 })
