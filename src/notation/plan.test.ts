@@ -11,6 +11,9 @@ describe('durationFor / tupletFor', () => {
     expect(tupletFor(5)).toEqual({ numNotes: 5, notesOccupied: 4 })
     expect(tupletFor(7)).toEqual({ numNotes: 7, notesOccupied: 4 })
     expect(tupletFor(4)).toBeNull()
+    expect(tupletFor(1)).toBeNull()
+    expect(tupletFor(2)).toBeNull()
+    expect(tupletFor(8)).toBeNull()
   })
 })
 
@@ -20,6 +23,10 @@ describe('graceHands', () => {
     expect(graceHands({ hand: 'R', accent: false, ornament: 'drag', graceHand: 'L' })).toEqual(['L', 'L'])
     expect(graceHands({ hand: 'R', accent: false, ornament: 'buzz' })).toEqual([])
     expect(graceHands({ hand: 'R', accent: false })).toEqual([])
+  })
+  it('senza graceHand esplicito, la mano dell acciaccatura e opposta a hand', () => {
+    expect(graceHands({ hand: 'L', accent: false, ornament: 'flam' })).toEqual(['R'])
+    expect(graceHands({ hand: 'L', accent: false, ornament: 'drag' })).toEqual(['R', 'R'])
   })
 })
 
@@ -57,6 +64,20 @@ describe('planExercise', () => {
     expect(bars.map((b) => b.repeat)).toEqual([0, 1, 2])
     expect(bars[2].beats[0].notes.map((n) => n.slotIndex)).toEqual([6, 7])
     expect(bars[2].beats[1].notes.map((n) => n.slotIndex)).toEqual([8, null])
+  })
+})
+
+describe('tuplet su un movimento con una pausa interna', () => {
+  it('il tuplet copre tutto il movimento (3 figure) anche se una e una pausa', () => {
+    const ex = parseExercise({ id: 'x', name: 'x', timeSignature: [1, 4], steps: 'R-R', repeats: 1 })
+    const [bar] = planRepeat(ex, 0, 0)
+    const beat = bar.beats[0]
+    expect(beat.tuplet).toEqual({ numNotes: 3, notesOccupied: 2 })
+    expect(beat.notes).toHaveLength(3)
+    expect(beat.notes.map((n) => n.duration)).toEqual(['8', '8', '8'])
+    expect(beat.notes[1]).toMatchObject({ rest: true, duration: '8' })
+    expect(beat.notes[0].rest).toBe(false)
+    expect(beat.notes[2].rest).toBe(false)
   })
 })
 

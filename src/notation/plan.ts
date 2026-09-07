@@ -42,9 +42,13 @@ export function tupletFor(n: number): { numNotes: number; notesOccupied: number 
   return occupied ? { numNotes: n, notesOccupied: occupied } : null
 }
 
+const opposite = (h: Hand): Hand => (h === 'R' ? 'L' : 'R')
+
 export function graceHands(step: Step): Hand[] {
-  if (step.ornament === 'flam') return [step.graceHand ?? 'L']
-  if (step.ornament === 'drag') return [step.graceHand ?? 'L', step.graceHand ?? 'L']
+  if (!step.hand) return []
+  const grace = step.graceHand ?? opposite(step.hand)
+  if (step.ornament === 'flam') return [grace]
+  if (step.ornament === 'drag') return [grace, grace]
   return []
 }
 
