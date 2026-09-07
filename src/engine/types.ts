@@ -1,9 +1,24 @@
 export type Hand = 'R' | 'L'
 
+/** flam = 1 acciaccatura, drag = 2, buzz = rullo non misurato, tremolo = rullo misurato (una barra = doppi) */
+export type Ornament = 'flam' | 'drag' | 'buzz' | 'tremolo'
+
 /** Uno step dello sticking. hand null = pausa. */
 export interface Step {
   hand: Hand | null
   accent: boolean
+  ornament?: Ornament
+  /** mano delle acciaccature (solo flam/drag); default: opposta a `hand` */
+  graceHand?: Hand
+}
+
+/** Un movimento: gli step lo dividono in parti uguali (steps.length = suddivisione, 1-8). */
+export interface Beat {
+  steps: Step[]
+}
+
+export interface Bar {
+  beats: Beat[]
 }
 
 /** Valore di ogni step: ottavi, sedicesimi, terzine di ottavi. */
