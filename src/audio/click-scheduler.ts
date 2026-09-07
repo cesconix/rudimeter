@@ -1,37 +1,52 @@
-import { dueIndices } from '../engine/scheduler'
-import { scheduleClick } from './click'
+import type { Click } from '../engine/grid'
+import { ClickQueue } from '../engine/scheduler'
+import { clickOptionsFor, scheduleClick } from './click'
 
 export interface ClickSchedulerOptions {
-  /** ogni quanti click un accento (es. i beat per battuta); 0 = mai */
-  accentEvery?: number
   lookahead?: number
   intervalMs?: number
 }
 
-/** Schedula i click di `times` con lookahead sul clock audio. Si ferma da solo a fine lista. */
+/** Schedula i click con lookahead sul clock audio. Accetta aggiunte e tagli mentre gira (auto-increment). */
 export class ClickScheduler {
   private timer: number | null = null
-  private next = 0
+  private running = false
+  private queue = new ClickQueue<Click>()
 
-  constructor(private ctx: AudioContext, private times: number[], private opts: ClickSchedulerOptions = {}) {}
+  constructor(private ctx: AudioContext, private opts: ClickSchedulerOptions = {}) {}
+
+  add(clicks: Click[]): void {
+    this.queue.add(clicks)
+    if (this.running && this.timer === null) this.arm()
+  }
+
+  dropAfter(t: number): void {
+    this.queue.dropAfter(t)
+  }
 
   start(): void {
-    this.stop()
-    const { lookahead = 0.1, intervalMs = 25, accentEvery = 0 } = this.opts
+    this.running = true
+    this.arm()
+  }
+
+  private arm(): void {
+    if (this.timer !== null) return
+    const { lookahead = 0.1, intervalMs = 25 } = this.opts
     const tick = () => {
-      const { indices, next } = dueIndices(this.times, this.next, this.ctx.currentTime, lookahead)
-      for (const i of indices) {
-        const accent = accentEvery > 0 && i % accentEvery === 0
-        scheduleClick(this.ctx, this.times[i], accent ? { freq: 1500, gain: 0.6 } : {})
+      for (const c of this.queue.due(this.ctx.currentTime, lookahead)) {
+        if (!c.silent) scheduleClick(this.ctx, c.t, clickOptionsFor(c.kind))
       }
-      this.next = next
-      if (this.next >= this.times.length) this.stop()
+      if (this.queue.pending === 0 && this.timer !== null) {
+        clearInterval(this.timer)
+        this.timer = null
+      }
     }
     tick()
-    this.timer = window.setInterval(tick, intervalMs)
+    if (this.queue.pending > 0) this.timer = window.setInterval(tick, intervalMs)
   }
 
   stop(): void {
+    this.running = false
     if (this.timer !== null) {
       clearInterval(this.timer)
       this.timer = null

@@ -4,10 +4,16 @@ import { computeStats, type SessionStats } from '../engine/stats'
 import type { Exercise, Hit, JudgeResult, Windows } from '../engine/types'
 import { DEFAULT_WINDOWS } from '../engine/types'
 
+export interface ClickSink {
+  add(clicks: Click[]): void
+  dropAfter(t: number): void
+  stop(): void
+}
+
 export interface RunnerDeps {
   /** tempo corrente nel clock audio, secondi */
   now(): number
-  scheduleClicks(clicks: Click[]): { stop(): void }
+  scheduleClicks(clicks: Click[]): ClickSink
   onHit(listener: (hit: Hit) => void): () => void
 }
 
@@ -34,7 +40,7 @@ export interface RunnerState {
 export class SessionRunner {
   private hits: Hit[] = []
   private grid: Grid | null = null
-  private clicks: { stop(): void } | null = null
+  private clicks: ClickSink | null = null
   private unsubscribe: (() => void) | null = null
   private listeners = new Set<(s: RunnerState) => void>()
   private phase: RunnerPhase = 'idle'

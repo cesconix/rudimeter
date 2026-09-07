@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ClickScheduler } from '../audio/click-scheduler'
 import type { Engine } from '../audio/engine'
 import type { CalibrationData } from '../audio/storage'
-import { repeatAt, slotIndexAt } from '../engine/grid'
+import { DEFAULT_METRONOME, repeatAt, slotIndexAt } from '../engine/grid'
 import type { SessionStats } from '../engine/stats'
 import type { Exercise } from '../engine/types'
 import { SessionRunner, type RunnerState } from '../session/runner'
@@ -27,13 +27,14 @@ export function SessionScreen({ engine, exercise, bpm, calibration, onDone, onAb
       {
         now: () => engine.ctx.currentTime,
         scheduleClicks: (clicks) => {
-          const s = new ClickScheduler(engine.ctx, clicks.filter((c) => !c.silent).map((c) => c.t), { accentEvery: exercise.timeSignature[0] })
+          const s = new ClickScheduler(engine.ctx)
+          s.add(clicks)
           s.start()
           return s
         },
         onHit: (l) => engine.capture.onHit(l),
       },
-      { exercise, bpm, latencyMs: calibration.latencyMs, slope: calibration.slope },
+      { exercise, bpm, latencyMs: calibration.latencyMs, slope: calibration.slope, metronome: DEFAULT_METRONOME },
     )
     runnerRef.current = runner
     const unsub = runner.subscribe(setState)

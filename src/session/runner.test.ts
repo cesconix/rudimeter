@@ -7,13 +7,17 @@ import type { Hit } from '../engine/types'
 function fakeDeps() {
   let t = 100
   let listener: ((h: Hit) => void) | null = null
-  const scheduled: { clicks: Click[]; stopped: boolean }[] = []
+  const scheduled: { clicks: Click[]; added: Click[][]; droppedAfter: number[]; stopped: boolean }[] = []
   const deps: RunnerDeps = {
     now: () => t,
     scheduleClicks: (clicks) => {
-      const entry = { clicks, stopped: false }
+      const entry = { clicks, added: [] as Click[][], droppedAfter: [] as number[], stopped: false }
       scheduled.push(entry)
-      return { stop: () => { entry.stopped = true } }
+      return {
+        add: (c) => { entry.added.push(c) },
+        dropAfter: (x) => { entry.droppedAfter.push(x) },
+        stop: () => { entry.stopped = true },
+      }
     },
     onHit: (l) => {
       listener = l

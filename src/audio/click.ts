@@ -1,7 +1,16 @@
+import type { ClickKind } from '../engine/grid'
+
 export interface ClickOptions {
   freq?: number
   gain?: number
   dur?: number
+}
+
+/** Primo movimento della battuta più acuto e più forte; suddivisioni più basse e più piano. */
+export function clickOptionsFor(kind: ClickKind): ClickOptions {
+  if (kind === 'bar') return { freq: 1500, gain: 0.6 }
+  if (kind === 'sub') return { freq: 800, gain: 0.25 }
+  return { freq: 1000, gain: 0.5 }
 }
 
 /** Sinusoide breve con inviluppo corto, schedulata nel clock del contesto. */
