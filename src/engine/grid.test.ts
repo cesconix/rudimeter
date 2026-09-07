@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildGrid, stepDuration } from './grid'
+import { buildGrid, gridPosition, stepDuration } from './grid'
 import { parseExercise } from './exercise'
 
 const stone1 = parseExercise({ id: 's1', name: 's1', timeSignature: [2, 4], subdivision: 8, steps: 'RLRL RLRL', repeats: 2 })
@@ -42,5 +42,34 @@ describe('buildGrid', () => {
     const g = buildGrid(stone1, 60, 5, { countInBars: 0 })
     expect(g.countInEnd).toBeCloseTo(5)
     expect(g.countInClicks).toBe(0)
+  })
+})
+
+describe('gridPosition', () => {
+  // countInEnd 2, stepDur 0.5, 8 step × 2 ripetizioni (16 step totali)
+  const g = buildGrid(stone1, 60, 0)
+
+  it('prima del count-in: nulla evidenziato', () => {
+    expect(gridPosition(g, 0, 8, 2, false)).toEqual({ repeat: 0, currentStep: -1 })
+  })
+
+  it('primo step della prima ripetizione', () => {
+    expect(gridPosition(g, 2, 8, 2, false)).toEqual({ repeat: 0, currentStep: 0 })
+  })
+
+  it('step a metà esercizio, seconda ripetizione', () => {
+    expect(gridPosition(g, 7, 8, 2, false)).toEqual({ repeat: 1, currentStep: 2 })
+  })
+
+  it("ultimo step dell'ultima ripetizione resta evidenziato", () => {
+    expect(gridPosition(g, 9.5, 8, 2, false)).toEqual({ repeat: 1, currentStep: 7 })
+  })
+
+  it('regressione: a k === stepsTotal * repeats nulla resta evidenziato', () => {
+    expect(gridPosition(g, 10, 8, 2, false)).toEqual({ repeat: 1, currentStep: -1 })
+  })
+
+  it('oltre la fine con sessione done: nulla evidenziato', () => {
+    expect(gridPosition(g, 100, 8, 2, true)).toEqual({ repeat: 1, currentStep: -1 })
   })
 })

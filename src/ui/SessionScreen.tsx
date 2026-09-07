@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ClickScheduler } from '../audio/click-scheduler'
 import type { Engine } from '../audio/engine'
 import type { CalibrationData } from '../audio/storage'
+import { gridPosition } from '../engine/grid'
 import type { SessionStats } from '../engine/stats'
 import type { Exercise } from '../engine/types'
 import { SessionRunner, type RunnerState } from '../session/runner'
@@ -41,7 +42,7 @@ export function SessionScreen({ engine, exercise, bpm, calibration, onDone, onAb
     const loop = () => {
       const s = runner.tick()
       if (s) setState(s)
-      if (s?.phase === 'done') return
+      if (!s || s.phase === 'done') return
       raf = requestAnimationFrame(loop)
     }
     raf = requestAnimationFrame(loop)
@@ -61,9 +62,7 @@ export function SessionScreen({ engine, exercise, bpm, calibration, onDone, onAb
   const now = engine.ctx.currentTime
   const { grid } = state
   const stepsTotal = exercise.steps.length
-  const k = Math.floor((now - grid.countInEnd) / grid.stepDur)
-  const repeat = k < 0 ? 0 : Math.min(Math.floor(k / stepsTotal), exercise.repeats - 1)
-  const currentStep = k < 0 ? -1 : k % stepsTotal
+  const { repeat, currentStep } = gridPosition(grid, now, stepsTotal, exercise.repeats, state.phase === 'done')
   const judgedNow = state.result.judged.filter((j) => j.slot.repeat === repeat)
 
   return (

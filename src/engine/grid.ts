@@ -51,3 +51,23 @@ export function buildGrid(exercise: Exercise, bpm: number, t0: number, opts: Gri
   const clickTimes = Array.from({ length: totalBeats }, (_, b) => t0 + b * beat)
   return { t0, countInEnd, end: t0 + totalBeats * beat, slots, clickTimes, countInClicks: num * opts.countInBars, stepDur }
 }
+
+/**
+ * Ripetizione e step "in corso" a un dato istante, per la UI live.
+ * Prima del count-in: repeat 0, currentStep -1 (nulla evidenziato).
+ * A sessione conclusa (parametro `done`, o istante oltre l'ultimo step): repeat clampato
+ * all'ultima ripetizione, currentStep -1 — nessuno step resta evidenziato a fine sessione.
+ */
+export function gridPosition(
+  grid: Grid,
+  now: number,
+  stepsTotal: number,
+  repeats: number,
+  done: boolean,
+): { repeat: number; currentStep: number } {
+  const k = Math.floor((now - grid.countInEnd) / grid.stepDur)
+  if (k < 0) return { repeat: 0, currentStep: -1 }
+  const total = stepsTotal * repeats
+  if (done || k >= total) return { repeat: repeats - 1, currentStep: -1 }
+  return { repeat: Math.min(Math.floor(k / stepsTotal), repeats - 1), currentStep: k % stepsTotal }
+}
