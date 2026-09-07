@@ -73,7 +73,7 @@ export function judge(slots: Slot[], hits: Hit[], opts: JudgeOptions = {}): Judg
   return { judged, extras: extras.filter((h) => !isAbsorbed(slots, h, claimed)), absorbed }
 }
 
-/** Tetto dell'anticipo assorbibile per flam/drag: può essere ridotto (mai esteso) dal tempo, vedi isAbsorbed. */
+/** Un extra fino a 60 ms prima di uno slot flam/drag è l'acciaccatura. */
 export const ABSORB_BEFORE_S = 0.06
 
 /** Primo slot con t > x, o undefined. `slots` ordinati per t. */
@@ -104,16 +104,17 @@ function lastAtOrBefore(slots: Slot[], x: number): Slot | undefined {
  * Un extra è assorbito se è l'acciaccatura di un flam/drag imminente o un rimbalzo dentro un buzz/tremolo in corso.
  * `claimed` = indici degli slot che hanno un colpo principale assegnato (vedi `judge`): un'acciaccatura senza il
  * colpo principale non è un'acciaccatura, quindi l'assorbimento vale solo se lo slot ornamentato è stato assegnato.
- * Per flam/drag l'anticipo assorbibile non supera mai il punto di mezzo verso lo slot precedente: a tempi veloci
- * i 60 ms fissi arriverebbero a ridosso (o oltre) dello slot prima, inghiottendo un vero errore di tempo lì.
+ * Per flam/drag c'è una condizione in più: lo slot subito prima di quello ornamentato non deve essere un miss.
+ * Un colpo tardivo che sfugge alla finestra dello slot precedente e un'acciaccatura anticipata occupano lo stesso
+ * intervallo di tempo — nessuna geometria li distingue. Ciò che li distingue è se lo slot precedente ha bisogno
+ * di quella prova: se è un miss, quel colpo resta la sua unica spiegazione e non va tolto da `extras`.
  */
 export function isAbsorbed(slots: Slot[], hit: Hit, claimed: Set<number>): boolean {
   const next = firstAfter(slots, hit.t)
   const prev = lastAtOrBefore(slots, hit.t)
   const o = next?.step.ornament
-  if (next && claimed.has(next.index) && (o === 'flam' || o === 'drag')) {
-    const absorbBefore = prev ? Math.min(ABSORB_BEFORE_S, (next.t - prev.t) / 2) : ABSORB_BEFORE_S
-    if (next.t - hit.t <= absorbBefore) return true
+  if (next && claimed.has(next.index) && (o === 'flam' || o === 'drag') && next.t - hit.t <= ABSORB_BEFORE_S) {
+    if (!prev || claimed.has(prev.index)) return true
   }
   const p = prev?.step.ornament
   if (prev && claimed.has(prev.index) && (p === 'buzz' || p === 'tremolo') && hit.t > prev.t && hit.t < prev.t + prev.dur) return true
