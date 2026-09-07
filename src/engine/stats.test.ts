@@ -3,6 +3,7 @@ import { computeStats, mean, sd } from './stats'
 import { buildGrid } from './grid'
 import { judge } from './judge'
 import { parseExercise } from './exercise'
+import type { Judged, Slot } from './types'
 
 const ex = parseExercise({ id: 'e', name: 'e', timeSignature: [2, 4], steps: 'RL RL | RL RL', repeats: 10 })
 
@@ -83,10 +84,51 @@ describe('uniformità e accenti', () => {
     expect(stats.bpmByRepeat).toEqual([120, 120])
     expect(stats.absorbed).toBe(0)
   })
-  it('senza accenti: delta null, zero sotto soglia', () => {
+  it('senza accenti: delta null, sotto soglia null (nessun tap con cui confrontare)', () => {
     const s = computeStats(judge(buildGrid(ex, 120, 0).slots, []))
-    expect(s.accents).toEqual({ slots: 0, hits: 0, meanDeltaDb: null, belowThreshold: 0, thresholdDb: 6 })
+    expect(s.accents).toEqual({ slots: 0, hits: 0, meanDeltaDb: null, belowThreshold: null, thresholdDb: 6 })
     expect(s.uniformity.sdDbTaps).toBeNull()
     expect(s.bpmByRepeat).toEqual([])
+  })
+  it('accenti presenti ma zero taps non accentati: delta e sotto-soglia restano null, non un falso zero', () => {
+    // solo gli slot accentati ricevono un colpo: nessun tap a cui confrontarli
+    const hits3 = grid.slots.filter((s) => s.step.accent).map((s) => ({ t: s.t, peakDb: -10 }))
+    const s = computeStats(judge(grid.slots, hits3))
+    expect(s.accents.slots).toBe(4)
+    expect(s.accents.hits).toBe(4)
+    expect(s.accents.meanDeltaDb).toBeNull()
+    expect(s.accents.belowThreshold).toBeNull()
+  })
+  it('soglia +6 dB esclusiva: un delta di esattamente 6 dB non conta come sotto soglia', () => {
+    // tapMean resta -20 (invariato); l'accento all'indice 0 è a -14 dB, cioè +6.0 esatti sopra tapMean
+    const hits4 = grid.slots.map((s, i) => ({ t: s.t, peakDb: s.step.accent ? (i === 0 ? -14 : -10) : -20 }))
+    const s = computeStats(judge(grid.slots, hits4))
+    expect(s.accents.belowThreshold).toBe(0)
+  })
+})
+
+describe('assorbiti non influenzano la uniformità', () => {
+  const mkSlot = (hand: 'R' | 'L', index: number): Slot => ({
+    index,
+    t: index,
+    dur: 0.1,
+    step: { hand, accent: false },
+    repeat: 0,
+    bar: 0,
+    beat: 0,
+    sub: index,
+  })
+  const mkJudged = (slot: Slot, peakDb: number): Judged => ({ slot, hit: { t: slot.t, peakDb }, offsetMs: 0, grade: 'good' })
+
+  it('un colpo assorbito non entra nel calcolo di sdDbTaps, nemmeno con taps reali presenti', () => {
+    // due taps non accentati a -18 e -22 dB: sd campionaria = sqrt(((2)^2 + (-2)^2) / 1) = sqrt(8)
+    const judged = [mkJudged(mkSlot('R', 0), -18), mkJudged(mkSlot('L', 1), -22)]
+    const without = computeStats({ judged, extras: [], absorbed: [] })
+    // lo stesso judged, più un colpo assorbito a -5 dB: se filtrasse male, la sd salterebbe vistosamente
+    const withAbsorbed = computeStats({ judged, extras: [], absorbed: [{ t: 0.05, peakDb: -5 }] })
+    expect(without.uniformity.sdDbTaps).toBeCloseTo(Math.sqrt(8))
+    expect(withAbsorbed.uniformity.sdDbTaps).toBe(without.uniformity.sdDbTaps)
+    expect(without.absorbed).toBe(0)
+    expect(withAbsorbed.absorbed).toBe(1)
   })
 })

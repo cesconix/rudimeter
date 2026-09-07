@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { bpmRuns, toMarkdown } from './report'
+import { computeStats } from './stats'
 import type { SessionStats } from './stats'
 import { EXERCISES } from '../data/exercises'
 
@@ -73,5 +74,29 @@ describe('toMarkdown', () => {
   it('bpmRuns comprime le ripetizioni consecutive', () => {
     expect(bpmRuns([60, 60, 64])).toBe('60 ×2 → 64 ×1')
     expect(bpmRuns([])).toBe('')
+  })
+
+  it('un delta negativo stampa il segno meno, non "+-"', () => {
+    const md2 = toMarkdown({ ...stats, accents: { slots: 20, hits: 19, meanDeltaDb: -3.2, belowThreshold: 15, thresholdDb: 6 } }, EXERCISES[0], 80, new Date())
+    expect(md2).toContain('Accenti: 19/20 · -3.2 dB sui colpi normali · 15 sotto +6 dB')
+    expect(md2).not.toContain('+-')
+  })
+  it('sotto-soglia null (nessun tap di riferimento) non stampa uno zero rassicurante', () => {
+    const md2 = toMarkdown({ ...stats, accents: { slots: 4, hits: 4, meanDeltaDb: null, belowThreshold: null, thresholdDb: 6 } }, EXERCISES[0], 80, new Date())
+    expect(md2).toContain('Accenti: 4/4 · — dB sui colpi normali · — sotto +6 dB')
+  })
+  it('esercizio senza accenti: la riga Accenti non compare affatto', () => {
+    const md2 = toMarkdown({ ...stats, accents: { slots: 0, hits: 0, meanDeltaDb: null, belowThreshold: null, thresholdDb: 6 } }, EXERCISES[0], 80, new Date())
+    expect(md2).not.toContain('Accenti:')
+  })
+  it('nessuna mano con taps: niente parentesi vuote dopo la sd', () => {
+    const md2 = toMarkdown({ ...stats, uniformity: { sdDbTaps: null, hands: [] } }, EXERCISES[0], 80, new Date())
+    expect(md2).toContain('Uniformità: σ dB —')
+    expect(md2).not.toContain('()')
+  })
+  it('sessione completamente vuota: nessun NaN/undefined/Infinity nel markdown', () => {
+    const empty = computeStats({ judged: [], extras: [], absorbed: [] })
+    const md2 = toMarkdown(empty, EXERCISES[0], 80, new Date())
+    expect(md2).not.toMatch(/NaN|undefined|Infinity/)
   })
 })

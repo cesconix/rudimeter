@@ -36,8 +36,12 @@ export function toMarkdown(stats: SessionStats, exercise: Exercise, bpm: number,
     '',
     `Slot ${stats.slots}: good ${stats.good} · ok ${stats.ok} · off ${stats.off} · miss ${stats.miss} · extra ${stats.extras}${stats.absorbed > 0 ? ` · assorbiti ${stats.absorbed}` : ''}`,
     `Offset medio ${f(stats.meanOffsetMs)} ms (σ ${f(stats.sdOffsetMs)})`,
-    `Uniformità: σ dB ${f(stats.uniformity.sdDbTaps)} (${stats.uniformity.hands.map((h) => `${h.hand} ${f(h.sdDbTaps)}`).join(' · ')})`,
-    `Accenti: ${stats.accents.hits}/${stats.accents.slots} · ${stats.accents.meanDeltaDb === null ? '—' : `+${f(stats.accents.meanDeltaDb)}`} dB sui colpi normali · ${stats.accents.belowThreshold} sotto +${stats.accents.thresholdDb} dB`,
+    `Uniformità: σ dB ${f(stats.uniformity.sdDbTaps)}${stats.uniformity.hands.length > 0 ? ` (${stats.uniformity.hands.map((h) => `${h.hand} ${f(h.sdDbTaps)}`).join(' · ')})` : ''}`,
+    ...(stats.accents.slots > 0
+      ? [
+          `Accenti: ${stats.accents.hits}/${stats.accents.slots} · ${stats.accents.meanDeltaDb === null ? '—' : `${stats.accents.meanDeltaDb >= 0 ? '+' : ''}${f(stats.accents.meanDeltaDb)}`} dB sui colpi normali · ${stats.accents.belowThreshold === null ? '—' : stats.accents.belowThreshold} sotto +${stats.accents.thresholdDb} dB`,
+        ]
+      : []),
     ...(new Set(stats.bpmByRepeat).size > 1 ? [`Bpm: ${bpmRuns(stats.bpmByRepeat)}`] : []),
     ...cal,
     '',

@@ -30,8 +30,8 @@ export interface AccentStats {
   hits: number
   /** media dB(accenti) − media dB(non accentati) */
   meanDeltaDb: number | null
-  /** accenti colpiti che stanno sotto la soglia rispetto alla media dei non accentati */
-  belowThreshold: number
+  /** accenti colpiti che stanno sotto la soglia rispetto alla media dei non accentati; null se non ci sono taps a cui confrontarli */
+  belowThreshold: number | null
   thresholdDb: number
 }
 
@@ -124,7 +124,7 @@ export function computeStats(result: JudgeResult, opts: StatsOptions = {}): Sess
     slots: accented.length,
     hits: accentHits.length,
     meanDeltaDb: accentMean !== null && tapMean !== null ? accentMean - tapMean : null,
-    belowThreshold: tapMean === null ? 0 : accentHits.filter((j) => (j.hit as Hit).peakDb - tapMean < thresholdDb).length,
+    belowThreshold: tapMean === null ? null : accentHits.filter((j) => (j.hit as Hit).peakDb - tapMean < thresholdDb).length,
     thresholdDb,
   }
 
