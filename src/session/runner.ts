@@ -1,5 +1,6 @@
-import { buildGrid, DEFAULT_METRONOME, type Click, type Grid, type MetronomeOptions } from '../engine/grid'
+import { buildGrid, DEFAULT_METRONOME, replanGrid, repeatAt, type Click, type Grid, type MetronomeOptions } from '../engine/grid'
 import { judge } from '../engine/judge'
+import { nextBpm, type AutoIncrement } from '../engine/progression'
 import { computeStats, type SessionStats } from '../engine/stats'
 import type { Exercise, Hit, JudgeResult, Windows } from '../engine/types'
 import { DEFAULT_WINDOWS } from '../engine/types'
@@ -25,6 +26,7 @@ export interface RunnerConfig {
   windows?: Windows
   countInBars?: number
   metronome?: MetronomeOptions
+  autoIncrement?: AutoIncrement
 }
 
 export type RunnerPhase = 'idle' | 'count-in' | 'playing' | 'done'
@@ -34,6 +36,8 @@ export interface RunnerState {
   grid: Grid
   result: JudgeResult
   hits: Hit[]
+  /** bpm della ripetizione in corso */
+  bpm: number
 }
 
 /** Collega griglia, click e colpi. I colpi entrano grezzi e vengono corretti di latenza e pendenza. */
@@ -44,6 +48,7 @@ export class SessionRunner {
   private unsubscribe: (() => void) | null = null
   private listeners = new Set<(s: RunnerState) => void>()
   private phase: RunnerPhase = 'idle'
+  private lastEvaluatedRepeat = -1
 
   constructor(private deps: RunnerDeps, private cfg: RunnerConfig) {}
 
@@ -73,8 +78,25 @@ export class SessionRunner {
     if (!this.grid || this.phase === 'idle' || this.phase === 'done') return null
     const now = this.deps.now()
     if (this.phase === 'count-in' && now >= this.grid.countInEnd) this.phase = 'playing'
+    if (this.phase === 'playing') this.maybeIncrement(now)
     if (now >= this.grid.end + this.grid.minStepDur / 2) this.finish()
     return this.snapshot()
+  }
+
+  /** Una valutazione per ripetizione, al suo inizio. Se passa, le ripetizioni da current+1 vengono ripianificate al bpm nuovo. */
+  private maybeIncrement(now: number): void {
+    const ai = this.cfg.autoIncrement
+    if (!ai || !this.grid) return
+    const r = repeatAt(this.grid, now)
+    if (r === this.lastEvaluatedRepeat) return
+    this.lastEvaluatedRepeat = r
+    const bpm = nextBpm(this.snapshot().result, this.grid, r, ai)
+    if (bpm === null) return
+    this.grid = replanGrid(this.grid, this.cfg.exercise, r + 1, bpm, this.cfg.metronome ?? DEFAULT_METRONOME)
+    const from = this.grid.repeats[r + 1].start
+    this.clicks?.dropAfter(from)
+    this.clicks?.add(this.grid.repeats.slice(r + 1).flatMap((rp) => rp.clicks))
+    this.emit()
   }
 
   stop(): void {
@@ -100,7 +122,8 @@ export class SessionRunner {
     if (!this.grid) throw new Error('runner non avviato')
     const now = this.phase === 'done' ? undefined : this.deps.now()
     const result = judge(this.grid.slots, this.hits, { windows: this.cfg.windows ?? DEFAULT_WINDOWS, now })
-    return { phase: this.phase, grid: this.grid, result, hits: [...this.hits] }
+    const bpm = this.grid.repeats[repeatAt(this.grid, now ?? this.deps.now())].bpm
+    return { phase: this.phase, grid: this.grid, result, hits: [...this.hits], bpm }
   }
 
   stats(): SessionStats {

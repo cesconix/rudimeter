@@ -117,3 +117,34 @@ describe('SessionRunner', () => {
     expect(r.snapshot().result.judged[0].grade).not.toBe('miss')
   })
 })
+
+describe('auto-increment', () => {
+  const ex6 = parseExercise({ id: 'e', name: 'e', timeSignature: [2, 4], steps: 'RL RL | RL RL', repeats: 6 })
+  const ai = { step: 10, after: 2, minAccuracy: 0.9, maxBpm: 240 }
+
+  it('dopo 2 ripetizioni pulite alza di 10 dalla ripetizione successiva a quella in corso e aggiorna i click', () => {
+    const f = fakeDeps()
+    const r = new SessionRunner(f.deps, { exercise: ex6, bpm: 60, latencyMs: 0, slope: null, autoIncrement: ai })
+    r.start()
+    const grid0 = r.snapshot().grid
+    grid0.slots.filter((s) => s.repeat < 2).forEach((s) => { f.advance(s.t - f.deps.now()); f.hit({ t: s.t, peakDb: -20 }) })
+    f.advance(grid0.repeats[2].start + 0.01 - f.deps.now())
+    const s = r.tick()!
+    expect(s.grid.repeats.map((x) => x.bpm)).toEqual([60, 60, 60, 70, 70, 70])
+    expect(s.grid.repeats[3].start).toBeCloseTo(grid0.repeats[3].start, 6)
+    expect(f.scheduled[0].droppedAfter).toEqual([s.grid.repeats[3].start])
+    expect(f.scheduled[0].added[0]).toHaveLength(3 * 4)
+    expect(s.bpm).toBe(60)
+  })
+
+  it('con un miss non alza', () => {
+    const f = fakeDeps()
+    const r = new SessionRunner(f.deps, { exercise: ex6, bpm: 60, latencyMs: 0, slope: null, autoIncrement: ai })
+    r.start()
+    const grid0 = r.snapshot().grid
+    grid0.slots.filter((s) => s.repeat < 2 && s.index !== 3).forEach((s) => { f.advance(s.t - f.deps.now()); f.hit({ t: s.t, peakDb: -20 }) })
+    f.advance(grid0.repeats[2].start + 0.01 - f.deps.now())
+    expect(r.tick()!.grid.repeats.every((x) => x.bpm === 60)).toBe(true)
+    expect(f.scheduled[0].added).toEqual([])
+  })
+})
