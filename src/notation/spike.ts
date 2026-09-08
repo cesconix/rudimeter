@@ -1,6 +1,11 @@
 // Pagina dev: galleria di tutte le figure che notation/plan + notation/build possono produrre
 // (verifica visiva manuale, VexFlow disegna nel DOM) e controlli di misura (render di 40 battute,
 // ricolorazione via DOM a 20 note/s, scroll con translateX) ereditati dallo spike originale.
+//
+// Il controllo "scroll" resta una misura di frame rate su un translateX orizzontale: la produzione
+// non scorre più così (lo spartito va a capo e scorre in verticale via `scrollTop`, vedi Score), ma
+// il numero che questo bottone produce — quanti frame saltano mentre un layer promosso si muove —
+// vale lo stesso.
 import { parseExercise } from '../engine/exercise'
 import type { Exercise } from '../engine/types'
 import { paintColor } from './paint'
@@ -80,23 +85,42 @@ const GALLERY_REALISTIC = parseExercise({
 
 const allNotes: StaveNote[] = []
 
+/**
+ * `barsPerRepeat` = tutte le battute dell'esercizio: la galleria non ha ripetizioni da rispettare e
+ * vuole il massimo su una riga sola. `availW` è la larghezza del contenitore, con un fallback
+ * generoso per quando la pagina misura 0 (host non ancora in layout).
+ */
+function optionsFor(host: HTMLDivElement, ex: Exercise, bars: number) {
+  return {
+    timeSignature: `${ex.timeSignature[0]}/${ex.timeSignature[1]}`,
+    beatsPerBar: ex.timeSignature[0],
+    barsPerRepeat: bars,
+    availW: host.clientWidth || 1200,
+  }
+}
+
 function draw(ex: typeof SHOWCASE): number {
   const host = document.getElementById('score') as HTMLDivElement
   allNotes.length = 0
+  const bars = planExercise(ex)
   const t = performance.now()
-  const r: RenderedScore = renderScore(host, planExercise(ex), { timeSignature: `${ex.timeSignature[0]}/${ex.timeSignature[1]}`, beatsPerBar: ex.timeSignature[0] })
+  // Le 40 battute ora escono su più righe invece che in striscia: la misura è la stessa, è il
+  // tempo di disegnare tutto l'SVG.
+  const r: RenderedScore = renderScore(host, bars, optionsFor(host, ex, bars.length))
   r.notes.forEach((n) => allNotes.push(n.note))
   return performance.now() - t
 }
 
 /**
  * Render statico di una sezione della galleria: una volta, nessuna misura, nessun bottone.
- * `beatPx` è più largo del default (96) per le sezioni con movimenti da 5-8 figure: a 96px un
- * gruppo irregolare 6-in-4/7-in-4 o un movimento di ottavine si sovrappone e diventa illeggibile.
+ * La larghezza del movimento non è più negoziabile dal chiamante (la decide `fitLayout` dallo
+ * spazio, e non sale mai sopra il naturale): le sezioni con movimenti da 5-8 figure stanno più
+ * strette di prima.
  */
-function renderGallery(id: string, ex: Exercise, beatPx?: number): void {
+function renderGallery(id: string, ex: Exercise): void {
   const host = document.getElementById(id) as HTMLDivElement
-  renderScore(host, planExercise(ex), { beatPx, timeSignature: `${ex.timeSignature[0]}/${ex.timeSignature[1]}`, beatsPerBar: ex.timeSignature[0] })
+  const bars = planExercise(ex)
+  renderScore(host, bars, optionsFor(host, ex, bars.length))
 }
 
 const COLORS = ['#2a2', '#c90', '#d33', '#888']
@@ -177,9 +201,9 @@ document.getElementById('scroll')!.addEventListener('click', scrollLoop)
 // sicuro perché scattano dopo il load; la galleria invece disegna da sola all'avvio, quindi aspetta.
 await notationFontsReady()
 
-renderGallery('gallery-durations', GALLERY_DURATIONS, 220)
-renderGallery('gallery-tuplets', GALLERY_TUPLETS, 220)
-renderGallery('gallery-rests', GALLERY_RESTS, 220)
+renderGallery('gallery-durations', GALLERY_DURATIONS)
+renderGallery('gallery-tuplets', GALLERY_TUPLETS)
+renderGallery('gallery-rests', GALLERY_RESTS)
 renderGallery('gallery-ornaments', GALLERY_ORNAMENTS)
 renderGallery('gallery-accent-ornament', GALLERY_ACCENT_ORNAMENT)
 renderGallery('gallery-beams', GALLERY_BEAMS)

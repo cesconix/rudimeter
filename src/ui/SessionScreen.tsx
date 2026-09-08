@@ -76,7 +76,10 @@ export function SessionScreen({ engine, exercise, bpm, options, calibration, onD
   const repeat = state.phase === 'done' ? grid.repeats.length - 1 : repeatAt(grid, now)
 
   return (
-    <main>
+    // `session`: colonna a tutta altezza, così la partitura prende lo spazio che avanza invece di
+    // una altezza fissa. È anche il contenitore posizionato del tasto "torna al cursore" di Score,
+    // che deve stare fermo mentre la musica scorre (vedi styles.css).
+    <main className="session">
       <div className="row">
         <h1>{exercise.name} @ {state.bpm} bpm</h1>
         <p>Ripetizione {Math.min(repeat + 1, exercise.repeats)} / {exercise.repeats}</p>

@@ -13,9 +13,14 @@ input[type=number] { font-size: 1.2rem; width: 5em; padding: 8px; }
 .meter { position: relative; height: 12px; background: #8882; border-radius: 4px; overflow: hidden; margin: 6px 0; }
 .meter > div { height: 100%; background: #3c3; }
 .meter > .threshold { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; opacity: .8; }
-.score-viewport { position: relative; overflow: hidden; background: #fff; border-radius: 8px; }
-.score-host { will-change: transform; }
-.score-cursor { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent); z-index: 1; }
+/* `position: relative` perché `.score-follow` si àncora qui: dev'essere un antenato che NON scorre,
+   altrimenti il bottone scorre via con la musica. */
+main.session { position: relative; display: flex; flex-direction: column; height: 100dvh; }
+main.session .score-viewport { flex: 1; min-height: 160px; }
+.score-viewport { position: relative; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; background: #fff; border-radius: 8px; }
+.score-host { position: relative; }
+.score-cursor { position: absolute; left: 0; width: 2px; background: var(--accent); z-index: 1; pointer-events: none; }
+.score-follow { position: absolute; right: 14px; bottom: 14px; z-index: 2; border-radius: 999px; box-shadow: 0 2px 10px #0004; }
 table { border-collapse: collapse; margin: 8px 0; }
 td, th { padding: 4px 10px; border-bottom: 1px solid #8883; text-align: right; }
 th:first-child, td:first-child { text-align: left; }
