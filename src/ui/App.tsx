@@ -18,6 +18,7 @@ export interface SessionOptions {
   autoIncrement: AutoIncrement | null
 }
 export const DEFAULT_SESSION_OPTIONS: SessionOptions = { metronome: DEFAULT_METRONOME, autoIncrement: null }
+const DEFAULT_BPM = 60
 
 export function App() {
   const [screen, setScreen] = useState<Screen>('start')
@@ -79,7 +80,27 @@ export function App() {
   if (screen === 'start' || !engine) return <StartScreen onStart={start} busy={busy} error={error} />
   if (screen === 'calibration') return <>{banner}<CalibrationScreen engine={engine} existing={calibration} onDone={onCalibrated} /></>
   if (screen === 'pick' || !pick || !calibration) {
-    return <>{banner}<ExercisePicker onPick={(exercise, bpm, options) => { setPick({ exercise, bpm, options }); setScreen('session') }} onRecalibrate={() => setScreen('calibration')} /></>
+    return (
+      <>
+        {banner}
+        <ExercisePicker
+          previousBpm={pick?.bpm ?? DEFAULT_BPM}
+          previousOptions={pick?.options ?? DEFAULT_SESSION_OPTIONS}
+          onPick={(exercise, bpm, options) => {
+            // `options` deve restare la stessa reference per tutta la sessione: l'effetto di
+            // SessionScreen che possiede il SessionRunner è tenuto in dipendenza da `pick.options`
+            // (vedi SessionScreen). Se qui rientrasse un oggetto nuovo a ogni render invece che quello
+            // fissato al click, l'effetto smonterebbe e rimonterebbe il runner: l'esercizio
+            // ripartirebbe da capo, i colpi accumulati andrebbero persi e i click verrebbero
+            // ri-schedulati. `options` arriva già fissato da ExercisePicker al momento di "Parti":
+            // qui lo si congela in stato e non lo si ricrea mai.
+            setPick({ exercise, bpm, options })
+            setScreen('session')
+          }}
+          onRecalibrate={() => setScreen('calibration')}
+        />
+      </>
+    )
   }
   if (screen === 'session') {
     return <>{banner}<SessionScreen engine={engine} exercise={pick.exercise} bpm={pick.bpm} options={pick.options} calibration={calibration} onDone={onSessionDone} onAbort={() => setScreen('pick')} /></>

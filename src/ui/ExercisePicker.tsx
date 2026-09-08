@@ -5,16 +5,20 @@ import type { Exercise } from '../engine/types'
 import type { SessionOptions } from './App'
 
 interface Props {
+  /** Ultimo bpm scelto (o il default): seed dello stato locale, non un valore controllato. */
+  previousBpm: number
+  /** Ultime opzioni scelte (o `DEFAULT_SESSION_OPTIONS`): seed dello stato locale, non un valore controllato. */
+  previousOptions: SessionOptions
   onPick(exercise: Exercise, bpm: number, options: SessionOptions): void
   onRecalibrate(): void
 }
 
-export function ExercisePicker({ onPick, onRecalibrate }: Props) {
+export function ExercisePicker({ previousBpm, previousOptions, onPick, onRecalibrate }: Props) {
   const [id, setId] = useState(EXERCISES[0].id)
-  const [bpm, setBpm] = useState(60)
-  const [clickSubdivision, setClickSubdivision] = useState<1 | 2 | 3 | 4>(1)
-  const [gap, setGap] = useState(false)
-  const [auto, setAuto] = useState(false)
+  const [bpm, setBpm] = useState(previousBpm)
+  const [clickSubdivision, setClickSubdivision] = useState<1 | 2 | 3 | 4>(previousOptions.metronome.clickSubdivision)
+  const [gap, setGap] = useState(previousOptions.metronome.gap !== undefined)
+  const [auto, setAuto] = useState(previousOptions.autoIncrement !== null)
   const exercise = EXERCISES.find((e) => e.id === id) ?? EXERCISES[0]
   const options: SessionOptions = {
     metronome: { clickSubdivision, gap: gap ? { on: 2, off: 2 } : undefined },
@@ -24,7 +28,7 @@ export function ExercisePicker({ onPick, onRecalibrate }: Props) {
   return (
     <main>
       <h1>Esercizio</h1>
-      <select value={id} onChange={(e) => setId(e.target.value)}>
+      <select aria-label="Esercizio" value={id} onChange={(e) => setId(e.target.value)}>
         {EXERCISES.map((e) => <option key={e.id} value={e.id}>{e.name}{e.source ? ` — ${e.source}` : ''}</option>)}
       </select>
       <p><code>{exercise.sticking}</code> · {exercise.timeSignature.join('/')} · {exercise.repeats} ripetizioni</p>
@@ -44,6 +48,7 @@ export function ExercisePicker({ onPick, onRecalibrate }: Props) {
         <button className="secondary" onClick={() => setBpm((b) => Math.min(240, b + 5))}>+5</button>
       </div>
       <fieldset className="transport">
+        <legend>Trasporto</legend>
         <label>
           Click per movimento
           <select value={clickSubdivision} onChange={(e) => setClickSubdivision(Number(e.target.value) as 1 | 2 | 3 | 4)}>

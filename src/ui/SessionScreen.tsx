@@ -25,6 +25,12 @@ export function SessionScreen({ engine, exercise, bpm, options, calibration, onD
   const runnerRef = useRef<SessionRunner | null>(null)
   const [state, setState] = useState<RunnerState | null>(null)
 
+  // `options` è in dipendenza qui sotto e deve restare reference-stable per tutta la sessione: App
+  // la fissa una volta sola in `pick.options` al momento del pick (vedi App.tsx) e non la ricrea mai
+  // mentre questo schermo è montato. Se un giorno arrivasse qui un oggetto ricreato a ogni render
+  // (es. un controllo di trasporto in-sessione, o uno spread `{...options, x}`), questo effetto
+  // smonterebbe e rimonterebbe il SessionRunner a ogni render: l'esercizio ripartirebbe da capo, i
+  // colpi accumulati andrebbero persi e i click verrebbero ri-schedulati.
   useEffect(() => {
     const runner = new SessionRunner(
       {

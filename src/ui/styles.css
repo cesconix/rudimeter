@@ -13,7 +13,6 @@ input[type=number] { font-size: 1.2rem; width: 5em; padding: 8px; }
 .meter { position: relative; height: 12px; background: #8882; border-radius: 4px; overflow: hidden; margin: 6px 0; }
 .meter > div { height: 100%; background: #3c3; }
 .meter > .threshold { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; opacity: .8; }
-.grid { display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
 .score-viewport { position: relative; overflow: hidden; background: #fff; border-radius: 8px; }
 .score-host { will-change: transform; }
 .score-cursor { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent); z-index: 1; }
