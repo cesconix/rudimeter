@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { ClickScheduler } from '../audio/click-scheduler'
+import { audibleTime } from '../audio/clock'
 import type { Engine } from '../audio/engine'
 import type { CalibrationData } from '../audio/storage'
 import { DEFAULT_METRONOME, repeatAt } from '../engine/grid'
@@ -60,7 +61,9 @@ export function SessionScreen({ engine, exercise, bpm, calibration, onDone, onAb
 
   if (!state) return <main><p>Avvio…</p></main>
 
-  const now = engine.ctx.currentTime
+  // Clock udibile, non quello di schedulazione: il disegno deve stare col suono che esce, non col
+  // suono prenotato (vedi audibleTime). Il runner sopra continua a schedulare su `currentTime`.
+  const now = audibleTime(engine.ctx)
   const { grid } = state
   const repeat = state.phase === 'done' ? grid.repeats.length - 1 : repeatAt(grid, now)
 

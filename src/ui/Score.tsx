@@ -10,7 +10,7 @@ interface Props {
   exercise: Exercise
   grid: Grid
   judged: Judged[]
-  /** clock audio, secondi */
+  /** clock UDIBILE in secondi (vedi `audibleTime`), non `ctx.currentTime`: il cursore sta col suono che esce */
   now: number
 }
 
