@@ -24,7 +24,7 @@ export function Score({ exercise, grid, judged, now }: Props) {
   const cursorRef = useRef<HTMLDivElement>(null)
   const rendered = useRef<RenderedScore | null>(null)
   const lastGrades = useRef(new Map<number, Grade>())
-  const points = useRef<{ grid: Grid; points: CursorPoint[] } | null>(null)
+  const points = useRef<{ grid: Grid; score: RenderedScore; points: CursorPoint[] } | null>(null)
 
   // Un render per esercizio. Le ripetizioni sono srotolate: 20 × 2 battute = 40 battute in un SVG.
   // renderScore non va chiamato prima che i font siano pronti (vedi il suo docstring), quindi questo
@@ -33,10 +33,19 @@ export function Score({ exercise, grid, judged, now }: Props) {
   // render ha già cancellato (renderScore fa `host.innerHTML = ''`). `cancelled` impedisce che
   // un'invocazione scavalcata scriva `rendered`/`lastGrades`/`points`: li scrive solo chi ha vinto,
   // e li scrive tutti e tre insieme — `lastGrades` è la memoria di QUESTO SVG (vedi paintDiff).
+  // Azzeriamo i tre ref anche PRIMA dell'await, non solo dopo: se questo effect si ri-esegue senza
+  // smontaggio (nessun caller lo fa oggi — vedi i commenti di SessionScreen — ma un futuro caller a
+  // finestre lo farebbe), i ref altrimenti resterebbero puntati al render precedente per tutta la durata
+  // dell'attesa, mentre l'altro effect gira già coi nuovi `grid`/`judged`: colorerebbe il punteggio
+  // vecchio coi giudizi nuovi. Azzerarli subito rende quella finestra inerte tramite il già esistente
+  // `if (!r) return` sotto, invece di fargli fare la cosa sbagliata.
   useEffect(() => {
     const host = hostRef.current
     if (!host) return
     let cancelled = false
+    rendered.current = null
+    lastGrades.current = new Map()
+    points.current = null
     notationFontsReady().then(() => {
       if (cancelled) return
       const r = renderScore(host, planExercise(exercise), {
@@ -62,9 +71,14 @@ export function Score({ exercise, grid, judged, now }: Props) {
     const host = hostRef.current
     const cur = cursorRef.current
     if (!r || !vp || !host || !cur) return
-    if (points.current?.grid !== grid) {
+    // Chiave sia su `grid` sia su `r`: le coordinate vengono da `r`, non da `grid`, quindi un futuro
+    // caller che ri-renderizzi la partitura per la STESSA grid (di nuovo, le finestre: stessa sessione,
+    // stessa grid, un nuovo RenderedScore per finestra) deve invalidare la cache anche se `grid` non
+    // cambia — altrimenti il cursore userebbe per sempre le x del render precedente.
+    if (points.current?.grid !== grid || points.current?.score !== r) {
       points.current = {
         grid,
+        score: r,
         points: grid.slots.flatMap((s) => {
           const n = r.notes.get(s.index)
           return n ? [{ t: s.t, x: n.x }] : []
