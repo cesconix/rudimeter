@@ -24,6 +24,8 @@ const NATURAL_NOTEHEAD_PX = 11.8
 /** Sotto questa dimensione la testa di nota non si legge più: è il vincolo che limita la densità. */
 const MIN_NOTEHEAD_PX = 8
 
+export type ScaleMode = 'fit' | 'natural'
+
 interface Fit {
   barsPerRow: number
   scale: number
@@ -39,9 +41,18 @@ interface Fit {
  * piccola, e sotto `MIN_NOTEHEAD_PX` la testa di nota diventa un puntino. Si prende quindi il
  * massimo che sta dentro quel limite, e lo si aggancia all'unità musicale.
  */
-export function fitLayout(availW: number, availH: number, barsPerRepeat: number, beatsPerBar: number): Fit {
+export function fitLayout(
+  availW: number,
+  availH: number,
+  barsPerRepeat: number,
+  beatsPerBar: number,
+  mode: ScaleMode = 'fit',
+): Fit {
   const naturalBar = beatsPerBar * NATURAL_BEAT_PX
-  const minScale = MIN_NOTEHEAD_PX / NATURAL_NOTEHEAD_PX
+  // 'fit' riempie la larghezza e accetta di rimpicciolire fino a MIN_NOTEHEAD_PX; 'natural' non
+  // scala mai e accetta di lasciare spazio vuoto a destra. Sono le due facce dello stesso scambio:
+  // quanta musica vedi contro quanto è grande.
+  const minScale = mode === 'natural' ? 1 : MIN_NOTEHEAD_PX / NATURAL_NOTEHEAD_PX
   // k = availW / (n * naturalBar + head) ≥ minScale  ⇒  n ≤ (availW/minScale − head) / naturalBar
   const maxBars = Math.max(1, Math.floor((availW / minScale - NATURAL_HEAD_PX) / naturalBar))
 
@@ -55,7 +66,9 @@ export function fitLayout(availW: number, availH: number, barsPerRepeat: number,
     barsPerRow = divisors.filter((d) => d <= maxBars).pop() ?? 1
   }
 
-  const scale = availW / (barsPerRow * naturalBar + NATURAL_HEAD_PX)
+  // In 'fit' la scala non sale mai sopra il naturale: su uno schermo largo la musica va gigante,
+  // non è più leggibile, è solo grande.
+  const scale = mode === 'natural' ? 1 : Math.min(1, availW / (barsPerRow * naturalBar + NATURAL_HEAD_PX))
   const systemH = NATURAL_SYSTEM_H * scale
   return { barsPerRow, scale, systemH, maxRows: Math.max(1, Math.floor(availH / systemH)) }
 }
@@ -180,6 +193,7 @@ async function main(): Promise<void> {
   const info = $('info')
   const exEl = $('exercise') as HTMLSelectElement
   const bpmEl = $('bpm') as HTMLInputElement
+  const modeEl = $('mode') as HTMLSelectElement
 
   EXERCISES.forEach((e) => exEl.append(new Option(e.name, e.id)))
   exEl.value = EXERCISES[0].id
@@ -196,7 +210,7 @@ async function main(): Promise<void> {
     const ex = EXERCISES.find((e) => e.id === exEl.value) ?? EXERCISES[0]
     const bars = planExercise(ex)
     const barsPerRepeat = Math.max(1, bars.filter((b) => b.repeat === 0).length)
-    fit = fitLayout(viewport.clientWidth, viewport.clientHeight, barsPerRepeat, ex.timeSignature[0])
+    fit = fitLayout(viewport.clientWidth, viewport.clientHeight, barsPerRepeat, ex.timeSignature[0], modeEl.value as ScaleMode)
     const w = renderWrapped(host, bars, fit, ex.timeSignature[0], `${ex.timeSignature[0]}/${ex.timeSignature[1]}`)
 
     const grid = buildGrid(ex, Number(bpmEl.value), 0, { countInBars: 0 })
@@ -261,6 +275,7 @@ async function main(): Promise<void> {
   window.addEventListener('resize', relayout)
   window.addEventListener('orientationchange', relayout)
   exEl.addEventListener('change', relayout)
+  modeEl.addEventListener('change', relayout)
   bpmEl.addEventListener('change', relayout)
 
   layout()
