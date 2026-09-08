@@ -11,44 +11,59 @@
       header { padding: 10px 12px; background: #fff; border-bottom: 1px solid #ddd; }
       .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
       label { display: flex; gap: 6px; align-items: center; font-size: 14px; }
-      #info { font-family: ui-monospace, monospace; font-size: 12px; color: #444; margin-top: 8px; }
+      #info { font-family: ui-monospace, monospace; font-size: 11px; color: #444; margin-top: 8px; }
+      #frame { position: relative; margin: 10px; }
       #viewport {
         position: relative;
-        overflow: hidden;
+        overflow-y: auto;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
         background: #fff;
-        margin: 10px;
         border-radius: 8px;
-        height: calc(100vh - 150px);
+        height: calc(100vh - 140px);
       }
-      #host { will-change: transform; }
+      #host { position: relative; }
       #cursor {
         position: absolute;
+        left: 0;
         width: 2px;
         background: var(--accent);
         z-index: 1;
         pointer-events: none;
       }
+      #follow {
+        position: absolute;
+        right: 14px;
+        bottom: 14px;
+        z-index: 2;
+        padding: 10px 16px;
+        border: 0;
+        border-radius: 999px;
+        background: var(--accent);
+        color: #fff;
+        font: inherit;
+        font-weight: 600;
+        box-shadow: 0 2px 10px #0004;
+      }
+      #follow[hidden] { display: none; }
     </style>
   </head>
   <body>
     <header>
       <div class="row">
         <label>Esercizio <select id="exercise"></select></label>
-        <label>Ripetizioni per riga
-          <select id="zoom">
-            <option value="1">1 (note grandi)</option>
-            <option value="2">2</option>
-            <option value="4">4</option>
-            <option value="8">8 (note piccole)</option>
-          </select>
-        </label>
         <label>bpm <input id="bpm" type="number" value="60" min="30" max="240" style="width: 70px" /></label>
       </div>
       <div id="info">…</div>
     </header>
-    <div id="viewport">
-      <div id="cursor"></div>
-      <div id="host"></div>
+    <div id="frame">
+      <div id="viewport">
+        <!-- fratello di #host, non figlio: renderWrapped svuota #host a ogni re-layout. -->
+        <div id="cursor"></div>
+        <div id="host"></div>
+      </div>
+      <button id="follow" hidden>↓ Torna al cursore</button>
     </div>
     <script type="module" src="/src/notation/spike-wrap.ts"></script>
   </body>
