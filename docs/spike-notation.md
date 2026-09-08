@@ -16,6 +16,20 @@ La decisione è **render unico** dell'esercizio srotolato, ma rimane provvisoria
 
 Su Mac i numeri supportano il render unico: 40 battute costano 108,2 ms (circa l'11% del budget complessivo), la ricolorazione e lo scroll non superano mai i 32 ms per frame (73 fps misurati, tab in primo piano, rAF non throttlato) — tutti valori trascurabili rispetto ai 16 ms di budget per frame.
 
+## Misura sul componente vero: scorrimento e colorazione insieme
+
+I numeri sopra misurano scorrimento e colorazione *separatamente*, sulla galleria dello spike. La condizione reale è che avvengano **insieme**, sullo stesso layer promosso: il cursore trasla `.score-host` mentre `paintDiff` muta il `fill` delle note dentro quel layer. Misurato sul componente `Score` vero (React vero, 160 slot, SVG 7750 px, 20 s a 100 bpm, finestra in primo piano):
+
+| CPU | fps | mediana | p99 | max a regime | frame > 16,7 ms | frame lungo isolato |
+|---|---|---|---|---|---|---|
+| 1× | 71,7 | 13,9 ms | 14,9 ms | 15,0 ms | 0 su 1433 | — |
+| 4× | 70,9 | 13,9 ms | 14,9 ms | 14,9 ms | 0 su 1008 | 207,7 ms a 214 ms dall'avvio |
+| 20× | 60,5 | 13,9 ms | 41,3 ms | — | 75 su 908 | 1058 ms a 1042 ms dall'avvio |
+
+Il regime permanente è insensibile al rallentamento della CPU — è lavoro del compositore, non del thread principale. Quello che degrada è **solo il render iniziale**, che è layout VexFlow sul thread principale: a 20× diventa un frame da 1058 ms e attraversa il gate del secondo. Un iPad reale sta molto sotto i 20×, ma è quella la voce da guardare nella colonna iPad, non lo scorrimento.
+
+Corollario: limitare `paintDiff` alla finestra visibile non serve. Itera 160 slot (i 640 erano la galleria dello spike) e il regime è già al passo del display con margine ampio. Se il render iniziale diventasse il collo di bottiglia, il ramo giusto è quello delle finestre da 8 battute già previsto dal piano.
+
 ## Da verificare a mano
 
 1. Intera colonna iPad/Safari: `npm run dev` → accetta certificato → https://<ip-lan>:5173/spike-notation.html → ripeti "40 battute", "Colora", "Scorri" e annota i millisecondi e le percentuali di frame lenti.
