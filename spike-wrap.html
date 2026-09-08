@@ -34,7 +34,14 @@
     <header>
       <div class="row">
         <label>Esercizio <select id="exercise"></select></label>
-        <label>Zoom <input id="zoom" type="range" min="48" max="180" step="6" value="96" /></label>
+        <label>Ripetizioni per riga
+          <select id="zoom">
+            <option value="1">1 (note grandi)</option>
+            <option value="2">2</option>
+            <option value="4">4</option>
+            <option value="8">8 (note piccole)</option>
+          </select>
+        </label>
         <label>bpm <input id="bpm" type="number" value="60" min="30" max="240" style="width: 70px" /></label>
       </div>
       <div id="info">…</div>

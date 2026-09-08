@@ -9,14 +9,21 @@ import { buildBar } from './build'
 import { planExercise } from './plan'
 import { notationFontsReady } from './render'
 
+/**
+ * Geometria naturale: la musica si disegna sempre così, poi si scala. Cambiare questi numeri cambia
+ * le PROPORZIONI (quanto è alta una riga rispetto alle note); la scala la decide la larghezza.
+ */
+const NATURAL_BEAT_PX = 96
+const NATURAL_HEAD_PX = 70
+const NATURAL_SYSTEM_H = 110
+
 interface WrapOptions {
-  beatPx: number
   beatsPerBar: number
   timeSignature: string
-  /** larghezza disponibile: decide quante battute stanno su una riga */
+  /** battute per riga: unità MUSICALE (un numero intero di ripetizioni), non derivata dal viewport */
+  barsPerSystem: number
+  /** larghezza disponibile: decide la SCALA della riga, non quanta musica ci sta */
   availWidth: number
-  headPx: number
-  systemH: number
 }
 
 interface WrapPoint {
@@ -30,7 +37,11 @@ interface Wrapped {
   height: number
   barsPerSystem: number
   systems: number
-  /** slotIndex → posizione assoluta della testa nell'SVG */
+  /** fattore di zoom applicato all'intero contesto */
+  scale: number
+  /** altezza di una riga in pixel di schermo (già scalata) */
+  systemH: number
+  /** slotIndex → posizione assoluta della testa nell'SVG, in pixel di schermo */
   pos: Map<number, { x: number; y: number }>
 }
 
@@ -41,29 +52,36 @@ interface Wrapped {
  */
 function renderWrapped(host: HTMLDivElement, bars: ReturnType<typeof planExercise>, o: WrapOptions): Wrapped {
   host.innerHTML = ''
-  // La prima battuta di ogni riga paga la chiave: lo spazio utile della riga è ridotto di headPx.
-  const avail = o.availWidth - o.headPx
-  const barsPerSystem = Math.max(1, Math.floor(avail / (o.beatsPerBar * o.beatPx)))
-  // Poi le battute si ALLARGANO per riempire la riga, come nella musica incisa: `beatPx` decide
-  // quante ne stanno, non quanto sono larghe. Senza questo, a zoom alto una riga da 300px ne
-  // ospiterebbe una da 192 e sprecherebbe il resto — e il layout sembrerebbe peggiore di quello che è.
-  const barW = avail / barsPerSystem
+  // Il viewport NON decide il layout, decide solo la scala. La riga è un'unità MUSICALE — un numero
+  // intero di ripetizioni — così ogni riga contiene la stessa musica e il pattern non straddia le
+  // righe in modo diverso a ogni giro, che su materiale ripetitivo è illeggibile.
+  //
+  // La musica viene disegnata SEMPRE alle stesse coordinate naturali, poi l'intero contesto viene
+  // scalato di `k`. È la differenza fra zoomare e stirare: allargando solo le battute, le distanze
+  // cambierebbero ma i glifi no (VexFlow li disegna a un corpo fisso), e a righe fitte le teste di
+  // nota finirebbero una sull'altra. Con `ctx.scale` il rapporto fra nota, spazio e altezza della
+  // riga non cambia mai — su nessun dispositivo e a nessuno zoom.
+  const barsPerSystem = o.barsPerSystem
+  const naturalBarW = o.beatsPerBar * NATURAL_BEAT_PX
+  const naturalRowW = barsPerSystem * naturalBarW + NATURAL_HEAD_PX
+  const k = o.availWidth / naturalRowW
   const systems = Math.ceil(bars.length / barsPerSystem)
   const width = o.availWidth
-  const height = systems * o.systemH
+  const height = systems * NATURAL_SYSTEM_H * k
 
   const renderer = new Renderer(host, RendererBackends.SVG)
   renderer.resize(width, height)
   const ctx = renderer.getContext()
+  ctx.scale(k, k)
   const pos = new Map<number, { x: number; y: number }>()
 
   bars.forEach((bar, i) => {
     const sys = Math.floor(i / barsPerSystem)
     const col = i % barsPerSystem
     const first = col === 0
-    const x = first ? 0 : o.headPx + col * barW
-    const y = sys * o.systemH
-    const w = barW + (first ? o.headPx : 0)
+    const x = first ? 0 : NATURAL_HEAD_PX + col * naturalBarW
+    const y = sys * NATURAL_SYSTEM_H
+    const w = naturalBarW + (first ? NATURAL_HEAD_PX : 0)
     const stave = new Stave(x, y, w, { numLines: 1, spaceAboveStaffLn: 5, spaceBelowStaffLn: 4 })
     if (first) stave.addClef('percussion').addTimeSignature(o.timeSignature)
     if (i === bars.length - 1) stave.setEndBarType(BarlineType.END)
@@ -72,10 +90,12 @@ function renderWrapped(host: HTMLDivElement, bars: ReturnType<typeof planExercis
     Formatter.FormatAndDraw(ctx, stave, built.notes)
     built.beams.forEach((b) => b.setContext(ctx).draw())
     built.tuplets.forEach((t) => t.setContext(ctx).draw())
-    built.slotNotes.forEach((note, slotIndex) => pos.set(slotIndex, { x: note.getAbsoluteX(), y: stave.getYForLine(0) }))
+    // Le posizioni tornano in coordinate naturali: il cursore vive nello spazio dello schermo,
+    // quindi vanno riportate moltiplicando per la stessa scala applicata al contesto.
+    built.slotNotes.forEach((note, slotIndex) => pos.set(slotIndex, { x: note.getAbsoluteX() * k, y: stave.getYForLine(0) * k }))
   })
 
-  return { width, height, barsPerSystem, systems, pos }
+  return { width, height, barsPerSystem, systems, pos, scale: k, systemH: NATURAL_SYSTEM_H * k }
 }
 
 /** Posizione del cursore a `now`. Interpola dentro la riga; fra una riga e l'altra salta. */
@@ -120,17 +140,20 @@ async function main(): Promise<void> {
 
   function layout(): void {
     const ex = EXERCISES.find((e) => e.id === exEl.value) ?? EXERCISES[0]
-    const beatPx = Number(zoomEl.value)
-    systemH = Math.round(beatPx * 1.15)
     const bars = planExercise(ex)
+    // La riga è un numero intero di RIPETIZIONI. Lo "zoom" sceglie quante: meno ripetizioni per
+    // riga = note più grandi, perché la riga occupa comunque tutta la larghezza.
+    const barsPerRepeat = Math.max(1, bars.filter((b) => b.repeat === 0).length)
+    const repeatsPerRow = Number(zoomEl.value)
+    const barsPerSystem = barsPerRepeat * repeatsPerRow
+
     const w = renderWrapped(host, bars, {
-      beatPx,
       beatsPerBar: ex.timeSignature[0],
       timeSignature: `${ex.timeSignature[0]}/${ex.timeSignature[1]}`,
+      barsPerSystem,
       availWidth: viewport.clientWidth,
-      headPx: Math.round(beatPx * 0.73),
-      systemH,
     })
+    systemH = w.systemH
 
     // Tempi: la griglia vera dell'app, non un conteggio a mano — così le pause non sfasano gli
     // indici degli slot (`pos` è chiavato sullo slotIndex, e le pause non hanno slot).
@@ -143,11 +166,16 @@ async function main(): Promise<void> {
     const slotsPerBar = Math.round(grid.slots.length / bars.length)
     t0 = performance.now()
 
-    const visible = Math.max(1, Math.floor(viewport.clientHeight / systemH))
+    // Quante righe si vedano è una CONSEGUENZA, non un parametro: la partitura ha un'altezza sua
+    // e il viewport è solo una finestra che ci scorre sopra.
+    const visible = viewport.clientHeight / systemH
+    // La testa di nota è ~11,8px alla scala naturale: scalata dice quanto è grande davvero.
+    const headPx = 11.8 * w.scale
     info.textContent =
-      `viewport ${viewport.clientWidth}×${viewport.clientHeight} · ${w.barsPerSystem} battute per riga · ` +
-      `${w.systems} righe totali · ~${visible} righe visibili · ${w.barsPerSystem * visible} battute a vista · ` +
-      `${slotsPerBar} note per battuta · SVG ${w.width}×${w.height}px`
+      `viewport ${viewport.clientWidth}×${viewport.clientHeight} · riga = ${repeatsPerRow} rip. ` +
+      `(${w.barsPerSystem} battute, ${slotsPerBar * w.barsPerSystem} note) · ${w.systems} righe · ` +
+      `${visible.toFixed(1)} a vista = ${(visible * repeatsPerRow).toFixed(0)} ripetizioni · ` +
+      `zoom ${(w.scale * 100).toFixed(0)}% · testa ${headPx.toFixed(1)}px · riga ${systemH.toFixed(0)}px`
   }
 
   let raf = 0
@@ -178,7 +206,7 @@ async function main(): Promise<void> {
   }
   window.addEventListener('resize', relayout)
   window.addEventListener('orientationchange', relayout)
-  zoomEl.addEventListener('input', relayout)
+  zoomEl.addEventListener("change", relayout)
   exEl.addEventListener('change', relayout)
   bpmEl.addEventListener('change', relayout)
 }
