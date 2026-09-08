@@ -4,7 +4,14 @@ import type { Exercise, Grade, Judged } from '../engine/types'
 import { cursorAt, type CursorPoint } from '../notation/cursor'
 import { paintDiff } from '../notation/paint'
 import { planExercise } from '../notation/plan'
-import { NATURAL_STAFF_H, NATURAL_STAFF_TOP, notationFontsReady, renderScore, type RenderedScore } from '../notation/render'
+import {
+  NATURAL_NOTEHEAD_PX,
+  NATURAL_STAFF_H,
+  NATURAL_STAFF_TOP,
+  notationFontsReady,
+  renderScore,
+  type RenderedScore,
+} from '../notation/render'
 
 interface Props {
   exercise: Exercise
@@ -25,6 +32,14 @@ const ROW_TOP_MARGIN = 0.12
  * l'arrotondamento del browser sui valori frazionari e non arriva a nessun gesto vero.
  */
 const SCROLL_OWNERSHIP_PX = 1.5
+/**
+ * Quanto la banda del cursore sborda sopra e sotto il rigo, in px naturali. Sopra ci sono gambi,
+ * travi e accenti; sotto le diteggiature R/L: la banda le attraversa entrambe invece di fermarsi al
+ * rigo, così è la NOTA a essere evidenziata, non la riga di pentagramma. È per questo che è
+ * semitrasparente (vedi `.score-cursor`): sotto ci deve restare leggibile la R o la L.
+ */
+const CURSOR_ABOVE = 26
+const CURSOR_BELOW = 22
 
 export function Score({ exercise, grid, judged, now }: Props) {
   const viewportRef = useRef<HTMLDivElement>(null)
@@ -148,8 +163,14 @@ export function Score({ exercise, grid, judged, now }: Props) {
       }
     }
 
-    const p = cursorAt(points.current.points, now)
     const { fit } = r
+    // La banda è larga quanto la testa di nota e parte dalla sua stessa x (`RenderedNote.x` è il
+    // bordo sinistro della testa): da ferma — prima del via, e sull'ultima nota alla fine — copre
+    // esatta la nota su cui sta, invece di essere una linea appoggiata al suo fianco.
+    const headW = NATURAL_NOTEHEAD_PX * fit.scale
+    // Bordo destro della partitura meno la larghezza della banda: a fine riga il cursore arriva a
+    // filo del margine, non oltre.
+    const p = cursorAt(points.current.points, now, Math.max(0, r.width - headW))
     // Il cursore sta sulla sua riga, sempre; è lo SCORRIMENTO che lo insegue: la riga corrente si
     // ancora in cima e ci resta, così la pagina è ferma per tutta la riga e scatta (fluida) una
     // volta sola al capo riga. In fondo al pezzo il clamp a maxScroll ferma la pagina e il cursore
@@ -175,11 +196,12 @@ export function Score({ exercise, grid, judged, now }: Props) {
     }
     snapNext.current = false
 
-    // Il cursore copre il rigo e poco più, non tutta la banda della riga: deve leggersi come una
-    // stanghetta che scorre, non come una barra che invade lo spazio delle diteggiature.
+    // Tutte e tre le misure scalano con la partitura: su schermo stretto la banda si stringe con la
+    // nota, altrimenti a note piccole coprirebbe la vicina.
     cur.style.transform = `translateX(${p.x}px)`
-    cur.style.top = `${p.row * fit.systemH + (NATURAL_STAFF_TOP - 8) * fit.scale}px`
-    cur.style.height = `${(NATURAL_STAFF_H + 16) * fit.scale}px`
+    cur.style.width = `${headW}px`
+    cur.style.top = `${p.row * fit.systemH + (NATURAL_STAFF_TOP - CURSOR_ABOVE) * fit.scale}px`
+    cur.style.height = `${(NATURAL_STAFF_H + CURSOR_ABOVE + CURSOR_BELOW) * fit.scale}px`
 
     paintDiff(judged, (i) => r.notes.get(i)?.note.getSVGElement(), lastGrades.current)
   })

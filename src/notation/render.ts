@@ -51,7 +51,7 @@ export interface Fit {
 
 export interface RenderedNote {
   note: StaveNote
-  /** x della testa in px di schermo (già moltiplicata per `scale`) */
+  /** x del BORDO SINISTRO della testa in px di schermo (già moltiplicata per `scale`) */
   x: number
   /** indice della riga su cui sta la nota */
   row: number
@@ -207,7 +207,10 @@ export function renderScore(host: HTMLDivElement, bars: BarPlan[], opts: RenderO
     Formatter.FormatAndDraw(ctx, stave, built.notes)
     built.beams.forEach((b) => b.setContext(ctx).draw())
     built.tuplets.forEach((t) => t.setContext(ctx).draw())
-    built.slotNotes.forEach((note, slotIndex) => notes.set(slotIndex, { note, x: note.getAbsoluteX() * fit.scale, row }))
+    // `getNoteHeadBeginX`, non `getAbsoluteX`: quest'ultima è l'ancora della nota nel formatter e
+    // cade ~7px a destra del bordo sinistro della testa — irrilevante per una stanghetta da 2px,
+    // visibile per la banda del cursore, che è larga quanto la testa e ci deve stare sopra esatta.
+    built.slotNotes.forEach((note, slotIndex) => notes.set(slotIndex, { note, x: note.getNoteHeadBeginX() * fit.scale, row }))
     beams.push(...built.beams)
     tuplets.push(...built.tuplets)
   })
