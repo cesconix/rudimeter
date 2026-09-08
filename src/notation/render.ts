@@ -103,6 +103,10 @@ export function fitLayout(availW: number, barsPerRepeat: number, beatsPerBar: nu
   const atLeastOneBar = (n: number) => (Number.isFinite(n) ? Math.max(1, Math.floor(n)) : 1)
   const repeat = atLeastOneBar(barsPerRepeat)
   const total = atLeastOneBar(totalBars)
+  // Stessa porta, terzo parametro: un `availW` non finito uscirebbe come scala e altezza NaN anche
+  // con gli altri due sani. Oggi arriva sempre da `clientWidth`, che è un numero; la guardia sta qui
+  // perché la funzione è esportata, non perché il chiamante di oggi ne abbia bisogno.
+  const width = Number.isFinite(availW) ? Math.max(0, availW) : 0
   const naturalBar = beatsPerBar * NATURAL_BEAT_PX
   const fixed = NATURAL_HEAD_PX + NATURAL_RIGHT_PAD
   /** Larghezza che `n` battute occupano al corpo naturale, chiave e margine destro inclusi. */
@@ -126,15 +130,15 @@ export function fitLayout(availW: number, barsPerRepeat: number, beatsPerBar: nu
   let nFit = 0
   let nOver = 0
   for (const n of candidates) {
-    if (naturalW(n) <= availW) nFit = n
+    if (naturalW(n) <= width) nFit = n
     else if (nOver === 0) nOver = n
   }
 
   // Prima la riga che riempie già al corpo pieno (scarto sotto il 10%), poi quella che riempie
   // rimpicciolendo ma resta leggibile, poi comunque quella al corpo pieno anche se lascia spazio.
   let barsPerRow: number
-  if (nFit !== 0 && availW - naturalW(nFit) <= 0.1 * availW) barsPerRow = nFit
-  else if (nOver !== 0 && NATURAL_NOTEHEAD_PX * (availW / naturalW(nOver)) >= MIN_NOTEHEAD_PX) barsPerRow = nOver
+  if (nFit !== 0 && width - naturalW(nFit) <= 0.1 * width) barsPerRow = nFit
+  else if (nOver !== 0 && NATURAL_NOTEHEAD_PX * (width / naturalW(nOver)) >= MIN_NOTEHEAD_PX) barsPerRow = nOver
   else if (nFit !== 0) barsPerRow = nFit
   // Nemmeno una battuta ci sta al minimo leggibile: si mostra comunque la riga più corta possibile,
   // rimpicciolita oltre il pavimento. Una battuta illeggibile è meglio di zero battute.
@@ -142,7 +146,7 @@ export function fitLayout(availW: number, barsPerRepeat: number, beatsPerBar: nu
 
   // La scala non sale mai sopra il naturale: su uno schermo largo la musica andrebbe gigante, non è
   // più leggibile, è solo grande.
-  const scale = Math.min(1, availW / naturalW(barsPerRow))
+  const scale = Math.min(1, width / naturalW(barsPerRow))
   return { barsPerRow, scale, systemH: NATURAL_SYSTEM_H * scale }
 }
 

@@ -92,6 +92,17 @@ describe('fitLayout', () => {
     }
   })
 
+  it('larghezza disponibile non valida: stessa sorte, mai NaN', () => {
+    // Dagli altri due parametri la guardia c'era già; questa chiude la stessa porta sul terzo.
+    // Oggi `availW` viene da `clientWidth` e non può essere NaN, ma `fitLayout` è esportata.
+    for (const availW of [NaN, Infinity, -Infinity, -100]) {
+      const fit = fitLayout(availW, 2, 2, 40)
+      expect(fit.barsPerRow).toBeGreaterThanOrEqual(1)
+      expect(Number.isFinite(fit.scale)).toBe(true)
+      expect(Number.isFinite(fit.systemH)).toBe(true)
+    }
+  })
+
   it('la testa di nota non scende sotto il minimo leggibile', () => {
     for (let availW = 480; availW <= 2000; availW += 20) {
       for (const beatsPerBar of [2, 3, 4]) {
