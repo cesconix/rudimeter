@@ -4,7 +4,7 @@
 import { parseExercise } from '../engine/exercise'
 import type { Exercise } from '../engine/types'
 import { planExercise } from './plan'
-import { renderScore, type RenderedScore } from './render'
+import { notationFontsReady, renderScore, type RenderedScore } from './render'
 import type { StaveNote } from 'vexflow/bravura'
 
 // --- Esercizi per i controlli di misura (bottoni "1 battuta" / "40 battute") ---
@@ -173,6 +173,12 @@ document.getElementById('forty')!.addEventListener('click', () => {
 })
 document.getElementById('paint')!.addEventListener('click', paintLoop)
 document.getElementById('scroll')!.addEventListener('click', scrollLoop)
+
+// Il font musicale (Bravura) arriva async via @font-face: VexFlow misura i glifi nel DOM per
+// calcolare le x, quindi un render prima che il font sia applicato usa il fallback e inchioda
+// coordinate sbagliate nell'SVG (render.ts non fa mai re-layout). I bottoni sopra sono già al
+// sicuro perché scattano dopo il load; la galleria invece disegna da sola all'avvio, quindi aspetta.
+await notationFontsReady()
 
 renderGallery('gallery-durations', GALLERY_DURATIONS, 220)
 renderGallery('gallery-tuplets', GALLERY_TUPLETS, 220)

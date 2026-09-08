@@ -40,8 +40,21 @@ export interface RenderedScore {
 }
 
 /**
+ * Risolve quando i font sono pronti nel documento (incluso il font musicale Bravura di VexFlow).
+ * Non tiene un riferimento al `FontFaceSet` di `document.fonts`: la promise risolta a `void` basta
+ * al chiamante, che deve solo sapere *quando*, non *cosa*.
+ */
+export function notationFontsReady(): Promise<void> {
+  return document.fonts.ready.then(() => undefined)
+}
+
+/**
  * Disegna le battute in un unico SVG dentro `host` (svuotato prima). Nessun re-render dopo:
  * il colore si applica al DOM (notation/paint), lo scorrimento è un transform sul contenitore.
+ *
+ * Non chiamare prima che `notationFontsReady()` sia risolta: VexFlow misura la larghezza dei glifi
+ * leggendo il DOM, quindi un render fatto prima che il font musicale sia applicato calcola coordinate
+ * x sbagliate che poi restano incise nell'SVG per sempre, perché questa funzione non fa re-layout.
  */
 export function renderScore(host: HTMLDivElement, bars: BarPlan[], opts: RenderOptions): RenderedScore {
   const beatPx = opts.beatPx ?? 96
