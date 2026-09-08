@@ -22,3 +22,5 @@ td, th { padding: 4px 10px; border-bottom: 1px solid #8883; text-align: right; }
 th:first-child, td:first-child { text-align: left; }
 pre { background: #8881; padding: 8px; border-radius: 6px; white-space: pre-wrap; font-size: .85rem; }
 .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.transport { display: flex; flex-direction: column; gap: 8px; border: 1px solid #8884; border-radius: 8px; padding: 8px 12px; margin: 12px 0; }
+select { font-size: 1.1rem; padding: 6px; }

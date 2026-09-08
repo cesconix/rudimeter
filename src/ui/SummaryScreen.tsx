@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { CalibrationData } from '../audio/storage'
-import { toMarkdown } from '../engine/report'
+import { bpmRuns, toMarkdown } from '../engine/report'
 import type { SessionStats } from '../engine/stats'
 import type { Exercise } from '../engine/types'
 
@@ -31,8 +31,17 @@ export function SummaryScreen({ stats, exercise, bpm, calibration, onRepeat, onP
   return (
     <main>
       <h1>{exercise.name} @ {bpm} bpm</h1>
-      <p className="big">good {stats.good} · ok {stats.ok} · off {stats.off} · miss {stats.miss} · extra {stats.extras}</p>
+      <p className="big">good {stats.good} · ok {stats.ok} · off {stats.off} · miss {stats.miss} · extra {stats.extras}{stats.absorbed > 0 ? ` · assorbiti ${stats.absorbed}` : ''}</p>
       <p>Offset medio {f(stats.meanOffsetMs)} ms (σ {f(stats.sdOffsetMs)}) — positivo = in ritardo</p>
+      <p>Uniformità: σ dB {f(stats.uniformity.sdDbTaps)}{stats.uniformity.hands.length > 0 ? ` (${stats.uniformity.hands.map((h) => `${h.hand} ${f(h.sdDbTaps)}`).join(' · ')})` : ''}</p>
+      {stats.accents.slots > 0 && (
+        <p>
+          Accenti: {stats.accents.hits}/{stats.accents.slots} ·{' '}
+          {stats.accents.meanDeltaDb === null ? '—' : `${stats.accents.meanDeltaDb >= 0 ? '+' : ''}${f(stats.accents.meanDeltaDb)}`} dB sui colpi normali ·{' '}
+          {stats.accents.belowThreshold === null ? '—' : stats.accents.belowThreshold} sotto +{stats.accents.thresholdDb} dB
+        </p>
+      )}
+      {new Set(stats.bpmByRepeat).size > 1 && <p>Bpm: {bpmRuns(stats.bpmByRepeat)}</p>}
       <table>
         <thead><tr><th>Mano</th><th>Colpi</th><th>Offset</th><th>σ</th><th>dB</th><th>σ dB</th></tr></thead>
         <tbody>

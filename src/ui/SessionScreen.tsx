@@ -3,10 +3,11 @@ import { ClickScheduler } from '../audio/click-scheduler'
 import { audibleTime } from '../audio/clock'
 import type { Engine } from '../audio/engine'
 import type { CalibrationData } from '../audio/storage'
-import { DEFAULT_METRONOME, repeatAt } from '../engine/grid'
+import { repeatAt } from '../engine/grid'
 import type { SessionStats } from '../engine/stats'
 import type { Exercise } from '../engine/types'
 import { SessionRunner, type RunnerState } from '../session/runner'
+import type { SessionOptions } from './App'
 import { Meter } from './Meter'
 import { Score } from './Score'
 
@@ -14,12 +15,13 @@ interface Props {
   engine: Engine
   exercise: Exercise
   bpm: number
+  options: SessionOptions
   calibration: CalibrationData
   onDone(stats: SessionStats): void
   onAbort(): void
 }
 
-export function SessionScreen({ engine, exercise, bpm, calibration, onDone, onAbort }: Props) {
+export function SessionScreen({ engine, exercise, bpm, options, calibration, onDone, onAbort }: Props) {
   const runnerRef = useRef<SessionRunner | null>(null)
   const [state, setState] = useState<RunnerState | null>(null)
 
@@ -35,7 +37,7 @@ export function SessionScreen({ engine, exercise, bpm, calibration, onDone, onAb
         },
         onHit: (l) => engine.capture.onHit(l),
       },
-      { exercise, bpm, latencyMs: calibration.latencyMs, slope: calibration.slope, metronome: DEFAULT_METRONOME },
+      { exercise, bpm, latencyMs: calibration.latencyMs, slope: calibration.slope, metronome: options.metronome, autoIncrement: options.autoIncrement ?? undefined },
     )
     runnerRef.current = runner
     const unsub = runner.subscribe(setState)
@@ -53,7 +55,7 @@ export function SessionScreen({ engine, exercise, bpm, calibration, onDone, onAb
       unsub()
       runner.stop()
     }
-  }, [engine, exercise, bpm, calibration])
+  }, [engine, exercise, bpm, calibration, options])
 
   useEffect(() => {
     if (state?.phase === 'done' && runnerRef.current) onDone(runnerRef.current.stats())
