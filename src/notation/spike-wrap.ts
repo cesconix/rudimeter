@@ -32,6 +32,13 @@ const NATURAL_STAFF_H = (STAFF_LINES - 1) * 10
 const NATURAL_NOTEHEAD_PX = 11.8
 /** Sotto questa dimensione la testa di nota non si legge più: è il vincolo che limita la densità. */
 const MIN_NOTEHEAD_PX = 8
+/**
+ * Margine a destra dell'ultima battuta della riga. Senza, la stanghetta di fine battuta cade a
+ * `x = larghezza` — cioè esattamente sul bordo dell'SVG — e viene tagliata: sulla riga si vede solo
+ * la stanghetta di mezzo e la riga sembra finire nel nulla. Otto pixel bastano anche alla barra
+ * finale, che è spessa.
+ */
+const NATURAL_RIGHT_PAD = 8
 
 export type ScaleMode = 'fit' | 'natural'
 
@@ -62,8 +69,9 @@ export function fitLayout(
   // scala mai e accetta di lasciare spazio vuoto a destra. Sono le due facce dello stesso scambio:
   // quanta musica vedi contro quanto è grande.
   const minScale = mode === 'natural' ? 1 : MIN_NOTEHEAD_PX / NATURAL_NOTEHEAD_PX
-  // k = availW / (n * naturalBar + head) ≥ minScale  ⇒  n ≤ (availW/minScale − head) / naturalBar
-  const maxBars = Math.max(1, Math.floor((availW / minScale - NATURAL_HEAD_PX) / naturalBar))
+  // k = availW / (n * naturalBar + head + pad) ≥ minScale  ⇒  n ≤ (availW/minScale − head − pad) / naturalBar
+  const fixed = NATURAL_HEAD_PX + NATURAL_RIGHT_PAD
+  const maxBars = Math.max(1, Math.floor((availW / minScale - fixed) / naturalBar))
 
   // Aggancio musicale: multipli della ripetizione finché ci stanno, altrimenti un suo divisore.
   let barsPerRow: number
@@ -77,7 +85,7 @@ export function fitLayout(
 
   // In 'fit' la scala non sale mai sopra il naturale: su uno schermo largo la musica va gigante,
   // non è più leggibile, è solo grande.
-  const scale = mode === 'natural' ? 1 : Math.min(1, availW / (barsPerRow * naturalBar + NATURAL_HEAD_PX))
+  const scale = mode === 'natural' ? 1 : Math.min(1, availW / (barsPerRow * naturalBar + fixed))
   const systemH = NATURAL_SYSTEM_H * scale
   return { barsPerRow, scale, systemH, maxRows: Math.max(1, Math.floor(availH / systemH)) }
 }
@@ -106,7 +114,7 @@ function renderWrapped(
   host.innerHTML = ''
   const naturalBar = beatsPerBar * NATURAL_BEAT_PX
   const systems = Math.ceil(bars.length / fit.barsPerRow)
-  const width = fit.scale * (fit.barsPerRow * naturalBar + NATURAL_HEAD_PX)
+  const width = fit.scale * (fit.barsPerRow * naturalBar + NATURAL_HEAD_PX + NATURAL_RIGHT_PAD)
   const height = systems * fit.systemH
 
   const renderer = new Renderer(host, RendererBackends.SVG)
