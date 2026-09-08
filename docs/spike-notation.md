@@ -5,16 +5,18 @@ Pagina: `spike-notation.html` (`npx vite --config vite.http.config.ts` → http:
 | Misura | Mac / Chrome | iPad / Safari |
 |---|---|---|
 | Figure corrette (flam, drag, buzz, tremolo, terzina, accento, sticking, pausa) | sì (tutte, verificate una per una a mano) | da verificare |
-| 40 battute, ms | 108,2 ms (640 note, SVG 15430 px) | da verificare |
+| 40 battute, ms | 108,2 ms (640 note, SVG 15430 px) | **90,0 ms** (640 note) |
 | Colora 20/s per 5 s: frame > 32 ms | 361 frame, 0 frame > 32 ms | da verificare |
 | Scorri: frame > 32 ms | 15430 px in 64,3 s, 4630 frame, 0 frame > 32 ms | da verificare |
 | `getSVGElement()` trova il gruppo | sì | da verificare |
 
-## Decisione (provvisoria — manca il gate iPad)
+## Decisione: render unico (gate iPad superato)
 
-La decisione è **render unico** dell'esercizio srotolato, ma rimane provvisoria finché il gate iPad non confermasse che il rendering rimane sotto il secondo. Se su iPad il tempo superasse 1000 ms, il Task 11 passerebbe alle finestre da 8 battute — il piano prevede già entrambi i rami e una modifica localizzata a `Score` è sufficiente per cambiare strategia.
+La decisione è **render unico** dell'esercizio srotolato, e non è più provvisoria: il gate iPad è stato misurato. 40 battute costano **90,0 ms su iPad/Safari** contro un budget di 1000 ms — undici volte di margine. L'iPad è risultato più veloce del Mac (90,0 contro 108,2 ms), quindi il ramo alternativo previsto dal piano, le finestre da 8 battute, **non serve**.
 
-Su Mac i numeri supportano il render unico: 40 battute costano 108,2 ms (circa l'11% del budget complessivo), la ricolorazione e lo scroll non superano mai i 32 ms per frame (73 fps misurati, tab in primo piano, rAF non throttlato) — tutti valori trascurabili rispetto ai 16 ms di budget per frame.
+Vale la pena registrare quanto il proxy fosse pessimista: il rallentamento CPU emulato a 20× era stato usato come approssimazione dell'iPad e produceva un render da 1058 ms, cioè proprio sopra il gate. L'hardware vero sta dall'altra parte: non 20× più lento, ma più veloce del Mac. Il throttling emulato dice dove si rompe una cosa, non quanto è lontano il dispositivo reale da quel punto.
+
+Su Mac i numeri concordano: 40 battute costano 108,2 ms (circa l'11% del budget complessivo), la ricolorazione e lo scroll non superano mai i 32 ms per frame (73 fps misurati, tab in primo piano, rAF non throttlato) — tutti valori trascurabili rispetto ai 16 ms di budget per frame.
 
 ## Misura sul componente vero: scorrimento e colorazione insieme
 
