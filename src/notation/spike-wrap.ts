@@ -116,9 +116,34 @@ function renderWrapped(
     const x = first ? 0 : NATURAL_HEAD_PX + col * naturalBar
     const w = naturalBar + (first ? NATURAL_HEAD_PX : 0)
     const stave = new Stave(x, row * NATURAL_SYSTEM_H, w, { numLines: 1, spaceAboveStaffLn: 5, spaceBelowStaffLn: 4 })
-    if (first) stave.addClef('percussion').addTimeSignature(timeSignature)
+    if (first) stave.addClef('percussion')
+    // Il tempo si scrive una volta sola, a inizio pezzo: ripeterlo a ogni riga è rumore, e in
+    // 2/4 su riga stretta è rumore che costa un ottavo della larghezza utile.
+    if (row === 0 && col === 0) stave.addTimeSignature(timeSignature)
     if (i === bars.length - 1) stave.setEndBarType(BarlineType.END)
     stave.setContext(ctx).draw()
+    // Stanghetta di battuta disegnata a mano: su un rigo a una linea la barra di VexFlow è alta
+    // quanto il rigo, cioè zero, e il confine di battuta sparisce proprio dove i numeri lo citano.
+    if (!first) {
+      const y = stave.getYForLine(0)
+      ctx.save()
+      ctx.setStrokeStyle('#000')
+      ctx.setLineWidth(1)
+      ctx.beginPath()
+      ctx.moveTo(x, y - 18)
+      ctx.lineTo(x, y + 12)
+      ctx.stroke()
+      ctx.restore()
+    }
+    // Numero di battuta solo a inizio riga: con 20 ripetizioni identiche è l'unico riferimento che
+    // dice DOVE sei nel pezzo. Sopra il rigo, non a sinistra: a sinistra ci sono chiave e tempo.
+    if (first) {
+      ctx.save()
+      ctx.setFont('system-ui, sans-serif', 13)
+      ctx.setFillStyle('#888')
+      ctx.fillText(String(i + 1), 0, stave.getYForLine(0) - 14)
+      ctx.restore()
+    }
     const built = buildBar(bar)
     Formatter.FormatAndDraw(ctx, stave, built.notes)
     built.beams.forEach((b) => b.setContext(ctx).draw())
@@ -194,6 +219,7 @@ async function main(): Promise<void> {
   const exEl = $('exercise') as HTMLSelectElement
   const bpmEl = $('bpm') as HTMLInputElement
   const modeEl = $('mode') as HTMLSelectElement
+  const scrollEl = $('scroll') as HTMLSelectElement
 
   EXERCISES.forEach((e) => exEl.append(new Option(e.name, e.id)))
   exEl.value = EXERCISES[0].id
@@ -235,14 +261,30 @@ async function main(): Promise<void> {
     lastFrame = nowMs
     const now = (nowMs - t0) / 1000
     const p = cursorAt(points, now)
-    const rowExact = rowExactAt(rowSpans, p.row, now)
 
     // Il cursore sta sulla sua riga, sempre; è lo SCORRIMENTO che lo insegue.
-    const target = Math.max(0, Math.min(Math.max(0, host.offsetHeight - viewport.clientHeight), rowExact * fit.systemH - viewport.clientHeight / 3))
+    //
+    // Due modelli, e non è una preferenza estetica:
+    //  - 'riga'    la riga corrente si ancora in cima e ci resta: la pagina è ferma per tutta la
+    //              riga e scatta (fluida) una volta sola al capo riga. Chi legge ha davanti tutte
+    //              le righe successive, e lo sfondo non si muove mentre suona.
+    //  - 'continuo' lo scorrimento segue la frazione percorsa dentro la riga, tenendo il cursore a
+    //              un terzo di schermo. Il cursore sta sempre nello stesso punto, ma la musica
+    //              scivola sotto in permanenza.
+    // In fondo al pezzo il clamp a maxScroll ferma la pagina e il cursore scende da solo fino
+    // all'ultima riga: nessun caso speciale, cade fuori dal min().
+    const maxScroll = Math.max(0, host.offsetHeight - viewport.clientHeight)
+    const anchor =
+      scrollEl.value === 'riga'
+        // Non a filo del bordo: le diteggiature R/L stanno in cima alla banda della riga e a filo
+        // verrebbero tagliate a metà. Un decimo di riga di margine e la riga entra intera.
+        ? p.row * fit.systemH - fit.systemH * 0.12
+        : rowExactAt(rowSpans, p.row, now) * fit.systemH - viewport.clientHeight / 3
+    const target = Math.max(0, Math.min(maxScroll, anchor))
     if (following) {
       // Smorzamento esponenziale, indipendente dal frame rate: raggiunge il bersaglio senza scatti
       // al cambio riga, e senza rincorrere ogni micro-variazione.
-      scrollY += (target - scrollY) * (1 - Math.exp(-dt / 0.12))
+      scrollY += (target - scrollY) * (1 - Math.exp(-dt / 0.15))
       viewport.scrollTop = scrollY
     } else {
       scrollY = viewport.scrollTop
