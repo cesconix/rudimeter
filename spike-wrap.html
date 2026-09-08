@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>spike — spartito a capo, scorrimento verticale</title>
+    <style>
+      :root { --accent: #d33; }
+      * { box-sizing: border-box; }
+      body { margin: 0; font: 15px/1.4 system-ui, sans-serif; background: #f4f4f4; color: #111; }
+      header { padding: 10px 12px; background: #fff; border-bottom: 1px solid #ddd; }
+      .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+      label { display: flex; gap: 6px; align-items: center; font-size: 14px; }
+      #info { font-family: ui-monospace, monospace; font-size: 12px; color: #444; margin-top: 8px; }
+      #viewport {
+        position: relative;
+        overflow: hidden;
+        background: #fff;
+        margin: 10px;
+        border-radius: 8px;
+        height: calc(100vh - 150px);
+      }
+      #host { will-change: transform; }
+      #cursor {
+        position: absolute;
+        width: 2px;
+        background: var(--accent);
+        z-index: 1;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="row">
+        <label>Esercizio <select id="exercise"></select></label>
+        <label>Zoom <input id="zoom" type="range" min="48" max="180" step="6" value="96" /></label>
+        <label>bpm <input id="bpm" type="number" value="60" min="30" max="240" style="width: 70px" /></label>
+      </div>
+      <div id="info">…</div>
+    </header>
+    <div id="viewport">
+      <div id="cursor"></div>
+      <div id="host"></div>
+    </div>
+    <script type="module" src="/src/notation/spike-wrap.ts"></script>
+  </body>
+</html>
