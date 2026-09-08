@@ -3,6 +3,7 @@
 // ricolorazione via DOM a 20 note/s, scroll con translateX) ereditati dallo spike originale.
 import { parseExercise } from '../engine/exercise'
 import type { Exercise } from '../engine/types'
+import { paintColor } from './paint'
 import { planExercise } from './plan'
 import { notationFontsReady, renderScore, type RenderedScore } from './render'
 import type { StaveNote } from 'vexflow/bravura'
@@ -106,11 +107,7 @@ function paint(n: StaveNote, color: string): void {
     log('getSVGElement() vuoto: gli id non sono nel DOM')
     return
   }
-  el.querySelectorAll('path, text, rect').forEach((c) => {
-    c.setAttribute('fill', color)
-    const stroke = c.getAttribute('stroke')
-    if (stroke && stroke !== 'none') c.setAttribute('stroke', color)
-  })
+  paintColor(el, color)
 }
 
 function paintLoop(): void {
