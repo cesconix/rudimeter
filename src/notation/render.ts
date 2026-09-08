@@ -37,6 +37,8 @@ export interface RenderOptions {
   beatsPerBar: number
   /** battute di UNA ripetizione: la riga si aggancia a questa unità musicale */
   barsPerRepeat: number
+  /** battute dell'intero pezzo: la riga non è mai più lunga della musica che c'è */
+  totalBars: number
   /** larghezza utile in px: da qui si ricavano battute per riga e scala */
   availW: number
 }
@@ -86,32 +88,61 @@ export function notationFontsReady(): Promise<void> {
  * Dallo spazio disponibile ricava quante battute stanno su una riga e con quale scala.
  * Nessun controllo manuale: se lo schermo è stretto, le battute per riga scendono da sole.
  *
- * Il vincolo non è la larghezza in sé ma la LEGGIBILITÀ: più battute per riga significa scala più
- * piccola, e sotto `MIN_NOTEHEAD_PX` la testa di nota diventa un puntino. Si prende quindi il
- * massimo che sta dentro quel limite, e lo si aggancia all'unità musicale.
+ * La regola, in una riga: **riempi la larghezza, a meno che una riga più corta la riempia già a meno
+ * del 10% di scarto — in quel caso tieni le note grandi.**
+ *
+ * `MIN_NOTEHEAD_PX` è un PAVIMENTO, non un obiettivo: impaccare fino al limite di leggibilità
+ * spende tutto il budget ogni volta, e quasi sempre esiste una riga più corta che copre la stessa
+ * larghezza con teste molto più grandi. A 847px di viewport, 6 battute in 2/4 scendono a 8.1px di
+ * testa mentre 4 ne occupano 846 su 847 — cioè riempiono lo schermo — al corpo pieno di 11.8px.
  */
-export function fitLayout(availW: number, barsPerRepeat: number, beatsPerBar: number): Fit {
+export function fitLayout(availW: number, barsPerRepeat: number, beatsPerBar: number, totalBars: number): Fit {
+  // `barsPerRepeat` a 0 (esercizio degenere, campo non popolato) darebbe `n % 0` e divisioni per
+  // zero: NaN che arriva silenzioso fino a `renderer.resize(NaN, NaN)` e a Stave con y NaN, cioè un
+  // riquadro bianco senza una riga in console. Meglio una riga sbagliata che nessun disegno.
+  const atLeastOneBar = (n: number) => (Number.isFinite(n) ? Math.max(1, Math.floor(n)) : 1)
+  const repeat = atLeastOneBar(barsPerRepeat)
+  const total = atLeastOneBar(totalBars)
   const naturalBar = beatsPerBar * NATURAL_BEAT_PX
-  // Si riempie la larghezza accettando di rimpicciolire fino a MIN_NOTEHEAD_PX: è lo scambio fra
-  // quanta musica vedi e quanto è grande, e il limite di leggibilità lo chiude.
-  const minScale = MIN_NOTEHEAD_PX / NATURAL_NOTEHEAD_PX
-  // k = availW / (n * naturalBar + head + pad) ≥ minScale  ⇒  n ≤ (availW/minScale − head − pad) / naturalBar
   const fixed = NATURAL_HEAD_PX + NATURAL_RIGHT_PAD
-  const maxBars = Math.max(1, Math.floor((availW / minScale - fixed) / naturalBar))
+  /** Larghezza che `n` battute occupano al corpo naturale, chiave e margine destro inclusi. */
+  const naturalW = (n: number) => n * naturalBar + fixed
 
-  // Aggancio musicale: multipli della ripetizione finché ci stanno, altrimenti un suo divisore.
-  let barsPerRow: number
-  if (maxBars >= barsPerRepeat) {
-    barsPerRow = Math.floor(maxBars / barsPerRepeat) * barsPerRepeat
-  } else {
-    const divisors = []
-    for (let d = 1; d <= barsPerRepeat; d++) if (barsPerRepeat % d === 0) divisors.push(d)
-    barsPerRow = divisors.filter((d) => d <= maxBars).pop() ?? 1
+  // Candidati: solo righe che restano un'unità MUSICALE — i divisori della ripetizione (mezza
+  // ripetizione per riga, un quarto…) e i suoi multipli (una per riga, due, tre…). Troncati al
+  // pezzo: una riga più lunga della musica lascerebbe rigo vuoto a destra e, peggio, ridurrebbe la
+  // scala per fare spazio a battute che non esistono.
+  //
+  // Limite noto e accettato: con `barsPerRepeat` primo e > 2 (7, 11) sotto la ripetizione c'è solo
+  // il candidato 1, quindi su schermo stretto si scende a una battuta per riga anche dove ne
+  // starebbero 3. La libreria non produce quel caso (gli esercizi hanno 1 o 2 battute per
+  // ripetizione) e spezzare il pattern a metà giro costerebbe al lettore più di quanto renda.
+  const candidates: number[] = []
+  for (let d = 1; d <= repeat && d <= total; d++) if (repeat % d === 0) candidates.push(d)
+  for (let m = 2 * repeat; m <= total; m += repeat) candidates.push(m)
+
+  // `naturalW` è crescente in n e i candidati sono ordinati: il più grande che ci sta e il più
+  // piccolo che sfora si trovano in una passata.
+  let nFit = 0
+  let nOver = 0
+  for (const n of candidates) {
+    if (naturalW(n) <= availW) nFit = n
+    else if (nOver === 0) nOver = n
   }
 
-  // La scala non sale mai sopra il naturale: su uno schermo largo la musica va gigante, non è più
-  // leggibile, è solo grande.
-  const scale = Math.min(1, availW / (barsPerRow * naturalBar + fixed))
+  // Prima la riga che riempie già al corpo pieno (scarto sotto il 10%), poi quella che riempie
+  // rimpicciolendo ma resta leggibile, poi comunque quella al corpo pieno anche se lascia spazio.
+  let barsPerRow: number
+  if (nFit !== 0 && availW - naturalW(nFit) <= 0.1 * availW) barsPerRow = nFit
+  else if (nOver !== 0 && NATURAL_NOTEHEAD_PX * (availW / naturalW(nOver)) >= MIN_NOTEHEAD_PX) barsPerRow = nOver
+  else if (nFit !== 0) barsPerRow = nFit
+  // Nemmeno una battuta ci sta al minimo leggibile: si mostra comunque la riga più corta possibile,
+  // rimpicciolita oltre il pavimento. Una battuta illeggibile è meglio di zero battute.
+  else barsPerRow = candidates[0]
+
+  // La scala non sale mai sopra il naturale: su uno schermo largo la musica andrebbe gigante, non è
+  // più leggibile, è solo grande.
+  const scale = Math.min(1, availW / naturalW(barsPerRow))
   return { barsPerRow, scale, systemH: NATURAL_SYSTEM_H * scale }
 }
 
@@ -128,7 +159,7 @@ export function fitLayout(availW: number, barsPerRepeat: number, beatsPerBar: nu
  * x sbagliate che poi restano incise nell'SVG per sempre, perché questa funzione non fa re-layout.
  */
 export function renderScore(host: HTMLDivElement, bars: BarPlan[], opts: RenderOptions): RenderedScore {
-  const fit = fitLayout(opts.availW, opts.barsPerRepeat, opts.beatsPerBar)
+  const fit = fitLayout(opts.availW, opts.barsPerRepeat, opts.beatsPerBar, opts.totalBars)
   host.innerHTML = ''
   const naturalBar = opts.beatsPerBar * NATURAL_BEAT_PX
   const rows = Math.ceil(bars.length / fit.barsPerRow)

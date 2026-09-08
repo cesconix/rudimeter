@@ -13,12 +13,20 @@ input[type=number] { font-size: 1.2rem; width: 5em; padding: 8px; }
 .meter { position: relative; height: 12px; background: #8882; border-radius: 4px; overflow: hidden; margin: 6px 0; }
 .meter > div { height: 100%; background: #3c3; }
 .meter > .threshold { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; opacity: .8; }
-/* `position: relative` perché `.score-follow` si àncora qui: dev'essere un antenato che NON scorre,
-   altrimenti il bottone scorre via con la musica. */
-main.session { position: relative; display: flex; flex-direction: column; height: 100dvh; }
-main.session .score-viewport { flex: 1; min-height: 160px; }
+/* L'altezza piena sta sul contenitore, non su `main`: quando il contesto audio si sospende (lock
+   dell'iPhone) App mette il banner "Audio in pausa" come FRATELLO di <main>, e un main alto 100dvh
+   più il banner sfondano la finestra — il meter finisce sotto la piega e con lui il tasto follow. */
+#root:has(main.session) { display: flex; flex-direction: column; height: 100dvh; }
+main.session { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+/* Il frame è grande esattamente quanto il viewport: è lui il contenitore posizionato di
+   `.score-follow`, che ancorato a `main` galleggerebbe sotto la partitura, sopra il meter. */
+main.session .score-frame { position: relative; flex: 1; min-height: 160px; display: flex; }
+main.session .score-viewport { flex: 1; }
 .score-viewport { position: relative; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; background: #fff; border-radius: 8px; }
 .score-host { position: relative; }
+/* L'<svg> è inline e siede sulla linea di base: quattro pixel di discendente sotto la partitura, che
+   rendono il viewport scrollabile anche a musica esatta e falsano `maxScroll`. */
+.score-host svg { display: block; }
 .score-cursor { position: absolute; left: 0; width: 2px; background: var(--accent); z-index: 1; pointer-events: none; }
 .score-follow { position: absolute; right: 14px; bottom: 14px; z-index: 2; border-radius: 999px; box-shadow: 0 2px 10px #0004; }
 table { border-collapse: collapse; margin: 8px 0; }

@@ -87,14 +87,16 @@ const allNotes: StaveNote[] = []
 
 /**
  * `barsPerRepeat` = tutte le battute dell'esercizio: la galleria non ha ripetizioni da rispettare e
- * vuole il massimo su una riga sola. `availW` è la larghezza del contenitore, con un fallback
- * generoso per quando la pagina misura 0 (host non ancora in layout).
+ * vuole il massimo su una riga sola, e con `totalBars` uguale la riga non supera mai il pezzo.
+ * `availW` è la larghezza del contenitore, con un fallback generoso per quando la pagina misura 0
+ * (host non ancora in layout).
  */
 function optionsFor(host: HTMLDivElement, ex: Exercise, bars: number) {
   return {
     timeSignature: `${ex.timeSignature[0]}/${ex.timeSignature[1]}`,
     beatsPerBar: ex.timeSignature[0],
     barsPerRepeat: bars,
+    totalBars: bars,
     availW: host.clientWidth || 1200,
   }
 }

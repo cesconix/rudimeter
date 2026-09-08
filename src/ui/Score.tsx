@@ -20,6 +20,11 @@ const RESIZE_DEBOUNCE_MS = 150
 const SCROLL_TAU = 0.15
 /** Margine sopra la riga ancorata: le diteggiature R/L stanno in cima alla banda e a filo si tagliano. */
 const ROW_TOP_MARGIN = 0.12
+/**
+ * Scarto oltre il quale uno `scrollTop` non è più nostro ma dell'utente. Un pixel e mezzo copre
+ * l'arrotondamento del browser sui valori frazionari e non arriva a nessun gesto vero.
+ */
+const SCROLL_OWNERSHIP_PX = 1.5
 
 export function Score({ exercise, grid, judged, now }: Props) {
   const viewportRef = useRef<HTMLDivElement>(null)
@@ -31,6 +36,11 @@ export function Score({ exercise, grid, judged, now }: Props) {
   // Stato dell'animazione, non dello schermo: cambia a ogni frame e nessun elemento React ne dipende.
   const scrollY = useRef(0)
   const lastNow = useRef(now)
+  // Ultimo `scrollTop` scritto da noi, riletto dal DOM. `null` = non lo sappiamo (partitura appena
+  // ridisegnata): finché è null nessuno spostamento viene attribuito all'utente.
+  const expected = useRef<number | null>(null)
+  // Dopo un re-layout la posizione va presa di colpo, non raggiunta: vedi sotto.
+  const snapNext = useRef(false)
   const [availW, setAvailW] = useState(0)
   const [following, setFollowing] = useState(true)
 
@@ -61,11 +71,11 @@ export function Score({ exercise, grid, judged, now }: Props) {
   // render ha già cancellato (renderScore fa `host.innerHTML = ''`). `cancelled` impedisce che
   // un'invocazione scavalcata scriva `rendered`/`lastGrades`/`points`: li scrive solo chi ha vinto,
   // e li scrive tutti e tre insieme — `lastGrades` è la memoria di QUESTO SVG (vedi paintDiff).
-  // Azzeriamo i tre ref anche PRIMA dell'await: ora questo effect si ri-esegue davvero senza
-  // smontaggio, a ogni cambio di larghezza, e i ref altrimenti resterebbero puntati al render
-  // precedente per tutta l'attesa mentre l'altro effect gira già coi nuovi `grid`/`judged`:
-  // colorerebbe il punteggio vecchio coi giudizi nuovi. Azzerarli subito rende quella finestra
-  // inerte tramite il già esistente `if (!r) return` sotto, invece di fargli fare la cosa sbagliata.
+  // Azzeriamo i tre ref anche PRIMA dell'await: questo effect si ri-esegue davvero senza smontaggio,
+  // a ogni cambio di larghezza, e i ref altrimenti resterebbero puntati al render precedente per
+  // tutta l'attesa mentre l'altro effect gira già coi nuovi `grid`/`judged`: colorerebbe il
+  // punteggio vecchio coi giudizi nuovi. Azzerarli subito rende quella finestra inerte tramite il
+  // già esistente `if (!r) return` sotto, invece di fargli fare la cosa sbagliata.
   // La `lastGrades` nuova su un SVG nuovo non è una perdita: al primo tick paintDiff ridipinge da
   // sé tutto il già giudicato, perché nessun grade combacia più.
   useEffect(() => {
@@ -75,22 +85,34 @@ export function Score({ exercise, grid, judged, now }: Props) {
     rendered.current = null
     lastGrades.current = new Map()
     points.current = null
-    notationFontsReady().then(() => {
-      if (cancelled) return
-      const bars = planExercise(exercise)
-      // La riga si aggancia alla ripetizione, non alla battuta: un pattern di 2 battute su righe da
-      // 3 cadrebbe a cavallo a ogni giro.
-      const barsPerRepeat = Math.max(1, bars.filter((b) => b.repeat === 0).length)
-      const r = renderScore(host, bars, {
-        timeSignature: `${exercise.timeSignature[0]}/${exercise.timeSignature[1]}`,
-        beatsPerBar: exercise.timeSignature[0],
-        barsPerRepeat,
-        availW,
+    expected.current = null
+    notationFontsReady()
+      .then(() => {
+        if (cancelled) return
+        const bars = planExercise(exercise)
+        // La riga si aggancia alla ripetizione, non alla battuta: un pattern di 2 battute su righe
+        // da 3 cadrebbe a cavallo a ogni giro.
+        const barsPerRepeat = Math.max(1, bars.filter((b) => b.repeat === 0).length)
+        const r = renderScore(host, bars, {
+          timeSignature: `${exercise.timeSignature[0]}/${exercise.timeSignature[1]}`,
+          beatsPerBar: exercise.timeSignature[0],
+          barsPerRepeat,
+          totalBars: bars.length,
+          availW,
+        })
+        rendered.current = r
+        lastGrades.current = new Map()
+        points.current = null
+        // Il ridisegno cambia la geometria sotto i piedi e il browser ri-clampa `scrollTop` per
+        // conto suo: quel movimento non è dell'utente e non deve sospendere l'inseguimento.
+        expected.current = null
+        snapNext.current = true
       })
-      rendered.current = r
-      lastGrades.current = new Map()
-      points.current = null
-    })
+      // Senza questo, un errore dentro renderScore lascia `rendered` a null per tutto il resto della
+      // sessione — niente partitura, niente cursore, niente colori — in perfetto silenzio. E ora che
+      // i ref si azzerano prima dell'await, l'errore durante un re-layout porta via anche una
+      // partitura che stava funzionando.
+      .catch((err) => console.error('render della partitura fallito', err))
     return () => {
       cancelled = true
     }
@@ -100,6 +122,13 @@ export function Score({ exercise, grid, judged, now }: Props) {
   // è cambiato. Se il render della partitura è ancora in volo (rendered.current === null, vedi sopra)
   // non c'è niente da fare: si riprova al prossimo tick.
   useEffect(() => {
+    // Il dt si aggiorna PRIMA di qualunque uscita anticipata: se restasse indietro durante l'attesa
+    // del font (Bravura è un webfont, a freddo centinaia di ms) o durante un re-layout, il primo
+    // frame utile arriverebbe con dt saturo a 0.1s — la pagina coprirebbe metà della distanza in un
+    // colpo invece di planare.
+    const dt = Math.min(0.1, Math.max(0, now - lastNow.current))
+    lastNow.current = now
+
     const r = rendered.current
     const vp = viewportRef.current
     const host = hostRef.current
@@ -118,10 +147,6 @@ export function Score({ exercise, grid, judged, now }: Props) {
         }),
       }
     }
-    // dt dal clock udibile, che è monotòno: un salto (ripresa da background, resync) non deve
-    // diventare uno scatto di scorrimento.
-    const dt = Math.min(0.1, Math.max(0, now - lastNow.current))
-    lastNow.current = now
 
     const p = cursorAt(points.current.points, now)
     const { fit } = r
@@ -132,15 +157,23 @@ export function Score({ exercise, grid, judged, now }: Props) {
     const maxScroll = Math.max(0, host.offsetHeight - vp.clientHeight)
     const target = Math.max(0, Math.min(maxScroll, p.row * fit.systemH - fit.systemH * ROW_TOP_MARGIN))
     if (following) {
-      // Smorzamento esponenziale, indipendente dal frame rate: raggiunge il bersaglio senza scatti
-      // al cambio riga e senza rincorrere ogni micro-variazione.
-      scrollY.current += (target - scrollY.current) * (1 - Math.exp(-dt / SCROLL_TAU))
+      // Dopo un re-layout non c'è continuità da preservare: `scrollY` è in pixel di una geometria
+      // che non esiste più (rotazione: altezza di riga e numero di righe cambiano insieme), quindi
+      // si salta al bersaglio invece di decadere per mezzo secondo attraverso posizioni che non
+      // significano niente. Negli altri frame smorzamento esponenziale, indipendente dal frame rate:
+      // raggiunge il bersaglio senza scatti al cambio riga e senza rincorrere ogni micro-variazione.
+      scrollY.current = snapNext.current ? target : scrollY.current + (target - scrollY.current) * (1 - Math.exp(-dt / SCROLL_TAU))
       vp.scrollTop = scrollY.current
+      // Riletto dal DOM, non il valore scritto: il browser arrotonda e clampa, e la differenza
+      // sembrerebbe un gesto dell'utente al rilevatore qui sotto.
+      expected.current = vp.scrollTop
     } else {
       // Comanda l'utente: si legge la sua posizione invece di scriverla, così alla ripresa
       // l'inseguimento riparte da dove è rimasto e non da dove era.
       scrollY.current = vp.scrollTop
+      expected.current = vp.scrollTop
     }
+    snapNext.current = false
 
     // Il cursore copre il rigo e poco più, non tutta la banda della riga: deve leggersi come una
     // stanghetta che scorre, non come una barra che invade lo spazio delle diteggiature.
@@ -151,25 +184,35 @@ export function Score({ exercise, grid, judged, now }: Props) {
     paintDiff(judged, (i) => r.notes.get(i)?.note.getSVGElement(), lastGrades.current)
   })
 
-  // Qualsiasi gesto di scorrimento sospende l'inseguimento: da lì comanda l'utente. Listener sul
-  // nodo e non in JSX perché `wheel` e `touchstart` devono essere passivi: non annulliamo niente,
-  // e un listener non passivo su un contenitore che scorre costa scatti su mobile.
+  // Chi comanda lo scorrimento. Non si elencano i gesti — la lista sarebbe sempre incompleta:
+  // tastiera (i contenitori che scorrono prendono il fuoco), trascinamento della barra di
+  // scorrimento (che su Blink non emette nemmeno un `pointerdown`), ricerca nella pagina,
+  // tecnologie assistive. Si guarda invece il risultato: se `scrollTop` non è quello che ci abbiamo
+  // scritto noi, l'ha mosso qualcun altro. `wheel` resta come segnale immediato di intenzione,
+  // prima ancora che la pagina si muova.
+  // `pointerdown`/`touchstart` no: un dito appoggiato sull'iPad — con le bacchette in mano capita di
+  // continuo — non è una richiesta di fermare la partitura. Un dito che TRASCINA muove `scrollTop`,
+  // e lo prende il rilevatore qui sotto.
   useEffect(() => {
     const vp = viewportRef.current
     if (!vp) return
     const release = () => setFollowing(false)
+    const onScroll = () => {
+      const e = expected.current
+      if (e !== null && Math.abs(vp.scrollTop - e) > SCROLL_OWNERSHIP_PX) release()
+    }
     vp.addEventListener('wheel', release, { passive: true })
-    vp.addEventListener('touchstart', release, { passive: true })
-    vp.addEventListener('pointerdown', release)
+    vp.addEventListener('scroll', onScroll, { passive: true })
     return () => {
       vp.removeEventListener('wheel', release)
-      vp.removeEventListener('touchstart', release)
-      vp.removeEventListener('pointerdown', release)
+      vp.removeEventListener('scroll', onScroll)
     }
   }, [])
 
   return (
-    <>
+    // Il frame è grande esattamente quanto il viewport ed è il contenitore posizionato del tasto:
+    // ancorato più in alto (a `main`) il tasto galleggerebbe sotto la partitura, sopra il meter.
+    <div className="score-frame">
       <div className="score-viewport" ref={viewportRef}>
         {/* fratello di host, non figlio: renderScore fa `host.innerHTML = ''` a ogni re-layout */}
         <div className="score-cursor" ref={cursorRef} />
@@ -182,6 +225,6 @@ export function Score({ exercise, grid, judged, now }: Props) {
           ↓ Torna al cursore
         </button>
       )}
-    </>
+    </div>
   )
 }

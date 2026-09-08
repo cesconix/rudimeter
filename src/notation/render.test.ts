@@ -21,43 +21,83 @@ describe('notationFontsReady', () => {
 
 // `fitLayout` è pura (nessun DOM, nessun VexFlow): è la sola parte del render verificabile qui.
 // I test fissano le PROPRIETÀ del layout — aggancio musicale, tetto della scala, pavimento di
-// leggibilità — non i numeri: i numeri cambiano al primo ritocco della geometria naturale, le
-// proprietà no, e sono loro il contratto.
+// leggibilità — più la tabella dei valori misurati a mano nel browser sull'esercizio reale, che è
+// l'unica cosa che distingue una regola buona da una che riempie lo schermo di puntini.
 describe('fitLayout', () => {
-  const noteheadOf = (scale: number) => NATURAL_NOTEHEAD_PX * scale
+  /** Testa di nota che l'utente vede davvero, arrotondata al decimo come nelle misure a schermo. */
+  const notehead = (scale: number) => Math.round(NATURAL_NOTEHEAD_PX * scale * 10) / 10
+
+  // Stick Control: 2/4, 2 battute per ripetizione, 20 ripetizioni = 40 battute. Larghezze misurate
+  // sui dispositivi veri (iPhone in verticale e in orizzontale, iPad, desktop).
+  it.each([
+    { availW: 375, barsPerRow: 2, head: 9.6 },
+    { availW: 390, barsPerRow: 2, head: 10.0 },
+    { availW: 834, barsPerRow: 4, head: 11.6 },
+    { availW: 844, barsPerRow: 4, head: 11.8 },
+    { availW: 847, barsPerRow: 4, head: 11.8 },
+    { availW: 1194, barsPerRow: 6, head: 11.5 },
+    { availW: 1600, barsPerRow: 8, head: 11.7 },
+  ])('a $availW px: $barsPerRow battute per riga, testa $head px', ({ availW, barsPerRow, head }) => {
+    const fit = fitLayout(availW, 2, 2, 40)
+    expect(fit.barsPerRow).toBe(barsPerRow)
+    expect(notehead(fit.scale)).toBe(head)
+  })
+
+  it('riempire non vale il rimpicciolimento se una riga più corta riempie già', () => {
+    // A 847px 4 battute occupano 846px: riempiono lo schermo al corpo pieno. Prendere il candidato
+    // successivo (6 battute) coprirebbe la stessa larghezza con teste da 8.1px — il pavimento di
+    // illeggibilità — per mostrare una ripetizione in più. Il margine del 10% è ciò che lo impedisce.
+    const fit = fitLayout(847, 2, 2, 40)
+    expect(fit.barsPerRow).toBe(4)
+    expect(fit.scale).toBe(1)
+    expect(fit.systemH).toBe(110)
+  })
 
   it('schermo largo: la riga è un multiplo della ripetizione', () => {
     for (const barsPerRepeat of [1, 2, 3, 4, 8]) {
-      const fit = fitLayout(4000, barsPerRepeat, 4)
+      const fit = fitLayout(4000, barsPerRepeat, 4, 40)
       expect(fit.barsPerRow % barsPerRepeat).toBe(0)
     }
   })
 
-  it('la scala non supera mai il naturale: su schermo largo si ferma a 1, non va oltre', () => {
-    // Ripetizione da 8 battute a 4000px: ce ne starebbero 15 al limite di leggibilità, ma mezza
-    // ripetizione non si prende — la riga si ferma a 8 e lo spazio che avanza NON diventa zoom.
-    const fit = fitLayout(4000, 8, 4)
-    expect(fit.barsPerRow).toBe(8)
-    expect(fit.scale).toBe(1)
-    expect(fit.systemH).toBe(110)
-    for (const availW of [1200, 2000, 4000, 10000]) {
-      expect(fitLayout(availW, 8, 4).scale).toBeLessThanOrEqual(1)
+  it('la scala non supera mai il naturale', () => {
+    for (const availW of [847, 1200, 2000, 4000, 10000]) {
+      expect(fitLayout(availW, 8, 4, 40).scale).toBeLessThanOrEqual(1)
     }
   })
 
-  it('schermo stretto: la riga è un divisore della ripetizione, mai un numero che la spezza', () => {
-    // Un pattern di 4 battute su righe da 3 cadrebbe a cavallo a ogni giro: meglio 1 o 2.
-    expect(4 % fitLayout(360, 4, 4).barsPerRow).toBe(0)
-    expect(6 % fitLayout(640, 6, 2).barsPerRow).toBe(0)
-    expect(8 % fitLayout(500, 8, 4).barsPerRow).toBe(0)
+  it('schermo stretto: si scende alla mezza ripetizione, non oltre e non a caso', () => {
+    // 900px in 4/4: 2 battute occupano 846px (riempiono), 4 ne vorrebbero 1614. La risposta giusta
+    // è una sola, 2 — un test che accettasse anche 1 non distinguerebbe una regola sbagliata.
+    expect(fitLayout(900, 4, 4, 40).barsPerRow).toBe(2)
+  })
+
+  it('la riga non è mai più lunga del pezzo', () => {
+    // Esercizio senza ripetizioni: 2 battute in tutto su 928px. Impaccare 6 battute per riga
+    // disegnerebbe la musica al 75% con due terzi di rigo vuoto, avendo spazio per il naturale.
+    const fit = fitLayout(928, 2, 2, 2)
+    expect(fit.barsPerRow).toBe(2)
+    expect(fit.scale).toBe(1)
+  })
+
+  it('battute per ripetizione o totali non valide: una riga sbagliata, mai NaN', () => {
+    // NaN qui non si vede: arriva silenzioso fino a renderer.resize(NaN, NaN) e lascia un riquadro
+    // bianco senza una riga in console.
+    for (const [barsPerRepeat, totalBars] of [[0, 40], [2, 0], [-3, 40], [2.7, 40.9], [NaN, 40], [2, NaN]]) {
+      const fit = fitLayout(800, barsPerRepeat, 2, totalBars)
+      expect(fit.barsPerRow).toBeGreaterThanOrEqual(1)
+      expect(Number.isFinite(fit.barsPerRow)).toBe(true)
+      expect(Number.isFinite(fit.scale)).toBe(true)
+      expect(Number.isFinite(fit.systemH)).toBe(true)
+    }
   })
 
   it('la testa di nota non scende sotto il minimo leggibile', () => {
-    for (let availW = 320; availW <= 2000; availW += 20) {
+    for (let availW = 480; availW <= 2000; availW += 20) {
       for (const beatsPerBar of [2, 3, 4]) {
         for (const barsPerRepeat of [1, 2, 3, 4, 8]) {
-          const fit = fitLayout(availW, barsPerRepeat, beatsPerBar)
-          expect(noteheadOf(fit.scale)).toBeGreaterThanOrEqual(MIN_NOTEHEAD_PX)
+          const fit = fitLayout(availW, barsPerRepeat, beatsPerBar, 40)
+          expect(NATURAL_NOTEHEAD_PX * fit.scale).toBeGreaterThanOrEqual(MIN_NOTEHEAD_PX)
         }
       }
     }
@@ -66,7 +106,7 @@ describe('fitLayout', () => {
   it('almeno una battuta per riga anche su una larghezza assurda', () => {
     // Sotto la larghezza di una battuta il pavimento di leggibilità non è più tenibile: si sceglie
     // di mostrare una battuta illeggibile invece di zero battute.
-    const fit = fitLayout(10, 4, 4)
+    const fit = fitLayout(10, 4, 4, 40)
     expect(fit.barsPerRow).toBe(1)
     expect(fit.scale).toBeGreaterThan(0)
     expect(fit.scale).toBeLessThan(1)

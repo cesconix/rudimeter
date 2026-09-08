@@ -76,9 +76,9 @@ export function SessionScreen({ engine, exercise, bpm, options, calibration, onD
   const repeat = state.phase === 'done' ? grid.repeats.length - 1 : repeatAt(grid, now)
 
   return (
-    // `session`: colonna a tutta altezza, così la partitura prende lo spazio che avanza invece di
-    // una altezza fissa. È anche il contenitore posizionato del tasto "torna al cursore" di Score,
-    // che deve stare fermo mentre la musica scorre (vedi styles.css).
+    // `session`: colonna che riempie la finestra, così la partitura prende lo spazio che avanza
+    // invece di un'altezza fissa. L'altezza piena vive sul contenitore e non qui, perché questo
+    // <main> può avere un fratello — il banner "Audio in pausa" di App (vedi styles.css).
     <main className="session">
       <div className="row">
         <h1>{exercise.name} @ {state.bpm} bpm</h1>
