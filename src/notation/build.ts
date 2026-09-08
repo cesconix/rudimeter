@@ -17,6 +17,14 @@ import { BuzzRoll } from './buzz-roll'
 /** Con `numLines: 1` la linea disegnata è la 0, cioè quella di f/5 nella mappa della chiave di percussioni. */
 export const KEY = 'f/5'
 
+/**
+ * Rullante — e quindi pad — sul rigo a cinque linee: TERZO SPAZIO dal basso, gambo in su. È la
+ * posizione standard della notazione per batteria (PAS / Weinberg) ed è quella dei fogli dei
+ * rudimenti. Dal basso: e/4 linea, f/4 spazio, g/4 linea, a/4 spazio, b/4 linea di mezzo, poi
+ * c/5 — il terzo spazio.
+ */
+export const KEY_5_LINE = 'c/5'
+
 export interface BuiltBar {
   notes: StaveNote[]
   beams: Beam[]
@@ -25,14 +33,14 @@ export interface BuiltBar {
   slotNotes: Map<number, StaveNote>
 }
 
-export function buildNote(p: NotePlan): StaveNote {
-  const n = new StaveNote({ keys: [KEY], duration: p.rest ? `${p.duration}r` : p.duration, stemDirection: Stem.UP })
+export function buildNote(p: NotePlan, key: string = KEY): StaveNote {
+  const n = new StaveNote({ keys: [key], duration: p.rest ? `${p.duration}r` : p.duration, stemDirection: Stem.UP })
   if (p.rest) return n
   if (p.sticking) n.addModifier(new Annotation(p.sticking).setVerticalJustification(AnnotationVerticalJustify.BOTTOM), 0)
   if (p.accent) n.addModifier(new Articulation('a>').setPosition(ModifierPosition.ABOVE), 0)
   if (p.grace.length > 0) {
     const flam = p.grace.length === 1
-    const gs = p.grace.map(() => new GraceNote({ keys: [KEY], duration: flam ? '8' : '16', slash: flam, stemDirection: Stem.UP }))
+    const gs = p.grace.map(() => new GraceNote({ keys: [key], duration: flam ? '8' : '16', slash: flam, stemDirection: Stem.UP }))
     const g = new GraceNoteGroup(gs, true)
     g.beamNotes()
     n.addModifier(g, 0)
@@ -43,13 +51,14 @@ export function buildNote(p: NotePlan): StaveNote {
 }
 
 /** Note, travi (una per movimento, solo sulle figure con gambo) e gruppi irregolari di una battuta. */
-export function buildBar(bar: BarPlan): BuiltBar {
+export function buildBar(bar: BarPlan, key: string = KEY): BuiltBar {
   const notes: StaveNote[] = []
   const beams: Beam[] = []
   const tuplets: Tuplet[] = []
   const slotNotes = new Map<number, StaveNote>()
   for (const beat of bar.beats) {
-    const ns = beat.notes.map(buildNote)
+    // `map(buildNote)` passerebbe l'indice come secondo argomento, cioè come chiave.
+    const ns = beat.notes.map((n) => buildNote(n, key))
     ns.forEach((n, i) => {
       const si = beat.notes[i].slotIndex
       if (si !== null) slotNotes.set(si, n)

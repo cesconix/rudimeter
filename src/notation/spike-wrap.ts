@@ -11,7 +11,7 @@
 import { BarlineType, Formatter, Renderer, RendererBackends, Stave } from 'vexflow/bravura'
 import { EXERCISES } from '../data/exercises'
 import { buildGrid } from '../engine/grid'
-import { buildBar } from './build'
+import { KEY_5_LINE, buildBar } from './build'
 import { planExercise } from './plan'
 import { notationFontsReady } from './render'
 
@@ -19,6 +19,15 @@ import { notationFontsReady } from './render'
 const NATURAL_BEAT_PX = 96
 const NATURAL_HEAD_PX = 70
 const NATURAL_SYSTEM_H = 110
+/**
+ * Rigo a cinque linee. VexFlow tiene 10px fra una linea e l'altra, quindi il rigo è alto 40px;
+ * sopra restano 40px per gambi, travi, accenti e parentesi di terzina, sotto 30px per le
+ * diteggiature R/L. Somma 110: la banda della riga resta quella di prima e tutte le misure dello
+ * scorrimento (multipli di 110) valgono ancora.
+ */
+const STAFF_LINES = 5
+const NATURAL_STAFF_TOP = 40
+const NATURAL_STAFF_H = (STAFF_LINES - 1) * 10
 /** Testa di nota alla scala naturale: serve per sapere quando lo zoom la rende illeggibile. */
 const NATURAL_NOTEHEAD_PX = 11.8
 /** Sotto questa dimensione la testa di nota non si legge più: è il vincolo che limita la densità. */
@@ -115,36 +124,23 @@ function renderWrapped(
     const first = col === 0
     const x = first ? 0 : NATURAL_HEAD_PX + col * naturalBar
     const w = naturalBar + (first ? NATURAL_HEAD_PX : 0)
-    const stave = new Stave(x, row * NATURAL_SYSTEM_H, w, { numLines: 1, spaceAboveStaffLn: 5, spaceBelowStaffLn: 4 })
+    const stave = new Stave(x, row * NATURAL_SYSTEM_H, w, { numLines: STAFF_LINES, spaceAboveStaffLn: 4, spaceBelowStaffLn: 3 })
     if (first) stave.addClef('percussion')
     // Il tempo si scrive una volta sola, a inizio pezzo: ripeterlo a ogni riga è rumore, e in
     // 2/4 su riga stretta è rumore che costa un ottavo della larghezza utile.
     if (row === 0 && col === 0) stave.addTimeSignature(timeSignature)
     if (i === bars.length - 1) stave.setEndBarType(BarlineType.END)
     stave.setContext(ctx).draw()
-    // Stanghetta di battuta disegnata a mano: su un rigo a una linea la barra di VexFlow è alta
-    // quanto il rigo, cioè zero, e il confine di battuta sparisce proprio dove i numeri lo citano.
-    if (!first) {
-      const y = stave.getYForLine(0)
-      ctx.save()
-      ctx.setStrokeStyle('#000')
-      ctx.setLineWidth(1)
-      ctx.beginPath()
-      ctx.moveTo(x, y - 18)
-      ctx.lineTo(x, y + 12)
-      ctx.stroke()
-      ctx.restore()
-    }
     // Numero di battuta solo a inizio riga: con 20 ripetizioni identiche è l'unico riferimento che
     // dice DOVE sei nel pezzo. Sopra il rigo, non a sinistra: a sinistra ci sono chiave e tempo.
     if (first) {
       ctx.save()
       ctx.setFont('system-ui, sans-serif', 13)
       ctx.setFillStyle('#888')
-      ctx.fillText(String(i + 1), 0, stave.getYForLine(0) - 14)
+      ctx.fillText(String(i + 1), 0, stave.getYForLine(0) - 8)
       ctx.restore()
     }
-    const built = buildBar(bar)
+    const built = buildBar(bar, KEY_5_LINE)
     Formatter.FormatAndDraw(ctx, stave, built.notes)
     built.beams.forEach((b) => b.setContext(ctx).draw())
     built.tuplets.forEach((t) => t.setContext(ctx).draw())
@@ -290,9 +286,11 @@ async function main(): Promise<void> {
       scrollY = viewport.scrollTop
     }
 
+    // Il cursore copre il rigo e poco più, non tutta la banda della riga: deve leggersi come una
+    // stanghetta che scorre, non come una barra che invade lo spazio delle diteggiature.
     cursor.style.transform = `translateX(${p.x}px)`
-    cursor.style.top = `${p.row * fit.systemH + fit.systemH * 0.2}px`
-    cursor.style.height = `${fit.systemH * 0.6}px`
+    cursor.style.top = `${p.row * fit.systemH + (NATURAL_STAFF_TOP - 8) * fit.scale}px`
+    cursor.style.height = `${(NATURAL_STAFF_H + 16) * fit.scale}px`
 
     // Il tasto c'è finché l'utente ha il controllo: se comparisse solo a cursore fuori schermo,
     // chi scorre di poco resterebbe in manuale senza avere il modo di tornare a seguire.
