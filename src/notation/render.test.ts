@@ -50,7 +50,7 @@ describe('fitLayout', () => {
     const fit = fitLayout(847, 2, 2, 40)
     expect(fit.barsPerRow).toBe(4)
     expect(fit.scale).toBe(1)
-    expect(fit.systemH).toBe(110)
+    expect(fit.systemH).toBe(140)
   })
 
   it('schermo largo: la riga è un multiplo della ripetizione', () => {
@@ -112,6 +112,20 @@ describe('fitLayout', () => {
         }
       }
     }
+  })
+
+  it('la gronda delle acciaccature toglie larghezza alla musica, non alla scala', () => {
+    // 468px, 2/4, 2 battute per ripetizione. Senza gronda 2 battute occupano 462: ci stanno intere.
+    // Con i 24px che servono al flam sul primo movimento diventano 486, e si rimpicciolisce per
+    // tenerne comunque 2 — l'alternativa (scendere a 1) sprecherebbe mezza riga.
+    expect(fitLayout(468, 2, 2, 40)).toMatchObject({ barsPerRow: 2, scale: 1 })
+    const conGronda = fitLayout(468, 2, 2, 40, 24)
+    expect(conGronda.barsPerRow).toBe(2)
+    expect(conGronda.scale).toBeCloseTo(468 / 486, 3)
+  })
+
+  it('gronda negativa: trattata come assente, mai una riga più larga del vero', () => {
+    expect(fitLayout(900, 2, 2, 40, -50)).toEqual(fitLayout(900, 2, 2, 40, 0))
   })
 
   it('almeno una battuta per riga anche su una larghezza assurda', () => {

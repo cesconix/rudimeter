@@ -66,7 +66,10 @@ export function buildBar(bar: BarPlan, key: string = KEY): BuiltBar {
     notes.push(...ns)
     const stemmed = ns.filter((n) => !n.isRest())
     if (stemmed.length > 1 && beat.notes[0].duration !== 'q') beams.push(new Beam(stemmed))
-    if (beat.tuplet) tuplets.push(new Tuplet(ns, beat.tuplet))
+    // `ratioed: false`: VexFlow scrive il rapporto (`6:4`) invece del solo numero quando lo scarto
+    // fra le due cifre supera 1, quindi le sestine uscivano `6:4`. Sui fogli dei rudimenti sopra una
+    // sestina c'è scritto `6`.
+    if (beat.tuplet) tuplets.push(new Tuplet(ns, { ...beat.tuplet, ratioed: false }))
   }
   return { notes, beams, tuplets, slotNotes }
 }

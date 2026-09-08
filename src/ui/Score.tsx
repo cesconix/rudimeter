@@ -168,9 +168,9 @@ export function Score({ exercise, grid, judged, now }: Props) {
     // bordo sinistro della testa): da ferma — prima del via, e sull'ultima nota alla fine — copre
     // esatta la nota su cui sta, invece di essere una linea appoggiata al suo fianco.
     const headW = NATURAL_NOTEHEAD_PX * fit.scale
-    // Bordo destro della partitura meno la larghezza della banda: a fine riga il cursore arriva a
-    // filo del margine, non oltre.
-    const p = cursorAt(points.current.points, now, Math.max(0, r.width - headW))
+    // Fine della griglia del tempo, non bordo dell'SVG: il capo riga cade sull'asse dei tempi come
+    // ogni altra figura, quindi il cursore lo attraversa senza cambiare passo.
+    const p = cursorAt(points.current.points, now, r.rowEndX)
     // Il cursore sta sulla sua riga, sempre; è lo SCORRIMENTO che lo insegue: la riga corrente si
     // ancora in cima e ci resta, così la pagina è ferma per tutta la riga e scatta (fluida) una
     // volta sola al capo riga. In fondo al pezzo il clamp a maxScroll ferma la pagina e il cursore

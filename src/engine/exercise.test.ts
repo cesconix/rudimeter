@@ -40,8 +40,18 @@ describe('stepsFlat / slotsPerRepeat', () => {
 })
 
 describe('esercizi built-in', () => {
-  it('sono i tre di Stick Control, validi', () => {
-    expect(EXERCISES.map((e) => e.id)).toEqual(['stone-1', 'stone-3', 'stone-5'])
+  it('i tre di Stick Control più lo studio di lettura, validi', () => {
+    expect(EXERCISES.map((e) => e.id)).toEqual(['stone-1', 'stone-3', 'stone-5', 'lettura-4-4'])
     expect(stepsFlat(EXERCISES[2]).map((f) => f.step.hand).join('')).toBe('RLRRLRLL')
+  })
+  it('lo studio di lettura porta le figure che Stone non ha', () => {
+    // Il punto dell'esercizio è la VARIETÀ: se un giorno qualcuno lo "semplifica" a suddivisione
+    // costante non serve più a niente, e questo test lo dice invece di lasciarlo passare.
+    const l = EXERCISES.find((e) => e.id === 'lettura-4-4')!
+    expect(l.timeSignature).toEqual([4, 4])
+    // Figure per movimento: quarto, ottavi, sedicesimi, ottavi | terzina, ottavi, sedicesimi, quarto.
+    expect(l.bars.map((b) => b.beats.map((bt) => bt.steps.length))).toEqual([[1, 2, 4, 2], [3, 2, 4, 1]])
+    // Pause di tre valori diversi: di ottavo, di ottavo, di sedicesimo, di movimento.
+    expect(stepsFlat(l).filter((f) => f.step.hand === null).map((f) => f.n)).toEqual([2, 2, 4, 1])
   })
 })
