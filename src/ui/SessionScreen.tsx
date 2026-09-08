@@ -2,12 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import { ClickScheduler } from '../audio/click-scheduler'
 import type { Engine } from '../audio/engine'
 import type { CalibrationData } from '../audio/storage'
-import { DEFAULT_METRONOME, repeatAt, slotIndexAt } from '../engine/grid'
+import { DEFAULT_METRONOME, repeatAt } from '../engine/grid'
 import type { SessionStats } from '../engine/stats'
 import type { Exercise } from '../engine/types'
 import { SessionRunner, type RunnerState } from '../session/runner'
-import { LiveGrid } from './LiveGrid'
 import { Meter } from './Meter'
+import { Score } from './Score'
 
 interface Props {
   engine: Engine
@@ -63,13 +63,12 @@ export function SessionScreen({ engine, exercise, bpm, calibration, onDone, onAb
   const now = engine.ctx.currentTime
   const { grid } = state
   const repeat = state.phase === 'done' ? grid.repeats.length - 1 : repeatAt(grid, now)
-  const currentSlot = state.phase === 'done' ? -1 : slotIndexAt(grid, now)
-  const judgedNow = state.result.judged.filter((j) => j.slot.repeat === repeat)
 
   return (
     <main>
       <div className="row">
-        <h1>{exercise.name} @ {bpm} bpm</h1>
+        <h1>{exercise.name} @ {state.bpm} bpm</h1>
+        <p>Ripetizione {Math.min(repeat + 1, exercise.repeats)} / {exercise.repeats}</p>
         <button
           className="secondary"
           onClick={() => {
@@ -83,8 +82,8 @@ export function SessionScreen({ engine, exercise, bpm, calibration, onDone, onAb
         </button>
       </div>
       {state.phase === 'count-in' && <p className="big">Count-in…</p>}
-      <LiveGrid exercise={exercise} judged={judgedNow} currentSlot={currentSlot} repeat={repeat} />
-      <p>extra: {state.result.extras.length}</p>
+      <Score exercise={exercise} grid={grid} judged={state.result.judged} now={now} />
+      <p>extra: {state.result.extras.length}{state.result.absorbed.length > 0 ? ` · assorbiti: ${state.result.absorbed.length}` : ''}</p>
       <Meter engine={engine} />
     </main>
   )

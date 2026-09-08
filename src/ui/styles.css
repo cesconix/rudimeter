@@ -14,10 +14,9 @@ input[type=number] { font-size: 1.2rem; width: 5em; padding: 8px; }
 .meter > div { height: 100%; background: #3c3; }
 .meter > .threshold { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; opacity: .8; }
 .grid { display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
-.step { width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1.2rem; color: #fff; background: var(--pending); }
-.step.good { background: var(--good); } .step.ok { background: var(--ok); } .step.off { background: var(--off); } .step.miss { background: var(--miss); }
-.step.current { outline: 3px solid var(--accent); outline-offset: 3px; }
-.rest { opacity: .3; }
+.score-viewport { position: relative; overflow: hidden; background: #fff; border-radius: 8px; }
+.score-host { will-change: transform; }
+.score-cursor { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent); z-index: 1; }
 table { border-collapse: collapse; margin: 8px 0; }
 td, th { padding: 4px 10px; border-bottom: 1px solid #8883; text-align: right; }
 th:first-child, td:first-child { text-align: left; }
