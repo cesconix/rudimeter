@@ -2,13 +2,19 @@
 
 Pagina: `spike-notation.html` (`npx vite --config vite.http.config.ts` → http://localhost:5174/spike-notation.html; iPad: `npm run dev` → https://<ip>:5173/spike-notation.html).
 
-| Misura | Mac / Chrome | iPad / Safari |
-|---|---|---|
-| Figure corrette (flam, drag, buzz, tremolo, terzina, accento, sticking, pausa) | sì (tutte, verificate una per una a mano) | da verificare |
-| 40 battute, ms | 108,2 ms (640 note, SVG 15430 px) | **90,0 ms** (640 note) |
-| Colora 20/s per 5 s: frame > 32 ms | 361 frame, 0 frame > 32 ms | da verificare |
-| Scorri: frame > 32 ms | 15430 px in 64,3 s, 4630 frame, 0 frame > 32 ms | da verificare |
-| `getSVGElement()` trova il gruppo | sì | da verificare |
+| Misura | Mac / Chrome | iPad / Safari | iPhone / Safari (più vecchio) |
+|---|---|---|---|
+| Figure corrette (flam, drag, buzz, tremolo, terzina, accento, sticking, pausa) | sì (tutte, verificate una per una a mano) | da verificare | da verificare |
+| 40 battute, ms | 108,2 ms (640 note, SVG 15430 px) | **90,0 ms** | **113,0 e 141,0 ms** (due run) |
+| Colora 20/s per 5 s: frame > 32 ms | 361 frame, 0 frame > 32 ms | da verificare | **302 frame, 0 > 32 ms** (96 note) |
+| Scorri: frame > 32 ms | 15430 px in 64,3 s, 4630 frame, 0 frame > 32 ms | da verificare | **3854 frame, 0 > 32 ms** |
+| `getSVGElement()` trova il gruppo | sì | da verificare | sì (implicito: senza, "Colora" non colorerebbe) |
+
+Le due righe di fluidità sono state misurate sull'iPhone e non sull'iPad deliberatamente: è il dispositivo più lento a disposizione, quindi è il pavimento. Se regge lì, l'iPad — che rende più veloce del Mac — non è a rischio.
+
+Una nota su come leggere "0 frame > 32 ms": è una soglia grossolana, perché a 60 Hz il budget per frame è 16,7 ms e un frame da 25 ms sarebbe perso senza finire in quel conteggio. Il dato più stringente è il rapporto fra frame consegnati e attesi: 64,3 s a 60 Hz valgono 3858 frame, ne sono arrivati 3854 — **il 99,9%**, quattro frame persi in oltre un minuto di scorrimento continuo. La colorazione sta a 302 frame in 5 s, cioè 60,4 fps, il refresh nativo pieno.
+
+Il tempo di render varia del 25% fra run sullo stesso dispositivo (113 e 141 ms): irrilevante rispetto a un gate di 1000 ms, ma è il motivo per cui una misura sola non basta.
 
 ## Decisione: render unico (gate iPad superato)
 
