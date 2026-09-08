@@ -14,7 +14,9 @@ Pagina: `spike-notation.html` (`npx vite --config vite.http.config.ts` → http:
 
 La decisione è **render unico** dell'esercizio srotolato, e non è più provvisoria: il gate iPad è stato misurato. 40 battute costano **90,0 ms su iPad/Safari** contro un budget di 1000 ms — undici volte di margine. L'iPad è risultato più veloce del Mac (90,0 contro 108,2 ms), quindi il ramo alternativo previsto dal piano, le finestre da 8 battute, **non serve**.
 
-Vale la pena registrare quanto il proxy fosse pessimista: il rallentamento CPU emulato a 20× era stato usato come approssimazione dell'iPad e produceva un render da 1058 ms, cioè proprio sopra il gate. L'hardware vero sta dall'altra parte: non 20× più lento, ma più veloce del Mac. Il throttling emulato dice dove si rompe una cosa, non quanto è lontano il dispositivo reale da quel punto.
+Misurato anche il pavimento, su un iPhone più vecchio: **113,0 ms**. I tre dispositivi stanno dentro una fascia del 25% (iPad 90,0 · Mac 108,2 · iPhone 113,0), quindi il più debole conserva ancora 8,8× di margine. Il tempo di render non è un rischio su nessun dispositivo reale.
+
+Vale la pena registrare quanto il proxy fosse pessimista: il rallentamento CPU emulato a 20× era stato usato come approssimazione del dispositivo mobile e produceva un render da 1058 ms, cioè proprio sopra il gate — sbagliando di quasi un ordine di grandezza rispetto ai 113 ms del pavimento vero. Il throttling emulato dice dove si rompe una cosa, non quanto è lontano il dispositivo reale da quel punto.
 
 Su Mac i numeri concordano: 40 battute costano 108,2 ms (circa l'11% del budget complessivo), la ricolorazione e lo scroll non superano mai i 32 ms per frame (73 fps misurati, tab in primo piano, rAF non throttlato) — tutti valori trascurabili rispetto ai 16 ms di budget per frame.
 
