@@ -19,6 +19,7 @@ const stats: SessionStats = {
   uniformity: { sdDbTaps: 1.4, hands: [{ hand: 'R', sdDbTaps: 1.1 }, { hand: 'L', sdDbTaps: 1.7 }] },
   accents: { slots: 20, hits: 19, meanDeltaDb: 7.2, belowThreshold: 2, thresholdDb: 6 },
   bpmByRepeat: [60, 60, 60, 60, 64, 64, 64, 64, 68, 68],
+  guide: false,
 }
 
 describe('toMarkdown', () => {
@@ -71,6 +72,18 @@ describe('toMarkdown', () => {
     expect(md2).not.toContain('Bpm:')
     expect(md2).not.toContain('assorbiti')
   })
+  it('col suono guida il report lo dichiara PRIMA dei numeri', () => {
+    // Senza cuffie la guida rientra dal microfono sugli istanti attesi: i numeri qui sotto possono
+    // descrivere un'esecuzione che non è avvenuta, e chi rilegge deve saperlo prima di crederci.
+    const md2 = toMarkdown({ ...stats, guide: true }, EXERCISES[0], 80, new Date())
+    const lines = md2.split('\n')
+    expect(lines[2]).toContain('Suono guida attivo')
+    expect(lines.findIndex((l) => l.startsWith('Slot 80'))).toBeGreaterThan(2)
+  })
+  it('senza suono guida non compare nessun avviso', () => {
+    expect(md).not.toContain('Suono guida')
+  })
+
   it('bpmRuns comprime le ripetizioni consecutive', () => {
     expect(bpmRuns([60, 60, 64])).toBe('60 ×2 → 64 ×1')
     expect(bpmRuns([])).toBe('')

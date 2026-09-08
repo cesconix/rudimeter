@@ -18,10 +18,11 @@ export function ExercisePicker({ previousBpm, previousOptions, onPick, onRecalib
   const [bpm, setBpm] = useState(previousBpm)
   const [clickSubdivision, setClickSubdivision] = useState<1 | 2 | 3 | 4>(previousOptions.metronome.clickSubdivision)
   const [gap, setGap] = useState(previousOptions.metronome.gap !== undefined)
+  const [guide, setGuide] = useState(previousOptions.metronome.guide === true)
   const [auto, setAuto] = useState(previousOptions.autoIncrement !== null)
   const exercise = EXERCISES.find((e) => e.id === id) ?? EXERCISES[0]
   const options: SessionOptions = {
-    metronome: { clickSubdivision, gap: gap ? { on: 2, off: 2 } : undefined },
+    metronome: { clickSubdivision, gap: gap ? { on: 2, off: 2 } : undefined, guide },
     autoIncrement: auto ? DEFAULT_AUTO_INCREMENT : null,
   }
 
@@ -55,10 +56,18 @@ export function ExercisePicker({ previousBpm, previousOptions, onPick, onRecalib
             <option value={1}>1</option><option value={2}>2</option><option value={3}>3</option><option value={4}>4</option>
           </select>
         </label>
+        <label><input type="checkbox" checked={guide} onChange={(e) => setGuide(e.target.checked)} /> Suono guida: un colpo su ogni nota, più forte sugli accenti</label>
         <label><input type="checkbox" checked={gap} onChange={(e) => setGap(e.target.checked)} /> Gap training: 2 battute con click, 2 senza</label>
         <label><input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} /> Auto-increment: +{DEFAULT_AUTO_INCREMENT.step} bpm dopo {DEFAULT_AUTO_INCREMENT.after} ripetizioni pulite (≥ {DEFAULT_AUTO_INCREMENT.minAccuracy * 100} %)</label>
       </fieldset>
-      <p>Metti le cuffie prima di partire: il click dallo speaker verrebbe contato come colpo.</p>
+      {/* Con la guida attiva l'avviso cambia di natura, non di tono: il click che rientra dallo
+          speaker cade sui movimenti e sporca il risultato, la guida cade sugli istanti attesi e lo
+          falsifica — la sessione riporterebbe un'esecuzione perfetta che non è avvenuta. */}
+      <p className={guide ? 'error' : undefined}>
+        {guide
+          ? 'Cuffie obbligatorie con il suono guida: dallo speaker rientra nel microfono esattamente sulle note attese, e la sessione risulterebbe perfetta senza che tu abbia suonato.'
+          : 'Metti le cuffie prima di partire: il click dallo speaker verrebbe contato come colpo.'}
+      </p>
       <div className="row">
         <button onClick={() => onPick(exercise, bpm, options)}>Parti</button>
         <button className="secondary" onClick={onRecalibrate}>Ricalibra</button>

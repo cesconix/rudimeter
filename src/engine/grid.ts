@@ -1,6 +1,16 @@
 import type { Exercise, Slot } from './types'
 
-export type ClickKind = 'bar' | 'beat' | 'sub'
+/**
+ * `bar`/`beat`/`sub` sono il metronomo: dicono DOVE sei nella battuta. `note`/`note-accent` sono la
+ * guida: dicono COSA suonare. Timbri diversi (vedi `audio/click`), perché una guida fatta con lo
+ * stesso bip del metronomo renderebbe indistinguibile il movimento dalla nota.
+ */
+export type MetronomeKind = 'bar' | 'beat' | 'sub'
+export type GuideKind = 'note' | 'note-accent'
+export type ClickKind = MetronomeKind | GuideKind
+
+/** I due timbri non sono intercambiabili: separarli qui costringe chi schedula a dire quale vuole. */
+export const isGuide = (kind: ClickKind): kind is GuideKind => kind === 'note' || kind === 'note-accent'
 
 export interface Click {
   t: number
@@ -14,6 +24,17 @@ export interface MetronomeOptions {
   clickSubdivision: 1 | 2 | 3 | 4
   /** gap training: `on` battute con click, `off` senza; conta dalla prima battuta dopo il count-in, attraverso le ripetizioni */
   gap?: { on: number; off: number }
+  /**
+   * Suono di guida: un colpo su ogni nota, più forte sugli accenti. Serve a IMPARARE il pattern —
+   * si accende per sentirlo, si spegne per verificarsi. Segue il gap come il click: se continuasse
+   * a suonare nelle battute mute, il gap training non esisterebbe più.
+   *
+   * Da uno speaker questa finisce nel microfono ESATTAMENTE sugli istanti attesi: ogni nota prende
+   * un colpo perfetto e la sessione riporta un'esecuzione impeccabile che non è avvenuta. Il click,
+   * cadendo sui movimenti, sporca il risultato; questa lo falsifica. Per questo il report si porta
+   * dietro che era attiva.
+   */
+  guide?: boolean
 }
 
 export const DEFAULT_METRONOME: MetronomeOptions = { clickSubdivision: 1 }
@@ -92,7 +113,12 @@ export function buildRepeat(ex: Exercise, bpm: number, start: number, repeat: nu
       const dur = beat / bt.steps.length
       bt.steps.forEach((step, i) => {
         if (step.hand === null) return
-        slots.push({ index: indexOffset + slots.length, t: beatStart + i * dur, dur, step, repeat, bar: b, beat: k, sub: i })
+        const t = beatStart + i * dur
+        slots.push({ index: indexOffset + slots.length, t, dur, step, repeat, bar: b, beat: k, sub: i })
+        // La guida esce dallo stesso giro dello slot: stesso istante per costruzione, senza una
+        // seconda passata che potrebbe divergere. Entra nella coda dei click, quindi eredita
+        // lookahead, count-in e il taglio-e-ripianifica dell'auto-increment senza aggiungere nulla.
+        if (metro.guide) clicks.push({ t, kind: step.accent ? 'note-accent' : 'note', silent })
       })
     })
   })

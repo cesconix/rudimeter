@@ -34,6 +34,10 @@ export function toMarkdown(stats: SessionStats, exercise: Exercise, bpm: number,
   const lines = [
     `### ${day} — ${exercise.name} @ ${bpm} bpm`,
     '',
+    // In cima, non in fondo: chi rilegge il report fra un mese deve incontrare la condizione PRIMA
+    // dei numeri, non dopo averci creduto. Senza cuffie la guida rientra dal microfono sugli istanti
+    // attesi e questi numeri raccontano un'esecuzione che non è avvenuta.
+    ...(stats.guide ? ['> ⚠️ Suono guida attivo: i colpi della guida possono essere stati contati come tuoi.', ''] : []),
     `Slot ${stats.slots}: good ${stats.good} · ok ${stats.ok} · off ${stats.off} · miss ${stats.miss} · extra ${stats.extras}${stats.absorbed > 0 ? ` · assorbiti ${stats.absorbed}` : ''}`,
     `Offset medio ${f(stats.meanOffsetMs)} ms (σ ${f(stats.sdOffsetMs)})`,
     `Uniformità: σ dB ${f(stats.uniformity.sdDbTaps)}${stats.uniformity.hands.length > 0 ? ` (${stats.uniformity.hands.map((h) => `${h.hand} ${f(h.sdDbTaps)}`).join(' · ')})` : ''}`,

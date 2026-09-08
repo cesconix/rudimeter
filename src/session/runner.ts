@@ -132,7 +132,10 @@ export class SessionRunner {
   }
 
   stats(): SessionStats {
-    return computeStats(this.snapshot().result, { bpmByRepeat: this.grid?.repeats.map((r) => r.bpm) ?? [] })
+    return computeStats(this.snapshot().result, {
+      bpmByRepeat: this.grid?.repeats.map((r) => r.bpm) ?? [],
+      guide: this.cfg.metronome?.guide === true,
+    })
   }
 
   private emit(): void {

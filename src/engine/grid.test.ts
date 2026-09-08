@@ -132,3 +132,39 @@ describe('slotIndexAt / repeatAt', () => {
     expect(repeatAt(g, 100)).toBe(1)
   })
 })
+
+describe('suono guida', () => {
+  // Esercizio con un accento e una pausa: la guida deve seguire le NOTE, non i movimenti.
+  const mixed = parseExercise({ id: 'g', name: 'g', timeSignature: [2, 4], steps: '>RL R- | RL RL', repeats: 1 })
+
+  it('spenta di default: nella coda ci sono solo click di metronomo', () => {
+    const g = buildGrid(mixed, 60, 0)
+    expect(g.clicks.some((c) => c.kind === 'note' || c.kind === 'note-accent')).toBe(false)
+  })
+
+  it('accesa: un evento su ogni nota, al suo stesso istante, accentato dove lo è la nota', () => {
+    const g = buildGrid(mixed, 60, 0, { metronome: { clickSubdivision: 1, guide: true } })
+    const guide = g.clicks.filter((c) => c.kind === 'note' || c.kind === 'note-accent')
+    // Sette note: la pausa del secondo movimento non produce nulla, come non produce slot.
+    expect(guide).toHaveLength(g.slots.length)
+    expect(guide.map((c) => c.t)).toEqual(g.slots.map((s) => s.t))
+    expect(guide.map((c) => c.kind)).toEqual(g.slots.map((s) => (s.step.accent ? 'note-accent' : 'note')))
+  })
+
+  it('nelle battute mute del gap tace come il click, altrimenti il gap training non esisterebbe', () => {
+    const g = buildGrid(mixed, 60, 0, { metronome: { clickSubdivision: 1, guide: true, gap: { on: 1, off: 1 } } })
+    const guide = g.clicks.filter((c) => c.kind === 'note' || c.kind === 'note-accent')
+    // Battuta 0 suona, battuta 1 tace: la guida ha lo stesso `silent` dello slot che l'ha generata.
+    expect(guide.filter((c) => !c.silent).map((c) => c.t)).toEqual(g.slots.filter((s) => s.bar === 0).map((s) => s.t))
+    expect(guide.filter((c) => c.silent).map((c) => c.t)).toEqual(g.slots.filter((s) => s.bar === 1).map((s) => s.t))
+  })
+
+  it('sopravvive al cambio di bpm: le ripetizioni rifatte la riportano', () => {
+    const two = parseExercise({ id: 'g2', name: 'g2', timeSignature: [2, 4], steps: 'RL RL', repeats: 2 })
+    const metro = { clickSubdivision: 1 as const, guide: true }
+    const g = buildGrid(two, 60, 0, { metronome: metro })
+    const g2 = replanGrid(g, two, 1, 120, metro)
+    const guide = g2.repeats[1].clicks.filter((c) => c.kind === 'note')
+    expect(guide.map((c) => c.t)).toEqual(g2.repeats[1].slots.map((s) => s.t))
+  })
+})

@@ -1,6 +1,6 @@
-import type { Click } from '../engine/grid'
+import { type Click, isGuide } from '../engine/grid'
 import { ClickQueue } from '../engine/scheduler'
-import { clickOptionsFor, scheduleClick } from './click'
+import { clickOptionsFor, scheduleClick, scheduleGuide } from './click'
 
 export interface ClickSchedulerOptions {
   lookahead?: number
@@ -50,7 +50,10 @@ export class ClickScheduler {
     const { lookahead = 0.1, intervalMs = 25 } = this.opts
     const tick = () => {
       for (const c of this.queue.due(this.ctx.currentTime, lookahead)) {
-        if (!c.silent) scheduleClick(this.ctx, c.t, clickOptionsFor(c.kind))
+        if (c.silent) continue
+        // Stessa coda, stesso lookahead, stesso taglio all'auto-increment: cambia solo il timbro.
+        if (isGuide(c.kind)) scheduleGuide(this.ctx, c.t, c.kind === 'note-accent')
+        else scheduleClick(this.ctx, c.t, clickOptionsFor(c.kind))
       }
       if (this.queue.pending === 0 && this.timer !== null) {
         clearInterval(this.timer)

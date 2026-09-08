@@ -39,6 +39,8 @@ export interface StatsOptions {
   blockSize?: number
   bpmByRepeat?: number[]
   accentThresholdDb?: number
+  /** Il suono guida era attivo: vedi `SessionStats.guide`. */
+  guide?: boolean
 }
 
 export interface SessionStats {
@@ -57,6 +59,13 @@ export interface SessionStats {
   uniformity: UniformityStats
   accents: AccentStats
   bpmByRepeat: number[]
+  /**
+   * Il suono guida era attivo durante la sessione. Non è una statistica: è la condizione in cui il
+   * risultato è stato ottenuto, e va col risultato ovunque vada. Con la guida attiva e senza cuffie
+   * il microfono sente i colpi della guida sugli istanti attesi, e questi numeri descrivono
+   * un'esecuzione perfetta che non è avvenuta — senza questo campo, indistinguibile da un record.
+   */
+  guide: boolean
 }
 
 export function mean(xs: number[]): number | null {
@@ -144,5 +153,6 @@ export function computeStats(result: JudgeResult, opts: StatsOptions = {}): Sess
     uniformity,
     accents,
     bpmByRepeat: opts.bpmByRepeat ?? [],
+    guide: opts.guide === true,
   }
 }
