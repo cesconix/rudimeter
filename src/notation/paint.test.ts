@@ -1,11 +1,17 @@
 import { describe, expect, it } from 'bun:test'
-import { GRADE_COLORS, paintColor, paintDiff, type PaintTarget } from './paint'
 import type { Grade, Judged, Slot } from '../engine/types'
+import { GRADE_COLORS, type PaintTarget, paintColor, paintDiff } from './paint'
 
 function fakeEl(children: { stroke?: string }[]) {
   const nodes = children.map((c) => {
     const attrs: Record<string, string | undefined> = c.stroke ? { stroke: c.stroke } : {}
-    return { attrs, getAttribute: (n: string) => attrs[n] ?? null, setAttribute: (n: string, v: string) => { attrs[n] = v } }
+    return {
+      attrs,
+      getAttribute: (n: string) => attrs[n] ?? null,
+      setAttribute: (n: string, v: string) => {
+        attrs[n] = v
+      },
+    }
   })
   const el: PaintTarget = { querySelectorAll: () => nodes }
   return { el, nodes }
@@ -23,7 +29,8 @@ describe('paintColor', () => {
 describe('paintDiff', () => {
   const step = { hand: 'R' as const, accent: false }
   const slot = (index: number): Slot => ({ index, t: index, dur: 1, step, repeat: 0, bar: 0, beat: index, sub: 0 })
-  const judged = (grades: Grade[]): Judged[] => grades.map((grade, i) => ({ slot: slot(i), hit: null, offsetMs: null, grade }))
+  const judged = (grades: Grade[]): Judged[] =>
+    grades.map((grade, i) => ({ slot: slot(i), hit: null, offsetMs: null, grade }))
 
   it('tocca solo i grade cambiati e aggiorna la memoria', () => {
     const els = [fakeEl([{}]), fakeEl([{}]), fakeEl([{}])]

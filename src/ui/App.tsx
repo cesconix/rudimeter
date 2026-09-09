@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { createEngine, describeMicError, type Engine } from '../audio/engine'
-import { loadCalibration, saveCalibration, type CalibrationData } from '../audio/storage'
+import { type CalibrationData, loadCalibration, saveCalibration } from '../audio/storage'
 import { DEFAULT_METRONOME, type MetronomeOptions } from '../engine/grid'
 import type { AutoIncrement } from '../engine/progression'
 import type { SessionStats } from '../engine/stats'
@@ -74,11 +74,19 @@ export function App() {
   }, [])
 
   const banner = suspended && engine && (
-    <button type="button" onClick={() => engine.ctx.resume().then(() => setSuspended(false))}>Audio in pausa: tocca per riprendere</button>
+    <button type="button" onClick={() => engine.ctx.resume().then(() => setSuspended(false))}>
+      Audio in pausa: tocca per riprendere
+    </button>
   )
 
   if (screen === 'start' || !engine) return <StartScreen onStart={start} busy={busy} error={error} />
-  if (screen === 'calibration') return <>{banner}<CalibrationScreen engine={engine} existing={calibration} onDone={onCalibrated} /></>
+  if (screen === 'calibration')
+    return (
+      <>
+        {banner}
+        <CalibrationScreen engine={engine} existing={calibration} onDone={onCalibrated} />
+      </>
+    )
   if (screen === 'pick' || !pick || !calibration) {
     return (
       <>
@@ -103,10 +111,32 @@ export function App() {
     )
   }
   if (screen === 'session') {
-    return <>{banner}<SessionScreen engine={engine} exercise={pick.exercise} bpm={pick.bpm} options={pick.options} calibration={calibration} onDone={onSessionDone} onAbort={() => setScreen('pick')} /></>
+    return (
+      <>
+        {banner}
+        <SessionScreen
+          engine={engine}
+          exercise={pick.exercise}
+          bpm={pick.bpm}
+          options={pick.options}
+          calibration={calibration}
+          onDone={onSessionDone}
+          onAbort={() => setScreen('pick')}
+        />
+      </>
+    )
   }
   if (screen === 'summary' && stats) {
-    return <SummaryScreen stats={stats} exercise={pick.exercise} bpm={pick.bpm} calibration={calibration} onRepeat={() => setScreen('session')} onPick={() => setScreen('pick')} />
+    return (
+      <SummaryScreen
+        stats={stats}
+        exercise={pick.exercise}
+        bpm={pick.bpm}
+        calibration={calibration}
+        onRepeat={() => setScreen('session')}
+        onPick={() => setScreen('pick')}
+      />
+    )
   }
   return <StartScreen onStart={start} busy={busy} error={error} />
 }

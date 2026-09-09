@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'bun:test'
-import { SessionRunner, type RunnerDeps } from './runner'
 import { parseExercise } from '../engine/exercise'
 import type { Click } from '../engine/grid'
 import type { Hit } from '../engine/types'
+import { type RunnerDeps, SessionRunner } from './runner'
 
 /**
  * `dropAfterReturns` simula il clamp del ClickSink reale (`ClickScheduler.dropAfter`): per default
@@ -19,20 +19,34 @@ function fakeDeps(opts: { dropAfterReturns?: (requested: number) => number } = {
       const entry = { clicks, added: [] as Click[][], droppedAfter: [] as number[], stopped: false }
       scheduled.push(entry)
       return {
-        add: (c) => { entry.added.push(c) },
+        add: (c) => {
+          entry.added.push(c)
+        },
         dropAfter: (x) => {
           entry.droppedAfter.push(x)
           return opts.dropAfterReturns ? opts.dropAfterReturns(x) : x
         },
-        stop: () => { entry.stopped = true },
+        stop: () => {
+          entry.stopped = true
+        },
       }
     },
     onHit: (l) => {
       listener = l
-      return () => { listener = null }
+      return () => {
+        listener = null
+      }
     },
   }
-  return { deps, scheduled, advance: (dt: number) => { t += dt }, hit: (h: Hit) => listener?.(h), hasListener: () => listener !== null }
+  return {
+    deps,
+    scheduled,
+    advance: (dt: number) => {
+      t += dt
+    },
+    hit: (h: Hit) => listener?.(h),
+    hasListener: () => listener !== null,
+  }
 }
 
 const ex = parseExercise({ id: 'e', name: 'e', timeSignature: [2, 4], steps: 'RL RL | RL RL', repeats: 1 })
@@ -137,7 +151,12 @@ describe('auto-increment', () => {
     const r = new SessionRunner(f.deps, { exercise: ex6, bpm: 60, latencyMs: 0, slope: null, autoIncrement: ai })
     r.start()
     const grid0 = r.snapshot().grid
-    grid0.slots.filter((s) => s.repeat < 2).forEach((s) => { f.advance(s.t - f.deps.now()); f.hit({ t: s.t, peakDb: -20 }) })
+    grid0.slots
+      .filter((s) => s.repeat < 2)
+      .forEach((s) => {
+        f.advance(s.t - f.deps.now())
+        f.hit({ t: s.t, peakDb: -20 })
+      })
     f.advance(grid0.repeats[2].start + 0.01 - f.deps.now())
     // biome-ignore lint/style/noNonNullAssertion: the runner is playing at this point, so tick() always returns a snapshot.
     const s = r.tick()!
@@ -153,7 +172,12 @@ describe('auto-increment', () => {
     const r = new SessionRunner(f.deps, { exercise: ex6, bpm: 60, latencyMs: 0, slope: null, autoIncrement: ai })
     r.start()
     const grid0 = r.snapshot().grid
-    grid0.slots.filter((s) => s.repeat < 2 && s.index !== 3).forEach((s) => { f.advance(s.t - f.deps.now()); f.hit({ t: s.t, peakDb: -20 }) })
+    grid0.slots
+      .filter((s) => s.repeat < 2 && s.index !== 3)
+      .forEach((s) => {
+        f.advance(s.t - f.deps.now())
+        f.hit({ t: s.t, peakDb: -20 })
+      })
     f.advance(grid0.repeats[2].start + 0.01 - f.deps.now())
     // biome-ignore lint/style/noNonNullAssertion: the runner is playing at this point, so tick() always returns a snapshot.
     expect(r.tick()!.grid.repeats.every((x) => x.bpm === 60)).toBe(true)
@@ -168,7 +192,12 @@ describe('auto-increment', () => {
     const r = new SessionRunner(f.deps, { exercise: ex6, bpm: 60, latencyMs: 0, slope: null, autoIncrement: ai })
     r.start()
     const grid0 = r.snapshot().grid
-    grid0.slots.filter((s) => s.repeat < 2).forEach((s) => { f.advance(s.t - f.deps.now()); f.hit({ t: s.t, peakDb: -20 }) })
+    grid0.slots
+      .filter((s) => s.repeat < 2)
+      .forEach((s) => {
+        f.advance(s.t - f.deps.now())
+        f.hit({ t: s.t, peakDb: -20 })
+      })
     f.advance(grid0.repeats[2].start + 0.01 - f.deps.now())
     r.tick()
     const requested = f.scheduled[0].droppedAfter[0]
@@ -186,7 +215,12 @@ describe('auto-increment', () => {
     const r = new SessionRunner(f.deps, { exercise: ex6, bpm: 60, latencyMs: 0, slope: null, autoIncrement: ai })
     r.start()
     const grid0 = r.snapshot().grid
-    grid0.slots.filter((s) => s.repeat < 2).forEach((s) => { f.advance(s.t - f.deps.now()); f.hit({ t: s.t, peakDb: -20 }) })
+    grid0.slots
+      .filter((s) => s.repeat < 2)
+      .forEach((s) => {
+        f.advance(s.t - f.deps.now())
+        f.hit({ t: s.t, peakDb: -20 })
+      })
     f.advance(grid0.repeats[2].start + 0.01 - f.deps.now())
     // biome-ignore lint/style/noNonNullAssertion: the runner is playing at this point, so tick() always returns a snapshot.
     const s = r.tick()!
@@ -202,7 +236,12 @@ describe('auto-increment', () => {
     r.start()
     const grid0 = r.snapshot().grid
     const inProgressBefore = grid0.repeats[2]
-    grid0.slots.filter((s) => s.repeat < 2).forEach((s) => { f.advance(s.t - f.deps.now()); f.hit({ t: s.t, peakDb: -20 }) })
+    grid0.slots
+      .filter((s) => s.repeat < 2)
+      .forEach((s) => {
+        f.advance(s.t - f.deps.now())
+        f.hit({ t: s.t, peakDb: -20 })
+      })
     f.advance(grid0.repeats[2].start + 0.01 - f.deps.now())
     // biome-ignore lint/style/noNonNullAssertion: the runner is playing at this point, so tick() always returns a snapshot.
     const s = r.tick()!
@@ -217,7 +256,12 @@ describe('auto-increment', () => {
     const r = new SessionRunner(f.deps, { exercise: ex6, bpm: 60, latencyMs: 0, slope: null, autoIncrement: ai })
     r.start()
     const grid0 = r.snapshot().grid
-    grid0.slots.filter((s) => s.repeat < 2).forEach((s) => { f.advance(s.t - f.deps.now()); f.hit({ t: s.t, peakDb: -20 }) })
+    grid0.slots
+      .filter((s) => s.repeat < 2)
+      .forEach((s) => {
+        f.advance(s.t - f.deps.now())
+        f.hit({ t: s.t, peakDb: -20 })
+      })
     f.advance(grid0.repeats[2].start + 0.01 - f.deps.now())
     r.tick()
     r.tick()

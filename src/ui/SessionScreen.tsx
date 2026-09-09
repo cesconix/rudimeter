@@ -6,7 +6,7 @@ import type { CalibrationData } from '../audio/storage'
 import { repeatAt } from '../engine/grid'
 import type { SessionStats } from '../engine/stats'
 import type { Exercise } from '../engine/types'
-import { SessionRunner, type RunnerState } from '../session/runner'
+import { type RunnerState, SessionRunner } from '../session/runner'
 import type { SessionOptions } from './App'
 import { Meter } from './Meter'
 import { Score } from './Score'
@@ -43,7 +43,14 @@ export function SessionScreen({ engine, exercise, bpm, options, calibration, onD
         },
         onHit: (l) => engine.capture.onHit(l),
       },
-      { exercise, bpm, latencyMs: calibration.latencyMs, slope: calibration.slope, metronome: options.metronome, autoIncrement: options.autoIncrement ?? undefined },
+      {
+        exercise,
+        bpm,
+        latencyMs: calibration.latencyMs,
+        slope: calibration.slope,
+        metronome: options.metronome,
+        autoIncrement: options.autoIncrement ?? undefined,
+      },
     )
     runnerRef.current = runner
     const unsub = runner.subscribe(setState)
@@ -67,7 +74,12 @@ export function SessionScreen({ engine, exercise, bpm, options, calibration, onD
     if (state?.phase === 'done' && runnerRef.current) onDone(runnerRef.current.stats())
   }, [state?.phase, onDone])
 
-  if (!state) return <main><p>Avvio…</p></main>
+  if (!state)
+    return (
+      <main>
+        <p>Avvio…</p>
+      </main>
+    )
 
   // Clock udibile, non quello di schedulazione: il disegno deve stare col suono che esce, non col
   // suono prenotato (vedi audibleTime). Il runner sopra continua a schedulare su `currentTime`.
@@ -81,8 +93,12 @@ export function SessionScreen({ engine, exercise, bpm, options, calibration, onD
     // <main> può avere un fratello — il banner "Audio in pausa" di App (vedi styles.css).
     <main className="session">
       <div className="row">
-        <h1>{exercise.name} @ {state.bpm} bpm</h1>
-        <p>Ripetizione {Math.min(repeat + 1, exercise.repeats)} / {exercise.repeats}</p>
+        <h1>
+          {exercise.name} @ {state.bpm} bpm
+        </h1>
+        <p>
+          Ripetizione {Math.min(repeat + 1, exercise.repeats)} / {exercise.repeats}
+        </p>
         <button
           type="button"
           className="secondary"
@@ -98,7 +114,10 @@ export function SessionScreen({ engine, exercise, bpm, options, calibration, onD
       </div>
       {state.phase === 'count-in' && <p className="big">Count-in…</p>}
       <Score exercise={exercise} grid={grid} judged={state.result.judged} now={now} />
-      <p>extra: {state.result.extras.length}{state.result.absorbed.length > 0 ? ` · assorbiti: ${state.result.absorbed.length}` : ''}</p>
+      <p>
+        extra: {state.result.extras.length}
+        {state.result.absorbed.length > 0 ? ` · assorbiti: ${state.result.absorbed.length}` : ''}
+      </p>
       <Meter engine={engine} />
     </main>
   )

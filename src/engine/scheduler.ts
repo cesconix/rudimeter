@@ -1,5 +1,10 @@
 /** Indici di `times` da schedulare ora: quelli in [from, …) con tempo < now + lookahead. */
-export function dueIndices(times: number[], from: number, now: number, lookahead: number): { indices: number[]; next: number } {
+export function dueIndices(
+  times: number[],
+  from: number,
+  now: number,
+  lookahead: number,
+): { indices: number[]; next: number } {
   const indices: number[] = []
   let i = from
   while (i < times.length && times[i] < now + lookahead) {
@@ -34,7 +39,12 @@ export class ClickQueue<T extends { t: number }> {
 
   /** Estrae, in ordine, gli item con t < now + lookahead. */
   due(now: number, lookahead: number): T[] {
-    const { indices, next } = dueIndices(this.items.map((i) => i.t), this.next, now, lookahead)
+    const { indices, next } = dueIndices(
+      this.items.map((i) => i.t),
+      this.next,
+      now,
+      lookahead,
+    )
     const out = indices.map((i) => this.items[i])
     this.next = next
     return out

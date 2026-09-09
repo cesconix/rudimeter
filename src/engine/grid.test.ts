@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
-import { buildGrid, isSilentBar, repeatAt, replanGrid, slotIndexAt } from './grid'
 import { parseExercise } from './exercise'
+import { buildGrid, isSilentBar, repeatAt, replanGrid, slotIndexAt } from './grid'
 
 const stone1 = parseExercise({ id: 's1', name: 's1', timeSignature: [2, 4], steps: 'RL RL | RL RL', repeats: 2 })
 
@@ -26,7 +26,18 @@ describe('buildGrid', () => {
     expect(g.countInClicks).toHaveLength(2)
     expect(g.clicks).toHaveLength(2 + 2 * 2 * 2)
     expect(g.clicks[1].t).toBeCloseTo(0.5, 6)
-    expect(g.clicks.map((c) => c.kind)).toEqual(['bar', 'beat', 'bar', 'beat', 'bar', 'beat', 'bar', 'beat', 'bar', 'beat'])
+    expect(g.clicks.map((c) => c.kind)).toEqual([
+      'bar',
+      'beat',
+      'bar',
+      'beat',
+      'bar',
+      'beat',
+      'bar',
+      'beat',
+      'bar',
+      'beat',
+    ])
     expect(g.clicks.every((c) => !c.silent)).toBe(true)
   })
   it('suddivisioni miste: terzina e semicrome nello stesso esercizio, dur per slot', () => {
@@ -60,7 +71,12 @@ describe('buildGrid', () => {
   })
   it('click di suddivisione: 2 per movimento, kind sub sugli intermedi', () => {
     const g = buildGrid(stone1, 60, 0, { countInBars: 0, metronome: { clickSubdivision: 2 } })
-    expect(g.clicks.slice(0, 4).map((c) => [c.t, c.kind])).toEqual([[0, 'bar'], [0.5, 'sub'], [1, 'beat'], [1.5, 'sub']])
+    expect(g.clicks.slice(0, 4).map((c) => [c.t, c.kind])).toEqual([
+      [0, 'bar'],
+      [0.5, 'sub'],
+      [1, 'beat'],
+      [1.5, 'sub'],
+    ])
   })
   it('click di suddivisione: 3 per movimento, kind sub sui due intermedi', () => {
     const g = buildGrid(stone1, 60, 0, { countInBars: 0, metronome: { clickSubdivision: 3 } })
@@ -117,7 +133,10 @@ describe('replanGrid', () => {
     expect(g2.minStepDur).toBeCloseTo(0.25, 6)
     // la ripetizione rifatta a 120 bpm: click ogni 0.5 s (non più 1 s), non solo il conteggio
     expect(g2.repeats[1].clicks.map((c) => [c.t, c.kind])).toEqual([
-      [6, 'bar'], [6.5, 'beat'], [7, 'bar'], [7.5, 'beat'],
+      [6, 'bar'],
+      [6.5, 'beat'],
+      [7, 'bar'],
+      [7.5, 'beat'],
     ])
   })
 })

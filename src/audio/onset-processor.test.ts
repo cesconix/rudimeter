@@ -1,9 +1,14 @@
-import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'bun:test'
+import { readFileSync } from 'node:fs'
 
 const SR = 48000
 
-interface Msg { type: string; frame?: number; peak?: number; bg?: number }
+interface Msg {
+  type: string
+  frame?: number
+  peak?: number
+  bg?: number
+}
 
 /** Istanzia il worklet in Node con gli stub del global scope AudioWorklet. */
 function loadProcessor(): { proc: { process(inputs: Float32Array[][]): boolean }; out: Msg[] } {
@@ -13,7 +18,9 @@ function loadProcessor(): { proc: { process(inputs: Float32Array[][]): boolean }
   let registered = null as (new () => { process(inputs: Float32Array[][]): boolean }) | null
   g.sampleRate = SR
   g.currentFrame = 0
-  g.registerProcessor = (_name: string, cls: typeof registered) => { registered = cls }
+  g.registerProcessor = (_name: string, cls: typeof registered) => {
+    registered = cls
+  }
   g.AudioWorkletProcessor = class {
     port = { onmessage: null as unknown, postMessage: (m: Msg) => out.push(m) }
   }
@@ -27,7 +34,10 @@ function synth(hits: { t: number; db: number }[], seconds = 3): Float32Array {
   const N = SR * seconds
   const sig = new Float32Array(N)
   let seed = 1
-  const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return (seed / 0x7fffffff) * 2 - 1 }
+  const rnd = () => {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff
+    return (seed / 0x7fffffff) * 2 - 1
+  }
   for (let i = 0; i < N; i++) sig[i] = rnd() * 10 ** (-70 / 20)
   for (const h of hits) {
     const a = 10 ** (h.db / 20)
@@ -52,7 +62,12 @@ function run(sig: Float32Array): Msg[] {
 
 describe('onset-processor', () => {
   it('rileva colpi piano e forte con timing esatto e picco fedele', () => {
-    const hits = [{ t: 0.5, db: -30 }, { t: 1.0, db: -30 }, { t: 1.5, db: -12 }, { t: 2.0, db: -12 }]
+    const hits = [
+      { t: 0.5, db: -30 },
+      { t: 1.0, db: -30 },
+      { t: 1.5, db: -12 },
+      { t: 2.0, db: -12 },
+    ]
     const onsets = run(synth(hits))
     expect(onsets).toHaveLength(4)
     onsets.forEach((o, i) => {
@@ -63,7 +78,12 @@ describe('onset-processor', () => {
     })
   })
   it('separa due colpi a 60 ms e non ritrigghera sulla coda', () => {
-    const onsets = run(synth([{ t: 1.0, db: -20 }, { t: 1.06, db: -20 }]))
+    const onsets = run(
+      synth([
+        { t: 1.0, db: -20 },
+        { t: 1.06, db: -20 },
+      ]),
+    )
     expect(onsets).toHaveLength(2)
   })
   it('ignora il rumore di fondo', () => {
@@ -80,7 +100,10 @@ describe('onset-processor', () => {
       const N = SR * 2
       const sig = new Float32Array(N)
       let seed = 7
-      const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return (seed / 0x7fffffff) * 2 - 1 }
+      const rnd = () => {
+        seed = (seed * 1103515245 + 12345) & 0x7fffffff
+        return (seed / 0x7fffffff) * 2 - 1
+      }
       for (let i = 0; i < N; i++) sig[i] = rnd() * 10 ** (-70 / 20)
       const trueFrames = [0.5, 0.9, 1.3].map((t) => Math.round(t * SR))
       const peak = 10 ** (peakDb / 20)
@@ -117,7 +140,10 @@ describe('onset-processor', () => {
     const N = SR
     const sig = new Float32Array(N)
     let seed = 11
-    const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return (seed / 0x7fffffff) * 2 - 1 }
+    const rnd = () => {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff
+      return (seed / 0x7fffffff) * 2 - 1
+    }
     for (let i = 0; i < N; i++) sig[i] = rnd() * 10 ** (-70 / 20)
     const start = Math.round(0.5 * SR)
     // Stessa forma di scheduleClick: 1000 Hz, gain 0.8, rampa 0.5 ms, dur 10 ms.
@@ -136,7 +162,10 @@ describe('onset-processor', () => {
     const { proc, out } = loadProcessor()
     const p = proc as unknown as { port: { onmessage: (e: { data: unknown }) => void } }
     p.port.onmessage({ data: { floor: 10 ** (-25 / 20) } })
-    const sig = synth([{ t: 0.5, db: -30 }, { t: 1.0, db: -12 }])
+    const sig = synth([
+      { t: 0.5, db: -30 },
+      { t: 1.0, db: -12 },
+    ])
     const g = globalThis as Record<string, unknown>
     for (let f = 0; f < sig.length; f += 128) {
       g.currentFrame = f

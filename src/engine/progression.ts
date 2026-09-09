@@ -1,5 +1,5 @@
 import type { Grid } from './grid'
-import type { JudgeResult, Judged } from './types'
+import type { Judged, JudgeResult } from './types'
 
 export interface AutoIncrement {
   /** bpm da aggiungere */
@@ -13,7 +13,10 @@ export interface AutoIncrement {
 
 export const DEFAULT_AUTO_INCREMENT: AutoIncrement = { step: 4, after: 4, minAccuracy: 0.9, maxBpm: 240 }
 
-export function repeatAccuracy(judged: Judged[], repeat: number): { slots: number; passing: number; miss: number; accuracy: number } {
+export function repeatAccuracy(
+  judged: Judged[],
+  repeat: number,
+): { slots: number; passing: number; miss: number; accuracy: number } {
   const own = judged.filter((j) => j.slot.repeat === repeat)
   const passing = own.filter((j) => j.grade === 'good' || j.grade === 'ok').length
   const miss = own.filter((j) => j.grade === 'miss').length

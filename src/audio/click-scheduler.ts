@@ -13,7 +13,10 @@ export class ClickScheduler {
   private running = false
   private queue = new ClickQueue<Click>()
 
-  constructor(private ctx: AudioContext, private opts: ClickSchedulerOptions = {}) {}
+  constructor(
+    private ctx: AudioContext,
+    private opts: ClickSchedulerOptions = {},
+  ) {}
 
   add(clicks: Click[]): void {
     this.queue.add(clicks)

@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'bun:test'
-import { dynamicsVerdict, fitRamp, latencyFromOffsets, matchOffsets, matchRampPoints, median, rampGainsDb } from './calibration'
+import {
+  dynamicsVerdict,
+  fitRamp,
+  latencyFromOffsets,
+  matchOffsets,
+  matchRampPoints,
+  median,
+  rampGainsDb,
+} from './calibration'
 
 describe('matchOffsets', () => {
   it('abbina a ogni click il primo onset entro 300 ms e ritorna gli offset in ms', () => {
@@ -20,8 +28,16 @@ describe('matchOffsets', () => {
 
 describe('matchRampPoints', () => {
   it('abbina a ogni click il primo hit entro 300 ms e ritorna RampPoint[]', () => {
-    const clicks = [{ t: 1, db: -22 }, { t: 1.4, db: -11 }, { t: 1.8, db: 0 }]
-    const hits = [{ t: 1.068, peakDb: -20 }, { t: 1.468, peakDb: -9 }, { t: 2.9, peakDb: 2 }]
+    const clicks = [
+      { t: 1, db: -22 },
+      { t: 1.4, db: -11 },
+      { t: 1.8, db: 0 },
+    ]
+    const hits = [
+      { t: 1.068, peakDb: -20 },
+      { t: 1.468, peakDb: -9 },
+      { t: 2.9, peakDb: 2 },
+    ]
     const points = matchRampPoints(clicks, hits)
     expect(points).toEqual([
       { expectedDb: -22, measuredDb: -20 },
@@ -30,7 +46,11 @@ describe('matchRampPoints', () => {
     ])
   })
   it('ritorna measuredDb: null se nessun hit rilevato per il click', () => {
-    const clicks = [{ t: 1, db: -22 }, { t: 1.4, db: -11 }, { t: 1.8, db: 0 }]
+    const clicks = [
+      { t: 1, db: -22 },
+      { t: 1.4, db: -11 },
+      { t: 1.8, db: 0 },
+    ]
     const hits = [{ t: 1.068, peakDb: -20 }]
     const points = matchRampPoints(clicks, hits)
     expect(points).toEqual([
@@ -39,9 +59,16 @@ describe('matchRampPoints', () => {
       { expectedDb: 0, measuredDb: null },
     ])
   })
-  it('non sposta l\'abbinamento di click successivi quando uno non ha hit', () => {
-    const clicks = [{ t: 1, db: -22 }, { t: 1.4, db: -11 }, { t: 1.8, db: 0 }]
-    const hits = [{ t: 1.068, peakDb: -20 }, { t: 1.8, peakDb: 2 }]
+  it("non sposta l'abbinamento di click successivi quando uno non ha hit", () => {
+    const clicks = [
+      { t: 1, db: -22 },
+      { t: 1.4, db: -11 },
+      { t: 1.8, db: 0 },
+    ]
+    const hits = [
+      { t: 1.068, peakDb: -20 },
+      { t: 1.8, peakDb: 2 },
+    ]
     const points = matchRampPoints(clicks, hits)
     expect(points).toEqual([
       { expectedDb: -22, measuredDb: -20 },
@@ -50,10 +77,16 @@ describe('matchRampPoints', () => {
     ])
   })
   it('ogni hit viene abbinato al massimo una volta anche con finestre sovrapposte', () => {
-    const clicks = [{ t: 1, db: -22 }, { t: 1.01, db: -11 }]
+    const clicks = [
+      { t: 1, db: -22 },
+      { t: 1.01, db: -11 },
+    ]
     const hits = [{ t: 1.005, peakDb: -15 }]
     const points = matchRampPoints(clicks, hits)
-    expect(points).toEqual([{ expectedDb: -22, measuredDb: -15 }, { expectedDb: -11, measuredDb: null }])
+    expect(points).toEqual([
+      { expectedDb: -22, measuredDb: -15 },
+      { expectedDb: -11, measuredDb: null },
+    ])
   })
 })
 

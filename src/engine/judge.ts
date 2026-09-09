@@ -1,4 +1,4 @@
-import type { Grade, Hit, JudgeResult, Judged, Slot, Windows } from './types'
+import type { Grade, Hit, Judged, JudgeResult, Slot, Windows } from './types'
 import { DEFAULT_WINDOWS } from './types'
 
 export interface JudgeOptions {
@@ -117,6 +117,13 @@ export function isAbsorbed(slots: Slot[], hit: Hit, claimed: Set<number>): boole
     if (!prev || claimed.has(prev.index)) return true
   }
   const p = prev?.step.ornament
-  if (prev && claimed.has(prev.index) && (p === 'buzz' || p === 'tremolo') && hit.t > prev.t && hit.t < prev.t + prev.dur) return true
+  if (
+    prev &&
+    claimed.has(prev.index) &&
+    (p === 'buzz' || p === 'tremolo') &&
+    hit.t > prev.t &&
+    hit.t < prev.t + prev.dur
+  )
+    return true
   return false
 }

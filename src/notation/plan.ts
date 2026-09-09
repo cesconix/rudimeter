@@ -64,8 +64,17 @@ export function planRepeat(ex: Exercise, repeat: number, slotOffset: number): Ba
       return {
         tuplet: tupletFor(n),
         notes: bt.steps.map((step): NotePlan => {
-          if (step.hand === null) return { rest: true, duration, accent: false, sticking: null, grace: [], ornament: null, slotIndex: null }
-          return { rest: false, duration, accent: step.accent, sticking: step.hand, grace: graceHands(step), ornament: step.ornament ?? null, slotIndex: next++ }
+          if (step.hand === null)
+            return { rest: true, duration, accent: false, sticking: null, grace: [], ornament: null, slotIndex: null }
+          return {
+            rest: false,
+            duration,
+            accent: step.accent,
+            sticking: step.hand,
+            grace: graceHands(step),
+            ornament: step.ornament ?? null,
+            slotIndex: next++,
+          }
         }),
       }
     }),

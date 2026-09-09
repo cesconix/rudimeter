@@ -1,6 +1,12 @@
 import type { Grade, Judged } from '../engine/types'
 
-export const GRADE_COLORS: Record<Grade, string> = { good: '#2a2', ok: '#c90', off: '#d33', miss: '#888', pending: '#000' }
+export const GRADE_COLORS: Record<Grade, string> = {
+  good: '#2a2',
+  ok: '#c90',
+  off: '#d33',
+  miss: '#888',
+  pending: '#000',
+}
 
 interface PaintNode {
   getAttribute(name: string): string | null
@@ -36,7 +42,11 @@ export function paintColor(el: PaintTarget, color: string): void {
  * indistinguibile da `pending` — per sempre, e il valore di ritorno non distingue quel caso da
  * "non c'era niente da fare".
  */
-export function paintDiff(judged: Judged[], elementOf: (slotIndex: number) => PaintTarget | undefined, last: Map<number, Grade>): number {
+export function paintDiff(
+  judged: Judged[],
+  elementOf: (slotIndex: number) => PaintTarget | undefined,
+  last: Map<number, Grade>,
+): number {
   let touched = 0
   for (const j of judged) {
     const i = j.slot.index

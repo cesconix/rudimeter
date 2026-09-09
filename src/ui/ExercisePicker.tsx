@@ -30,11 +30,20 @@ export function ExercisePicker({ previousBpm, previousOptions, onPick, onRecalib
     <main>
       <h1>Esercizio</h1>
       <select aria-label="Esercizio" value={id} onChange={(e) => setId(e.target.value)}>
-        {EXERCISES.map((e) => <option key={e.id} value={e.id}>{e.name}{e.source ? ` — ${e.source}` : ''}</option>)}
+        {EXERCISES.map((e) => (
+          <option key={e.id} value={e.id}>
+            {e.name}
+            {e.source ? ` — ${e.source}` : ''}
+          </option>
+        ))}
       </select>
-      <p><code>{exercise.sticking}</code> · {exercise.timeSignature.join('/')} · {exercise.repeats} ripetizioni</p>
+      <p>
+        <code>{exercise.sticking}</code> · {exercise.timeSignature.join('/')} · {exercise.repeats} ripetizioni
+      </p>
       <div className="row">
-        <button type="button" className="secondary" onClick={() => setBpm((b) => Math.max(30, b - 5))}>−5</button>
+        <button type="button" className="secondary" onClick={() => setBpm((b) => Math.max(30, b - 5))}>
+          −5
+        </button>
         <input
           type="number"
           value={bpm}
@@ -46,19 +55,37 @@ export function ExercisePicker({ previousBpm, previousOptions, onPick, onRecalib
           }}
         />
         <span>bpm</span>
-        <button type="button" className="secondary" onClick={() => setBpm((b) => Math.min(240, b + 5))}>+5</button>
+        <button type="button" className="secondary" onClick={() => setBpm((b) => Math.min(240, b + 5))}>
+          +5
+        </button>
       </div>
       <fieldset className="transport">
         <legend>Trasporto</legend>
         <label>
           Click per movimento
-          <select value={clickSubdivision} onChange={(e) => setClickSubdivision(Number(e.target.value) as 1 | 2 | 3 | 4)}>
-            <option value={1}>1</option><option value={2}>2</option><option value={3}>3</option><option value={4}>4</option>
+          <select
+            value={clickSubdivision}
+            onChange={(e) => setClickSubdivision(Number(e.target.value) as 1 | 2 | 3 | 4)}
+          >
+            <option value={1}>1</option>
+            <option value={2}>2</option>
+            <option value={3}>3</option>
+            <option value={4}>4</option>
           </select>
         </label>
-        <label><input type="checkbox" checked={guide} onChange={(e) => setGuide(e.target.checked)} /> Suono guida: un colpo su ogni nota, più forte sugli accenti</label>
-        <label><input type="checkbox" checked={gap} onChange={(e) => setGap(e.target.checked)} /> Gap training: 2 battute con click, 2 senza</label>
-        <label><input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} /> Auto-increment: +{DEFAULT_AUTO_INCREMENT.step} bpm dopo {DEFAULT_AUTO_INCREMENT.after} ripetizioni pulite (≥ {DEFAULT_AUTO_INCREMENT.minAccuracy * 100} %)</label>
+        <label>
+          <input type="checkbox" checked={guide} onChange={(e) => setGuide(e.target.checked)} /> Suono guida: un colpo
+          su ogni nota, più forte sugli accenti
+        </label>
+        <label>
+          <input type="checkbox" checked={gap} onChange={(e) => setGap(e.target.checked)} /> Gap training: 2 battute con
+          click, 2 senza
+        </label>
+        <label>
+          <input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} /> Auto-increment: +
+          {DEFAULT_AUTO_INCREMENT.step} bpm dopo {DEFAULT_AUTO_INCREMENT.after} ripetizioni pulite (≥{' '}
+          {DEFAULT_AUTO_INCREMENT.minAccuracy * 100} %)
+        </label>
       </fieldset>
       {/* Con la guida attiva l'avviso cambia di natura, non di tono: il click che rientra dallo
           speaker cade sui movimenti e sporca il risultato, la guida cade sugli istanti attesi e lo
@@ -69,8 +96,12 @@ export function ExercisePicker({ previousBpm, previousOptions, onPick, onRecalib
           : 'Metti le cuffie prima di partire: il click dallo speaker verrebbe contato come colpo.'}
       </p>
       <div className="row">
-        <button type="button" onClick={() => onPick(exercise, bpm, options)}>Parti</button>
-        <button type="button" className="secondary" onClick={onRecalibrate}>Ricalibra</button>
+        <button type="button" onClick={() => onPick(exercise, bpm, options)}>
+          Parti
+        </button>
+        <button type="button" className="secondary" onClick={onRecalibrate}>
+          Ricalibra
+        </button>
       </div>
     </main>
   )

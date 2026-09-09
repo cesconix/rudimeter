@@ -1,12 +1,19 @@
 import { describe, expect, it } from 'bun:test'
-import { bpmRuns, toMarkdown } from './report'
-import { computeStats } from './stats'
-import type { SessionStats } from './stats'
 import { EXERCISES } from '../data/exercises'
+import { bpmRuns, toMarkdown } from './report'
+import type { SessionStats } from './stats'
+import { computeStats } from './stats'
 
 const stats: SessionStats = {
-  slots: 80, good: 60, ok: 10, off: 2, miss: 8, pending: 0, extras: 1,
-  meanOffsetMs: 4.25, sdOffsetMs: 12.5,
+  slots: 80,
+  good: 60,
+  ok: 10,
+  off: 2,
+  miss: 8,
+  pending: 0,
+  extras: 1,
+  meanOffsetMs: 4.25,
+  sdOffsetMs: 12.5,
   hands: [
     { hand: 'R', slots: 40, hits: 38, meanOffsetMs: 1.2, sdOffsetMs: 10.1, meanDb: -15.3, sdDb: 1.1 },
     { hand: 'L', slots: 40, hits: 34, meanOffsetMs: 7.8, sdOffsetMs: 14.9, meanDb: -19.9, sdDb: 2.4 },
@@ -16,7 +23,13 @@ const stats: SessionStats = {
     { fromRepeat: 5, toRepeat: 9, slots: 40, miss: 6, sdOffsetMs: 14, meanDb: -18.2 },
   ],
   absorbed: 3,
-  uniformity: { sdDbTaps: 1.4, hands: [{ hand: 'R', sdDbTaps: 1.1 }, { hand: 'L', sdDbTaps: 1.7 }] },
+  uniformity: {
+    sdDbTaps: 1.4,
+    hands: [
+      { hand: 'R', sdDbTaps: 1.1 },
+      { hand: 'L', sdDbTaps: 1.7 },
+    ],
+  },
   accents: { slots: 20, hits: 19, meanDeltaDb: 7.2, belowThreshold: 2, thresholdDb: 6 },
   bpmByRepeat: [60, 60, 60, 60, 64, 64, 64, 64, 68, 68],
   guide: false,
@@ -46,7 +59,11 @@ describe('toMarkdown', () => {
     expect(toMarkdown(stats, EXERCISES[0], 80, d).split('\n')[0]).toBe(`### ${expected} — Stick Control #1 @ 80 bpm`)
   })
   it('registra la calibrazione usata, così due log restano confrontabili', () => {
-    const md2 = toMarkdown(stats, EXERCISES[0], 80, new Date(), { latencyMs: 30.63, slope: 0.99, deviceLabel: 'iPad Microphone' })
+    const md2 = toMarkdown(stats, EXERCISES[0], 80, new Date(), {
+      latencyMs: 30.63,
+      slope: 0.99,
+      deviceLabel: 'iPad Microphone',
+    })
     expect(md2).toContain('Calibrazione: latenza 30.6 ms · pendenza 0.99 · iPad Microphone')
   })
   it('senza calibrazione non stampa la riga', () => {
@@ -90,16 +107,31 @@ describe('toMarkdown', () => {
   })
 
   it('un delta negativo stampa il segno meno, non "+-"', () => {
-    const md2 = toMarkdown({ ...stats, accents: { slots: 20, hits: 19, meanDeltaDb: -3.2, belowThreshold: 15, thresholdDb: 6 } }, EXERCISES[0], 80, new Date())
+    const md2 = toMarkdown(
+      { ...stats, accents: { slots: 20, hits: 19, meanDeltaDb: -3.2, belowThreshold: 15, thresholdDb: 6 } },
+      EXERCISES[0],
+      80,
+      new Date(),
+    )
     expect(md2).toContain('Accenti: 19/20 · -3.2 dB sui colpi normali · 15 sotto +6 dB')
     expect(md2).not.toContain('+-')
   })
   it('sotto-soglia null (nessun tap di riferimento) non stampa uno zero rassicurante', () => {
-    const md2 = toMarkdown({ ...stats, accents: { slots: 4, hits: 4, meanDeltaDb: null, belowThreshold: null, thresholdDb: 6 } }, EXERCISES[0], 80, new Date())
+    const md2 = toMarkdown(
+      { ...stats, accents: { slots: 4, hits: 4, meanDeltaDb: null, belowThreshold: null, thresholdDb: 6 } },
+      EXERCISES[0],
+      80,
+      new Date(),
+    )
     expect(md2).toContain('Accenti: 4/4 · — dB sui colpi normali · — sotto +6 dB')
   })
   it('esercizio senza accenti: la riga Accenti non compare affatto', () => {
-    const md2 = toMarkdown({ ...stats, accents: { slots: 0, hits: 0, meanDeltaDb: null, belowThreshold: null, thresholdDb: 6 } }, EXERCISES[0], 80, new Date())
+    const md2 = toMarkdown(
+      { ...stats, accents: { slots: 0, hits: 0, meanDeltaDb: null, belowThreshold: null, thresholdDb: 6 } },
+      EXERCISES[0],
+      80,
+      new Date(),
+    )
     expect(md2).not.toContain('Accenti:')
   })
   it('nessuna mano con taps: niente parentesi vuote dopo la sd', () => {

@@ -1,5 +1,5 @@
-import type { Exercise } from './types'
 import type { SessionStats } from './stats'
+import type { Exercise } from './types'
 
 const f = (x: number | null, digits = 1): string => (x === null ? '—' : x.toFixed(digits))
 
@@ -26,10 +26,18 @@ export function bpmRuns(bpms: number[]): string {
   return runs.map((r) => `${r.bpm} ×${r.n}`).join(' → ')
 }
 
-export function toMarkdown(stats: SessionStats, exercise: Exercise, bpm: number, date: Date, calibration?: ReportCalibration | null): string {
+export function toMarkdown(
+  stats: SessionStats,
+  exercise: Exercise,
+  bpm: number,
+  date: Date,
+  calibration?: ReportCalibration | null,
+): string {
   const day = localDay(date)
   const cal = calibration
-    ? [`Calibrazione: latenza ${f(calibration.latencyMs)} ms · pendenza ${f(calibration.slope, 2)}${calibration.deviceLabel ? ` · ${calibration.deviceLabel}` : ''}`]
+    ? [
+        `Calibrazione: latenza ${f(calibration.latencyMs)} ms · pendenza ${f(calibration.slope, 2)}${calibration.deviceLabel ? ` · ${calibration.deviceLabel}` : ''}`,
+      ]
     : []
   const lines = [
     `### ${day} — ${exercise.name} @ ${bpm} bpm`,
@@ -51,11 +59,16 @@ export function toMarkdown(stats: SessionStats, exercise: Exercise, bpm: number,
     '',
     '| Mano | Colpi | Offset medio | σ | dB medio | σ dB |',
     '|---|---|---|---|---|---|',
-    ...stats.hands.map((h) => `| ${h.hand} | ${h.hits}/${h.slots} | ${f(h.meanOffsetMs)} | ${f(h.sdOffsetMs)} | ${f(h.meanDb)} | ${f(h.sdDb)} |`),
+    ...stats.hands.map(
+      (h) =>
+        `| ${h.hand} | ${h.hits}/${h.slots} | ${f(h.meanOffsetMs)} | ${f(h.sdOffsetMs)} | ${f(h.meanDb)} | ${f(h.sdDb)} |`,
+    ),
     '',
     '| Ripetizioni | Miss | σ offset | dB medio |',
     '|---|---|---|---|',
-    ...stats.blocks.map((b) => `| ${b.fromRepeat + 1}–${b.toRepeat + 1} | ${b.miss}/${b.slots} | ${f(b.sdOffsetMs)} | ${f(b.meanDb)} |`),
+    ...stats.blocks.map(
+      (b) => `| ${b.fromRepeat + 1}–${b.toRepeat + 1} | ${b.miss}/${b.slots} | ${f(b.sdOffsetMs)} | ${f(b.meanDb)} |`,
+    ),
   ]
   return lines.join('\n')
 }

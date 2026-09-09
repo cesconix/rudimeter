@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import type { Engine } from '../audio/engine'
 import { runLatencyCalibration, runRampCalibration } from '../audio/calibration'
 import { DEFAULT_THRESHOLDS } from '../audio/capture'
+import type { Engine } from '../audio/engine'
 import type { CalibrationData } from '../audio/storage'
 import { dynamicsVerdict } from '../engine/calibration'
 
@@ -88,34 +88,61 @@ export function CalibrationScreen({ engine, existing, onDone }: Props) {
       <h1>Calibrazione</h1>
       {step === 'idle' || step === 'failed' ? (
         <>
-          <p><b>Togli le cuffie</b> e alza il volume: il microfono deve sentire i click dallo speaker. Appoggia il device fermo davanti a te, in silenzio.</p>
-          <p><b>Tu non devi suonare.</b> Premi Calibra e aspetta ~10 secondi senza toccare niente: l'app si suona dei click e li riascolta da sola per misurare quanto tarda il microfono.</p>
+          <p>
+            <b>Togli le cuffie</b> e alza il volume: il microfono deve sentire i click dallo speaker. Appoggia il device
+            fermo davanti a te, in silenzio.
+          </p>
+          <p>
+            <b>Tu non devi suonare.</b> Premi Calibra e aspetta ~10 secondi senza toccare niente: l'app si suona dei
+            click e li riascolta da sola per misurare quanto tarda il microfono.
+          </p>
         </>
       ) : (
         <p className="big">{running}</p>
       )}
       {existing && step === 'idle' && (
-        <p>Calibrazione salvata: latenza {existing.latencyMs.toFixed(1)} ms{existing.slope !== null ? `, pendenza ${existing.slope.toFixed(2)}` : ''} ({existing.deviceLabel}).</p>
+        <p>
+          Calibrazione salvata: latenza {existing.latencyMs.toFixed(1)} ms
+          {existing.slope !== null ? `, pendenza ${existing.slope.toFixed(2)}` : ''} ({existing.deviceLabel}).
+        </p>
       )}
       <div className="row">
         <button type="button" onClick={run} disabled={step === 'latency' || step === 'ramp'}>
           {step === 'latency' ? 'Latenza…' : step === 'ramp' ? 'Rampa…' : existing ? 'Ricalibra' : 'Calibra'}
         </button>
-        {existing && (step === 'idle' || step === 'failed') && <button type="button" className="secondary" onClick={() => onDone(existing)}>Usa quella salvata</button>}
-        {step === 'done' && <button type="button" onClick={finish}>Continua</button>}
+        {existing && (step === 'idle' || step === 'failed') && (
+          <button type="button" className="secondary" onClick={() => onDone(existing)}>
+            Usa quella salvata
+          </button>
+        )}
+        {step === 'done' && (
+          <button type="button" onClick={finish}>
+            Continua
+          </button>
+        )}
       </div>
       {latencyMs !== null && <p className="big">Latenza {latencyMs.toFixed(1)} ms</p>}
       {incoherent ? (
         <p className="error">
           {/* biome-ignore lint/style/noNonNullAssertion: incoherent is only true when slope is not null, which TypeScript cannot narrow from a boolean. */}
-          Misura incoerente: il livello rilevato non sale col volume del click (pendenza {slope!.toFixed(2)}, r² {(r2 ?? 0).toFixed(2)}).
-          Non è una dinamica compressa, è una misura da buttare. Controlla che non ci siano cuffie collegate e <b>rifai la calibrazione</b>.
+          Misura incoerente: il livello rilevato non sale col volume del click (pendenza {slope!.toFixed(2)}, r²{' '}
+          {(r2 ?? 0).toFixed(2)}). Non è una dinamica compressa, è una misura da buttare. Controlla che non ci siano
+          cuffie collegate e <b>rifai la calibrazione</b>.
         </p>
       ) : (
-        slope !== null && slope < 0.5 && <p className="error">Dinamica poco affidabile su questo dispositivo (pendenza {slope.toFixed(2)}). Il timing resta valido.</p>
+        slope !== null &&
+        slope < 0.5 && (
+          <p className="error">
+            Dinamica poco affidabile su questo dispositivo (pendenza {slope.toFixed(2)}). Il timing resta valido.
+          </p>
+        )
       )}
       {detail && <p className={step === 'failed' ? 'error' : ''}>{detail}</p>}
-      {mic && <p><small>{mic}</small></p>}
+      {mic && (
+        <p>
+          <small>{mic}</small>
+        </p>
+      )}
     </main>
   )
 }

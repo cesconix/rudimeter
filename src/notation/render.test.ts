@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { MIN_NOTEHEAD_PX, NATURAL_NOTEHEAD_PX, fitLayout, notationFontsReady } from './render'
+import { fitLayout, MIN_NOTEHEAD_PX, NATURAL_NOTEHEAD_PX, notationFontsReady } from './render'
 
 // `document.fonts` non esiste (`bun test` gira senza DOM, niente jsdom), quindi qui non si può
 // verificare la vera race del font Bravura nel browser — quella resta un controllo manuale
@@ -86,7 +86,14 @@ describe('fitLayout', () => {
   it('battute per ripetizione o totali non valide: una riga sbagliata, mai NaN', () => {
     // NaN qui non si vede: arriva silenzioso fino a renderer.resize(NaN, NaN) e lascia un riquadro
     // bianco senza una riga in console.
-    for (const [barsPerRepeat, totalBars] of [[0, 40], [2, 0], [-3, 40], [2.7, 40.9], [NaN, 40], [2, NaN]]) {
+    for (const [barsPerRepeat, totalBars] of [
+      [0, 40],
+      [2, 0],
+      [-3, 40],
+      [2.7, 40.9],
+      [NaN, 40],
+      [2, NaN],
+    ]) {
       const fit = fitLayout(800, barsPerRepeat, 2, totalBars)
       expect(fit.barsPerRow).toBeGreaterThanOrEqual(1)
       expect(Number.isFinite(fit.barsPerRow)).toBe(true)

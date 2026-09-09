@@ -9,7 +9,15 @@ export function parseExercise(json: ExerciseJson): Exercise {
   if (!flat.some((s) => s.hand !== null)) throw new Error(`${json.id}: solo pause`)
   const repeats = json.repeats ?? 20
   if (!Number.isInteger(repeats) || repeats < 1) throw new Error(`${json.id}: repeats non valido`)
-  return { id: json.id, name: json.name, source: json.source, timeSignature: json.timeSignature, sticking: json.steps, bars, repeats }
+  return {
+    id: json.id,
+    name: json.name,
+    source: json.source,
+    timeSignature: json.timeSignature,
+    sticking: json.steps,
+    bars,
+    repeats,
+  }
 }
 
 export interface FlatStep {

@@ -6,17 +6,30 @@
 // non scorre più così (lo spartito va a capo e scorre in verticale via `scrollTop`, vedi Score), ma
 // il numero che questo bottone produce — quanti frame saltano mentre un layer promosso si muove —
 // vale lo stesso.
+
+import type { StaveNote } from 'vexflow/bravura'
 import { parseExercise } from '../src/engine/exercise'
 import type { Exercise } from '../src/engine/types'
 import { paintColor } from '../src/notation/paint'
 import { planExercise } from '../src/notation/plan'
-import { notationFontsReady, renderScore, type RenderedScore } from '../src/notation/render'
-import type { StaveNote } from 'vexflow/bravura'
+import { notationFontsReady, type RenderedScore, renderScore } from '../src/notation/render'
 
 // --- Esercizi per i controlli di misura (bottoni "1 battuta" / "40 battute") ---
 
-const SHOWCASE = parseExercise({ id: 'showcase', name: 'showcase', timeSignature: [4, 4], steps: '>fRLRL dRLR zR- tRtL', repeats: 1 })
-const PARADIDDLE = parseExercise({ id: 'para', name: 'para', timeSignature: [4, 4], steps: '>RLRR >LRLL >RLRR >LRLL', repeats: 40 })
+const SHOWCASE = parseExercise({
+  id: 'showcase',
+  name: 'showcase',
+  timeSignature: [4, 4],
+  steps: '>fRLRL dRLR zR- tRtL',
+  repeats: 1,
+})
+const PARADIDDLE = parseExercise({
+  id: 'para',
+  name: 'para',
+  timeSignature: [4, 4],
+  steps: '>RLRR >LRLL >RLRR >LRLL',
+  repeats: 40,
+})
 
 // --- Esercizi della galleria statica: ogni sezione isola le figure che il titolo promette ---
 
@@ -181,7 +194,10 @@ function scrollLoop(): void {
     if (now - last > 32) slow++
     last = now
     if (px < width) requestAnimationFrame(raf)
-    else log(`scroll: ${width.toFixed(0)} px in ${((now - t0) / 1000).toFixed(1)} s, ${frames} frame, ${slow} frame > 32 ms`)
+    else
+      log(
+        `scroll: ${width.toFixed(0)} px in ${((now - t0) / 1000).toFixed(1)} s, ${frames} frame, ${slow} frame > 32 ms`,
+      )
   }
   requestAnimationFrame(raf)
 }

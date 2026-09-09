@@ -1,9 +1,17 @@
 import { describe, expect, it } from 'bun:test'
-import { clearCalibration, loadCalibration, saveCalibration, type KeyValueStore } from './storage'
+import { clearCalibration, type KeyValueStore, loadCalibration, saveCalibration } from './storage'
 
 function fakeStore(): KeyValueStore {
   const m = new Map<string, string>()
-  return { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => { m.set(k, v) }, removeItem: (k) => { m.delete(k) } }
+  return {
+    getItem: (k) => m.get(k) ?? null,
+    setItem: (k, v) => {
+      m.set(k, v)
+    },
+    removeItem: (k) => {
+      m.delete(k)
+    },
+  }
 }
 
 describe('calibration storage', () => {

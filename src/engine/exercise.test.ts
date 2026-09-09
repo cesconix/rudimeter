@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
-import { barsOf, parseExercise, slotsPerRepeat, stepsFlat } from './exercise'
 import { EXERCISES } from '../data/exercises'
+import { barsOf, parseExercise, slotsPerRepeat, stepsFlat } from './exercise'
 
 const base = { id: 'x', name: 'x', timeSignature: [2, 4] as [number, number] }
 
@@ -42,7 +42,11 @@ describe('stepsFlat / slotsPerRepeat', () => {
 describe('esercizi built-in', () => {
   it('i tre di Stick Control più lo studio di lettura, validi', () => {
     expect(EXERCISES.map((e) => e.id)).toEqual(['stone-1', 'stone-3', 'stone-5', 'lettura-4-4'])
-    expect(stepsFlat(EXERCISES[2]).map((f) => f.step.hand).join('')).toBe('RLRRLRLL')
+    expect(
+      stepsFlat(EXERCISES[2])
+        .map((f) => f.step.hand)
+        .join(''),
+    ).toBe('RLRRLRLL')
   })
   it('lo studio di lettura porta le figure che Stone non ha', () => {
     // Il punto dell'esercizio è la VARIETÀ: se un giorno qualcuno lo "semplifica" a suddivisione
@@ -51,8 +55,15 @@ describe('esercizi built-in', () => {
     const l = EXERCISES.find((e) => e.id === 'lettura-4-4')!
     expect(l.timeSignature).toEqual([4, 4])
     // Figure per movimento: quarto, ottavi, sedicesimi, ottavi | terzina, ottavi, sedicesimi, quarto.
-    expect(l.bars.map((b) => b.beats.map((bt) => bt.steps.length))).toEqual([[1, 2, 4, 2], [3, 2, 4, 1]])
+    expect(l.bars.map((b) => b.beats.map((bt) => bt.steps.length))).toEqual([
+      [1, 2, 4, 2],
+      [3, 2, 4, 1],
+    ])
     // Pause di tre valori diversi: di ottavo, di ottavo, di sedicesimo, di movimento.
-    expect(stepsFlat(l).filter((f) => f.step.hand === null).map((f) => f.n)).toEqual([2, 2, 4, 1])
+    expect(
+      stepsFlat(l)
+        .filter((f) => f.step.hand === null)
+        .map((f) => f.n),
+    ).toEqual([2, 2, 4, 1])
   })
 })

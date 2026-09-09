@@ -1,41 +1,181 @@
-:root { color-scheme: light dark; --good: #2a2; --ok: #c90; --off: #d33; --miss: #888; --pending: #8884; --accent: #4a7bff; --cursor: #4a7bff40; }
-* { box-sizing: border-box; }
-body { margin: 0; font-family: system-ui, -apple-system, sans-serif; -webkit-user-select: none; user-select: none; }
-main { max-width: 960px; margin: 0 auto; padding: 16px; }
-h1 { font-size: 1.4rem; margin: 0 0 8px; }
-h2 { font-size: 1.1rem; margin: 16px 0 8px; }
-button { font-size: 1.1rem; padding: 14px 20px; border-radius: 10px; border: 1px solid #8886; background: var(--accent); color: #fff; margin: 4px 6px 4px 0; }
-button.secondary { background: transparent; color: inherit; }
-button:disabled { opacity: .4; }
-input[type=number] { font-size: 1.2rem; width: 5em; padding: 8px; }
-.error { color: var(--off); }
-.big { font-size: 1.5rem; font-weight: 600; }
-.meter { position: relative; height: 12px; background: #8882; border-radius: 4px; overflow: hidden; margin: 6px 0; }
-.meter > div { height: 100%; background: #3c3; }
-.meter > .threshold { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; opacity: .8; }
+:root {
+  color-scheme: light dark;
+  --good: #2a2;
+  --ok: #c90;
+  --off: #d33;
+  --miss: #888;
+  --pending: #8884;
+  --accent: #4a7bff;
+  --cursor: #4a7bff40;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  -webkit-user-select: none;
+  user-select: none;
+}
+main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 16px;
+}
+h1 {
+  font-size: 1.4rem;
+  margin: 0 0 8px;
+}
+h2 {
+  font-size: 1.1rem;
+  margin: 16px 0 8px;
+}
+button {
+  font-size: 1.1rem;
+  padding: 14px 20px;
+  border-radius: 10px;
+  border: 1px solid #8886;
+  background: var(--accent);
+  color: #fff;
+  margin: 4px 6px 4px 0;
+}
+button.secondary {
+  background: transparent;
+  color: inherit;
+}
+button:disabled {
+  opacity: 0.4;
+}
+input[type="number"] {
+  font-size: 1.2rem;
+  width: 5em;
+  padding: 8px;
+}
+.error {
+  color: var(--off);
+}
+.big {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+.meter {
+  position: relative;
+  height: 12px;
+  background: #8882;
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 6px 0;
+}
+.meter > div {
+  height: 100%;
+  background: #3c3;
+}
+.meter > .threshold {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #fff;
+  opacity: 0.8;
+}
 /* L'altezza piena sta sul contenitore, non su `main`: quando il contesto audio si sospende (lock
    dell'iPhone) App mette il banner "Audio in pausa" come FRATELLO di <main>, e un main alto 100dvh
    più il banner sfondano la finestra — il meter finisce sotto la piega e con lui il tasto follow. */
-#root:has(main.session) { display: flex; flex-direction: column; height: 100dvh; }
-main.session { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+#root:has(main.session) {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+main.session {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
 /* Il frame è grande esattamente quanto il viewport: è lui il contenitore posizionato di
    `.score-follow`, che ancorato a `main` galleggerebbe sotto la partitura, sopra il meter. */
-main.session .score-frame { position: relative; flex: 1; min-height: 160px; display: flex; }
-.score-viewport { position: relative; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; background: #fff; border-radius: 8px; }
-main.session .score-viewport { flex: 1; }
-.score-host { position: relative; }
+main.session .score-frame {
+  position: relative;
+  flex: 1;
+  min-height: 160px;
+  display: flex;
+}
+.score-viewport {
+  position: relative;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  background: #fff;
+  border-radius: 8px;
+}
+main.session .score-viewport {
+  flex: 1;
+}
+.score-host {
+  position: relative;
+}
 /* L'<svg> è inline e siede sulla linea di base: quattro pixel di discendente sotto la partitura, che
    rendono il viewport scrollabile anche a musica esatta e falsano `maxScroll`. */
-.score-host svg { display: block; }
+.score-host svg {
+  display: block;
+}
 /* Banda, non stanghetta: larga quanto la testa di nota e alta quanto serve a coprire accenti e
    diteggiature (misure da `Score`, che le scala con la partitura). Sta SOPRA la musica e per questo
    è trasparente al 25%: sotto devono restare leggibili la testa nera e la R o la L. */
-.score-cursor { position: absolute; left: 0; background: var(--cursor); border-radius: 3px; z-index: 1; pointer-events: none; }
-.score-follow { position: absolute; right: 14px; bottom: 14px; z-index: 2; border-radius: 999px; box-shadow: 0 2px 10px #0004; }
-table { border-collapse: collapse; margin: 8px 0; }
-td, th { padding: 4px 10px; border-bottom: 1px solid #8883; text-align: right; }
-th:first-child, td:first-child { text-align: left; }
-pre { background: #8881; padding: 8px; border-radius: 6px; white-space: pre-wrap; font-size: .85rem; }
-.row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-.transport { display: flex; flex-direction: column; gap: 8px; border: 1px solid #8884; border-radius: 8px; padding: 8px 12px; margin: 12px 0; }
-select { font-size: 1.1rem; padding: 6px; }
+.score-cursor {
+  position: absolute;
+  left: 0;
+  background: var(--cursor);
+  border-radius: 3px;
+  z-index: 1;
+  pointer-events: none;
+}
+.score-follow {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 2;
+  border-radius: 999px;
+  box-shadow: 0 2px 10px #0004;
+}
+table {
+  border-collapse: collapse;
+  margin: 8px 0;
+}
+td,
+th {
+  padding: 4px 10px;
+  border-bottom: 1px solid #8883;
+  text-align: right;
+}
+th:first-child,
+td:first-child {
+  text-align: left;
+}
+pre {
+  background: #8881;
+  padding: 8px;
+  border-radius: 6px;
+  white-space: pre-wrap;
+  font-size: 0.85rem;
+}
+.row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.transport {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid #8884;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 12px 0;
+}
+select {
+  font-size: 1.1rem;
+  padding: 6px;
+}

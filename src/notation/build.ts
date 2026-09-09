@@ -11,8 +11,8 @@ import {
   Tremolo,
   Tuplet,
 } from 'vexflow/bravura'
-import type { BarPlan, NotePlan } from './plan'
 import { BuzzRoll } from './buzz-roll'
+import type { BarPlan, NotePlan } from './plan'
 
 /** Con `numLines: 1` la linea disegnata è la 0, cioè quella di f/5 nella mappa della chiave di percussioni. */
 export const KEY = 'f/5'
@@ -36,11 +36,14 @@ export interface BuiltBar {
 export function buildNote(p: NotePlan, key: string = KEY): StaveNote {
   const n = new StaveNote({ keys: [key], duration: p.rest ? `${p.duration}r` : p.duration, stemDirection: Stem.UP })
   if (p.rest) return n
-  if (p.sticking) n.addModifier(new Annotation(p.sticking).setVerticalJustification(AnnotationVerticalJustify.BOTTOM), 0)
+  if (p.sticking)
+    n.addModifier(new Annotation(p.sticking).setVerticalJustification(AnnotationVerticalJustify.BOTTOM), 0)
   if (p.accent) n.addModifier(new Articulation('a>').setPosition(ModifierPosition.ABOVE), 0)
   if (p.grace.length > 0) {
     const flam = p.grace.length === 1
-    const gs = p.grace.map(() => new GraceNote({ keys: [key], duration: flam ? '8' : '16', slash: flam, stemDirection: Stem.UP }))
+    const gs = p.grace.map(
+      () => new GraceNote({ keys: [key], duration: flam ? '8' : '16', slash: flam, stemDirection: Stem.UP }),
+    )
     const g = new GraceNoteGroup(gs, true)
     g.beamNotes()
     n.addModifier(g, 0)

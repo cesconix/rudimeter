@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'bun:test'
-import { computeStats, mean, sd } from './stats'
+import { parseExercise } from './exercise'
 import { buildGrid } from './grid'
 import { judge } from './judge'
-import { parseExercise } from './exercise'
+import { computeStats, mean, sd } from './stats'
 import type { Judged, Slot } from './types'
 
 const ex = parseExercise({ id: 'e', name: 'e', timeSignature: [2, 4], steps: 'RL RL | RL RL', repeats: 10 })
@@ -120,7 +120,12 @@ describe('assorbiti non influenzano la uniformità', () => {
     beat: 0,
     sub: index,
   })
-  const mkJudged = (slot: Slot, peakDb: number): Judged => ({ slot, hit: { t: slot.t, peakDb }, offsetMs: 0, grade: 'good' })
+  const mkJudged = (slot: Slot, peakDb: number): Judged => ({
+    slot,
+    hit: { t: slot.t, peakDb },
+    offsetMs: 0,
+    grade: 'good',
+  })
 
   it('un colpo assorbito non entra nel calcolo di sdDbTaps, nemmeno con taps reali presenti', () => {
     // due taps non accentati a -18 e -22 dB: sd campionaria = sqrt(((2)^2 + (-2)^2) / 1) = sqrt(8)

@@ -36,7 +36,12 @@ afterAll(() => {
 /** AudioContext fittizio: solo `currentTime`, mutabile per simulare il passare del tempo. */
 function fakeCtx(currentTime: number): { ctx: AudioContext; set(t: number): void } {
   const obj = { currentTime }
-  return { ctx: obj as unknown as AudioContext, set: (t: number) => { obj.currentTime = t } }
+  return {
+    ctx: obj as unknown as AudioContext,
+    set: (t: number) => {
+      obj.currentTime = t
+    },
+  }
 }
 
 const click = (t: number, kind: Click['kind'] = 'beat', silent = false): Click => ({ t, kind, silent })

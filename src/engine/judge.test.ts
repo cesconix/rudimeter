@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
-import { isAbsorbed, judge } from './judge'
-import { buildGrid } from './grid'
 import { parseExercise } from './exercise'
+import { buildGrid } from './grid'
+import { isAbsorbed, judge } from './judge'
 import type { Slot, Step } from './types'
 
 const step = { hand: 'R' as const, accent: false }
@@ -98,7 +98,16 @@ describe('la finestra è per slot: il buco reale fra terzina e sedicesimo', () =
 })
 
 const withOrnament = (ornament: Step['ornament']): Step => ({ hand: 'R', accent: false, ornament, graceHand: 'L' })
-const slot = (index: number, t: number, dur: number, s: Step = step): Slot => ({ index, t, dur, step: s, repeat: 0, bar: 0, beat: index, sub: 0 })
+const slot = (index: number, t: number, dur: number, s: Step = step): Slot => ({
+  index,
+  t,
+  dur,
+  step: s,
+  repeat: 0,
+  bar: 0,
+  beat: index,
+  sub: 0,
+})
 
 describe('extra assorbiti dagli ornamenti', () => {
   it('flam: un colpo fino a 60 ms prima del principale è l acciaccatura', () => {

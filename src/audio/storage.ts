@@ -20,7 +20,12 @@ export function loadCalibration(store: KeyValueStore): CalibrationData | null {
     if (!raw) return null
     const d = JSON.parse(raw) as Partial<CalibrationData>
     if (typeof d.latencyMs !== 'number') return null
-    return { latencyMs: d.latencyMs, slope: typeof d.slope === 'number' ? d.slope : null, deviceLabel: d.deviceLabel ?? '', savedAt: d.savedAt ?? '' }
+    return {
+      latencyMs: d.latencyMs,
+      slope: typeof d.slope === 'number' ? d.slope : null,
+      deviceLabel: d.deviceLabel ?? '',
+      savedAt: d.savedAt ?? '',
+    }
   } catch {
     return null
   }

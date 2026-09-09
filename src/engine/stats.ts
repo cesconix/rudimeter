@@ -1,4 +1,4 @@
-import type { Hand, Hit, JudgeResult, Judged } from './types'
+import type { Hand, Hit, Judged, JudgeResult } from './types'
 
 export interface HandStats {
   hand: Hand
@@ -133,7 +133,8 @@ export function computeStats(result: JudgeResult, opts: StatsOptions = {}): Sess
     slots: accented.length,
     hits: accentHits.length,
     meanDeltaDb: accentMean !== null && tapMean !== null ? accentMean - tapMean : null,
-    belowThreshold: tapMean === null ? null : accentHits.filter((j) => (j.hit as Hit).peakDb - tapMean < thresholdDb).length,
+    belowThreshold:
+      tapMean === null ? null : accentHits.filter((j) => (j.hit as Hit).peakDb - tapMean < thresholdDb).length,
     thresholdDb,
   }
 

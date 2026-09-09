@@ -54,9 +54,7 @@ export function parseBeat(group: string): Beat {
 
 /** DSL v2 → battute. Spazio = movimento, `|` = battuta. Ogni battuta deve avere `beatsPerBar` movimenti. */
 export function parseSticking(text: string, beatsPerBar: number): Bar[] {
-  const segments = text
-    .split('|')
-    .map((s) => s.trim())
+  const segments = text.split('|').map((s) => s.trim())
 
   // All segments are empty: treat as whole-sticking error
   if (segments.every((s) => s.length === 0)) throw new Error('sticking vuoto')
@@ -67,7 +65,8 @@ export function parseSticking(text: string, beatsPerBar: number): Bar[] {
     if (barText.length === 0) throw new Error(`battuta ${i + 1}: vuota`)
 
     const groups = barText.split(/\s+/)
-    if (groups.length !== beatsPerBar) throw new Error(`battuta ${i + 1}: ${groups.length} movimenti, attesi ${beatsPerBar}`)
+    if (groups.length !== beatsPerBar)
+      throw new Error(`battuta ${i + 1}: ${groups.length} movimenti, attesi ${beatsPerBar}`)
     return { beats: groups.map(parseBeat) }
   })
 }

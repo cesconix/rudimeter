@@ -10,7 +10,7 @@ import {
   Voice,
   VoiceMode,
 } from 'vexflow/bravura'
-import { KEY_5_LINE, buildBar } from './build'
+import { buildBar, KEY_5_LINE } from './build'
 import type { BarPlan } from './plan'
 
 /** Geometria naturale: la musica si disegna sempre così, poi si scala tutta insieme. */
@@ -133,7 +133,13 @@ export function notationFontsReady(): Promise<void> {
  * larghezza con teste molto più grandi. A 847px di viewport, 6 battute in 2/4 scendono a 8.1px di
  * testa mentre 4 ne occupano 846 su 847 — cioè riempiono lo schermo — al corpo pieno di 11.8px.
  */
-export function fitLayout(availW: number, barsPerRepeat: number, beatsPerBar: number, totalBars: number, leftGutter = 0): Fit {
+export function fitLayout(
+  availW: number,
+  barsPerRepeat: number,
+  beatsPerBar: number,
+  totalBars: number,
+  leftGutter = 0,
+): Fit {
   // `barsPerRepeat` a 0 (esercizio degenere, campo non popolato) darebbe `n % 0` e divisioni per
   // zero: NaN che arriva silenzioso fino a `renderer.resize(NaN, NaN)` e a Stave con y NaN, cioè un
   // riquadro bianco senza una riga in console. Meglio una riga sbagliata che nessun disegno.
@@ -260,7 +266,11 @@ export function renderScore(host: HTMLDivElement, bars: BarPlan[], opts: RenderO
     const w = naturalBar + (first ? gridX0 : 0)
     // `spaceAboveStaffLn` è in interlinee da 10px: 7 = i 70px di `NATURAL_STAFF_TOP`, e vanno mossi
     // insieme — è VexFlow a decidere da qui dove cade la prima linea dentro la banda.
-    const stave = new Stave(x, row * NATURAL_SYSTEM_H, w, { numLines: STAFF_LINES, spaceAboveStaffLn: 7, spaceBelowStaffLn: 3 })
+    const stave = new Stave(x, row * NATURAL_SYSTEM_H, w, {
+      numLines: STAFF_LINES,
+      spaceAboveStaffLn: 7,
+      spaceBelowStaffLn: 3,
+    })
     if (first) stave.addClef('percussion')
     // Il tempo si scrive una volta sola, a inizio pezzo: ripeterlo a ogni riga è rumore, e in
     // 2/4 su riga stretta è rumore che costa un ottavo della larghezza utile.
@@ -280,7 +290,9 @@ export function renderScore(host: HTMLDivElement, bars: BarPlan[], opts: RenderO
     // Si formatta e si disegna in due tempi (invece di `Formatter.FormatAndDraw`, che li fa in uno)
     // perché fra i due passa la griglia. `SOFT`: le terzine tornano coi conti giusti solo dopo che
     // `Tuplet` ha corretto i tick, e non è il caso di far fallire un disegno per un decimo di tick.
-    const voice = new Voice({ numBeats: opts.beatsPerBar, beatValue: 4 }).setMode(VoiceMode.SOFT).addTickables(built.notes)
+    const voice = new Voice({ numBeats: opts.beatsPerBar, beatValue: 4 })
+      .setMode(VoiceMode.SOFT)
+      .addTickables(built.notes)
     // Il rigo va dato alle note PRIMA di misurarle: `formatToStave` lo usa per la larghezza ma non lo
     // attacca alle note, e finché non ce l'hanno `getNoteHeadBeginX()` risponde senza l'offset di
     // inizio-note (chiave, tempo, stanghetta). Sarebbe un errore costante per battuta — misurato:

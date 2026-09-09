@@ -79,7 +79,11 @@ export function isSilentBar(globalBar: number, gap?: { on: number; off: number }
 function beatClicks(beatStart: number, beat: number, k: number, silent: boolean, metro: MetronomeOptions): Click[] {
   const out: Click[] = []
   for (let s = 0; s < metro.clickSubdivision; s++) {
-    out.push({ t: beatStart + (s * beat) / metro.clickSubdivision, kind: s > 0 ? 'sub' : k === 0 ? 'bar' : 'beat', silent })
+    out.push({
+      t: beatStart + (s * beat) / metro.clickSubdivision,
+      kind: s > 0 ? 'sub' : k === 0 ? 'bar' : 'beat',
+      silent,
+    })
   }
   return out
 }
@@ -99,7 +103,15 @@ export function buildCountIn(ex: Exercise, bpm: number, t0: number, bars: number
  * Una ripetizione: slot (solo step con mano) e click.
  * `indexOffset` = slot già emessi dalle ripetizioni precedenti; `barOffset` = battute già suonate (per il gap).
  */
-export function buildRepeat(ex: Exercise, bpm: number, start: number, repeat: number, indexOffset: number, barOffset: number, metro: MetronomeOptions): RepeatPlan {
+export function buildRepeat(
+  ex: Exercise,
+  bpm: number,
+  start: number,
+  repeat: number,
+  indexOffset: number,
+  barOffset: number,
+  metro: MetronomeOptions,
+): RepeatPlan {
   const [num] = ex.timeSignature
   const beat = beatDuration(bpm)
   const slots: Slot[] = []

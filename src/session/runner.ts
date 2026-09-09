@@ -1,6 +1,14 @@
-import { buildGrid, DEFAULT_METRONOME, replanGrid, repeatAt, type Click, type Grid, type MetronomeOptions } from '../engine/grid'
+import {
+  buildGrid,
+  type Click,
+  DEFAULT_METRONOME,
+  type Grid,
+  type MetronomeOptions,
+  repeatAt,
+  replanGrid,
+} from '../engine/grid'
 import { judge } from '../engine/judge'
-import { nextBpm, type AutoIncrement } from '../engine/progression'
+import { type AutoIncrement, nextBpm } from '../engine/progression'
 import { computeStats, type SessionStats } from '../engine/stats'
 import type { Exercise, Hit, JudgeResult, Windows } from '../engine/types'
 import { DEFAULT_WINDOWS } from '../engine/types'
@@ -51,12 +59,18 @@ export class SessionRunner {
   private phase: RunnerPhase = 'idle'
   private lastEvaluatedRepeat = -1
 
-  constructor(private deps: RunnerDeps, private cfg: RunnerConfig) {}
+  constructor(
+    private deps: RunnerDeps,
+    private cfg: RunnerConfig,
+  ) {}
 
   start(): void {
     if (this.phase === 'count-in' || this.phase === 'playing') return
     const t0 = this.deps.now() + 0.5
-    this.grid = buildGrid(this.cfg.exercise, this.cfg.bpm, t0, { countInBars: this.cfg.countInBars ?? 1, metronome: this.cfg.metronome ?? DEFAULT_METRONOME })
+    this.grid = buildGrid(this.cfg.exercise, this.cfg.bpm, t0, {
+      countInBars: this.cfg.countInBars ?? 1,
+      metronome: this.cfg.metronome ?? DEFAULT_METRONOME,
+    })
     this.hits = []
     this.phase = 'count-in'
     this.clicks = this.deps.scheduleClicks(this.grid.clicks)
@@ -100,7 +114,12 @@ export class SessionRunner {
     // di un vecchio non rimosso e produrre un doppio click. Si aggiungono solo i click a partire dal
     // taglio effettivo.
     const actualCut = this.clicks?.dropAfter(from) ?? from
-    this.clicks?.add(this.grid.repeats.slice(r + 1).flatMap((rp) => rp.clicks).filter((c) => c.t >= actualCut))
+    this.clicks?.add(
+      this.grid.repeats
+        .slice(r + 1)
+        .flatMap((rp) => rp.clicks)
+        .filter((c) => c.t >= actualCut),
+    )
     this.emit()
   }
 
@@ -120,7 +139,9 @@ export class SessionRunner {
 
   subscribe(l: (s: RunnerState) => void): () => void {
     this.listeners.add(l)
-    return () => { this.listeners.delete(l) }
+    return () => {
+      this.listeners.delete(l)
+    }
   }
 
   snapshot(): RunnerState {

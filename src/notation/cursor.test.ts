@@ -2,7 +2,11 @@ import { describe, expect, it } from 'bun:test'
 import { cursorAt } from './cursor'
 
 describe('cursorAt', () => {
-  const pts = [{ t: 0, x: 10, row: 0 }, { t: 1, x: 50, row: 0 }, { t: 2, x: 90, row: 0 }]
+  const pts = [
+    { t: 0, x: 10, row: 0 },
+    { t: 1, x: 50, row: 0 },
+    { t: 2, x: 90, row: 0 },
+  ]
   /** Dentro la riga il bordo destro non entra nel conto: un valore qualsiasi non cambia nulla. */
   const END = 400
   it('interpola fra i punti adiacenti', () => {
@@ -20,7 +24,10 @@ describe('cursorAt', () => {
   // Al capo riga la x del punto successivo è più a SINISTRA (nuova riga, si riparte da capo):
   // interpolare verso di essa farebbe tornare indietro il cursore sullo schermo. Fermarlo
   // sull'ultima nota invece lo lascerebbe immobile mentre la musica va avanti — e si vede.
-  const wrapped = [{ t: 0, x: 300, row: 0 }, { t: 1, x: 20, row: 1 }]
+  const wrapped = [
+    { t: 0, x: 300, row: 0 },
+    { t: 1, x: 20, row: 1 },
+  ]
   it('al capo riga continua verso il bordo destro: non si ferma e non torna indietro', () => {
     expect(cursorAt(wrapped, 0.5, 380)).toEqual({ x: 340, row: 0 })
     expect(cursorAt(wrapped, 0.75, 380)).toEqual({ x: 360, row: 0 })

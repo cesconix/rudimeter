@@ -1,15 +1,17 @@
 import { describe, expect, it } from 'bun:test'
-import { DEFAULT_AUTO_INCREMENT, nextBpm, repeatAccuracy } from './progression'
+import { parseExercise } from './exercise'
 import { buildGrid } from './grid'
 import { judge } from './judge'
-import { parseExercise } from './exercise'
+import { DEFAULT_AUTO_INCREMENT, nextBpm, repeatAccuracy } from './progression'
 
 const ex = parseExercise({ id: 'e', name: 'e', timeSignature: [2, 4], steps: 'RL RL | RL RL', repeats: 6 })
 const ai = { step: 4, after: 2, minAccuracy: 0.9, maxBpm: 66 }
 
 /** colpi perfetti su tutte le ripetizioni < upTo, tranne gli slot elencati in `skip` */
 const perfect = (upTo: number, skip: number[] = []) =>
-  buildGrid(ex, 60, 0).slots.filter((s) => s.repeat < upTo && !skip.includes(s.index)).map((s) => ({ t: s.t, peakDb: -20 }))
+  buildGrid(ex, 60, 0)
+    .slots.filter((s) => s.repeat < upTo && !skip.includes(s.index))
+    .map((s) => ({ t: s.t, peakDb: -20 }))
 
 describe('repeatAccuracy', () => {
   it('conta slot, good+ok e miss della ripetizione', () => {

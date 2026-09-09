@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
-import { durationFor, graceHands, planExercise, planRepeat, tupletFor } from './plan'
 import { parseExercise } from '../engine/exercise'
 import { buildGrid } from '../engine/grid'
+import { durationFor, graceHands, planExercise, planRepeat, tupletFor } from './plan'
 
 describe('durationFor / tupletFor', () => {
   it('1 → q, 2 → 8, 3 → 8 in terzina, 4 → 16, 5/6/7 → 16 in gruppo irregolare, 8 → 32', () => {
@@ -44,13 +44,29 @@ describe('planRepeat', () => {
   })
   it('porta accento, sticking, acciaccature e ornamento', () => {
     const first = bars[0].beats[0].notes[0]
-    expect(first).toEqual({ rest: false, duration: '8', accent: true, sticking: 'R', grace: ['L'], ornament: 'flam', slotIndex: 5 })
+    expect(first).toEqual({
+      rest: false,
+      duration: '8',
+      accent: true,
+      sticking: 'R',
+      grace: ['L'],
+      ornament: 'flam',
+      slotIndex: 5,
+    })
     expect(bars[0].beats[1].notes[0].grace).toEqual(['L', 'L'])
     expect(bars[1].beats[0].notes[0].ornament).toBe('buzz')
     expect(bars[1].beats[1].notes[0].ornament).toBe('tremolo')
   })
   it('le pause sono rest senza slot; gli slotIndex continuano da slotOffset saltandole', () => {
-    expect(bars[0].beats[0].notes[1]).toEqual({ rest: true, duration: '8', accent: false, sticking: null, grace: [], ornament: null, slotIndex: null })
+    expect(bars[0].beats[0].notes[1]).toEqual({
+      rest: true,
+      duration: '8',
+      accent: false,
+      sticking: null,
+      grace: [],
+      ornament: null,
+      slotIndex: null,
+    })
     const idx = bars.flatMap((b) => b.beats.flatMap((bt) => bt.notes.map((n) => n.slotIndex)))
     expect(idx).toEqual([5, null, 6, 7, 8, 9, 10])
   })

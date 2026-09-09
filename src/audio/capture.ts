@@ -29,7 +29,10 @@ export class Capture {
   private meterListeners = new Set<(m: MeterReading) => void>()
   info: CaptureInfo | null = null
 
-  constructor(private ctx: AudioContext, private workletUrl: string) {}
+  constructor(
+    private ctx: AudioContext,
+    private workletUrl: string,
+  ) {}
 
   async start(thresholds: Thresholds = DEFAULT_THRESHOLDS): Promise<void> {
     if (!this.ctx.audioWorklet) throw new Error('AudioWorklet non supportato da questo browser')
@@ -39,7 +42,11 @@ export class Capture {
     })
     try {
       const track = this.stream.getAudioTracks()[0]
-      this.info = { deviceLabel: track.label, settings: track.getSettings(), supported: navigator.mediaDevices.getSupportedConstraints() }
+      this.info = {
+        deviceLabel: track.label,
+        settings: track.getSettings(),
+        supported: navigator.mediaDevices.getSupportedConstraints(),
+      }
       await this.ctx.audioWorklet.addModule(this.workletUrl)
       this.node = new AudioWorkletNode(this.ctx, 'onset-processor', { numberOfInputs: 1, numberOfOutputs: 0 })
       this.node.port.onmessage = (e: MessageEvent<{ type: string; frame?: number; peak?: number; bg?: number }>) => {
@@ -76,12 +83,16 @@ export class Capture {
 
   onHit(l: (hit: Hit) => void): () => void {
     this.hitListeners.add(l)
-    return () => { this.hitListeners.delete(l) }
+    return () => {
+      this.hitListeners.delete(l)
+    }
   }
 
   onMeter(l: (m: MeterReading) => void): () => void {
     this.meterListeners.add(l)
-    return () => { this.meterListeners.delete(l) }
+    return () => {
+      this.meterListeners.delete(l)
+    }
   }
 
   stop(): void {

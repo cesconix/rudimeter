@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Grid } from '../engine/grid'
 import type { Exercise, Grade, Judged } from '../engine/types'
-import { cursorAt, type CursorPoint } from '../notation/cursor'
+import { type CursorPoint, cursorAt } from '../notation/cursor'
 import { paintDiff } from '../notation/paint'
 import { planExercise } from '../notation/plan'
 import {
@@ -9,8 +9,8 @@ import {
   NATURAL_STAFF_H,
   NATURAL_STAFF_TOP,
   notationFontsReady,
-  renderScore,
   type RenderedScore,
+  renderScore,
 } from '../notation/render'
 
 interface Props {
@@ -183,7 +183,9 @@ export function Score({ exercise, grid, judged, now }: Props) {
       // si salta al bersaglio invece di decadere per mezzo secondo attraverso posizioni che non
       // significano niente. Negli altri frame smorzamento esponenziale, indipendente dal frame rate:
       // raggiunge il bersaglio senza scatti al cambio riga e senza rincorrere ogni micro-variazione.
-      scrollY.current = snapNext.current ? target : scrollY.current + (target - scrollY.current) * (1 - Math.exp(-dt / SCROLL_TAU))
+      scrollY.current = snapNext.current
+        ? target
+        : scrollY.current + (target - scrollY.current) * (1 - Math.exp(-dt / SCROLL_TAU))
       vp.scrollTop = scrollY.current
       // Riletto dal DOM, non il valore scritto: il browser arrotonda e clampa, e la differenza
       // sembrerebbe un gesto dell'utente al rilevatore qui sotto.
