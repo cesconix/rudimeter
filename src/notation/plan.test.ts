@@ -4,7 +4,7 @@ import { buildGrid } from '../engine/grid'
 import { durationFor, graceHands, planExercise, planRepeat, tupletFor } from './plan'
 
 describe('durationFor / tupletFor', () => {
-  it('1 → q, 2 → 8, 3 → 8 in terzina, 4 → 16, 5/6/7 → 16 in gruppo irregolare, 8 → 32', () => {
+  it('1 → q, 2 → 8, 3 → 8 in a triplet, 4 → 16, 5/6/7 → 16 in a tuplet, 8 → 32', () => {
     expect([1, 2, 3, 4, 5, 6, 7, 8].map(durationFor)).toEqual(['q', '8', '8', '16', '16', '16', '16', '32'])
     expect(tupletFor(3)).toEqual({ numNotes: 3, notesOccupied: 2 })
     expect(tupletFor(6)).toEqual({ numNotes: 6, notesOccupied: 4 })
@@ -18,13 +18,13 @@ describe('durationFor / tupletFor', () => {
 })
 
 describe('graceHands', () => {
-  it('flam una, drag due, altrimenti nessuna', () => {
+  it('flam one, drag two, otherwise none', () => {
     expect(graceHands({ hand: 'R', accent: false, ornament: 'flam', graceHand: 'L' })).toEqual(['L'])
     expect(graceHands({ hand: 'R', accent: false, ornament: 'drag', graceHand: 'L' })).toEqual(['L', 'L'])
     expect(graceHands({ hand: 'R', accent: false, ornament: 'buzz' })).toEqual([])
     expect(graceHands({ hand: 'R', accent: false })).toEqual([])
   })
-  it('senza graceHand esplicito, la mano dell acciaccatura e opposta a hand', () => {
+  it('without an explicit graceHand, the grace note hand is opposite to hand', () => {
     expect(graceHands({ hand: 'L', accent: false, ornament: 'flam' })).toEqual(['R'])
     expect(graceHands({ hand: 'L', accent: false, ornament: 'drag' })).toEqual(['R', 'R'])
   })
@@ -34,7 +34,7 @@ describe('planRepeat', () => {
   const ex = parseExercise({ id: 'x', name: 'x', timeSignature: [2, 4], steps: '>fR- dRLR | zR tL', repeats: 3 })
   const bars = planRepeat(ex, 1, 5)
 
-  it('una BarPlan per battuta, una BeatPlan per movimento, note con durata e tuplet', () => {
+  it('one BarPlan per bar, one BeatPlan per beat, notes with duration and tuplet', () => {
     expect(bars).toHaveLength(2)
     expect(bars[0]).toMatchObject({ repeat: 1, bar: 0 })
     expect(bars[0].beats[0].notes.map((n) => n.duration)).toEqual(['8', '8'])
@@ -42,7 +42,7 @@ describe('planRepeat', () => {
     expect(bars[0].beats[1].tuplet).toEqual({ numNotes: 3, notesOccupied: 2 })
     expect(bars[1].beats[0].notes[0].duration).toBe('q')
   })
-  it('porta accento, sticking, acciaccature e ornamento', () => {
+  it('carries accent, sticking, grace notes and ornament', () => {
     const first = bars[0].beats[0].notes[0]
     expect(first).toEqual({
       rest: false,
@@ -57,7 +57,7 @@ describe('planRepeat', () => {
     expect(bars[1].beats[0].notes[0].ornament).toBe('buzz')
     expect(bars[1].beats[1].notes[0].ornament).toBe('tremolo')
   })
-  it('le pause sono rest senza slot; gli slotIndex continuano da slotOffset saltandole', () => {
+  it('rests are rest without a slot; the slotIndex values continue from slotOffset skipping them', () => {
     expect(bars[0].beats[0].notes[1]).toEqual({
       rest: true,
       duration: '8',
@@ -73,7 +73,7 @@ describe('planRepeat', () => {
 })
 
 describe('planExercise', () => {
-  it('srotola le ripetizioni continuando gli indici', () => {
+  it('unrolls the repeats continuing the indices', () => {
     const ex = parseExercise({ id: 'x', name: 'x', timeSignature: [2, 4], steps: 'RL R-', repeats: 3 })
     const bars = planExercise(ex)
     expect(bars).toHaveLength(3)
@@ -83,8 +83,8 @@ describe('planExercise', () => {
   })
 })
 
-describe('tuplet su un movimento con una pausa interna', () => {
-  it('il tuplet copre tutto il movimento (3 figure) anche se una e una pausa', () => {
+describe('tuplet on a beat with an internal rest', () => {
+  it('the tuplet covers the whole beat (3 notes) even though one is a rest', () => {
     const ex = parseExercise({ id: 'x', name: 'x', timeSignature: [1, 4], steps: 'R-R', repeats: 1 })
     const [bar] = planRepeat(ex, 0, 0)
     const beat = bar.beats[0]
@@ -97,11 +97,11 @@ describe('tuplet su un movimento con una pausa interna', () => {
   })
 })
 
-describe('contratto di ordinamento con buildGrid (il piu importante)', () => {
-  it('planExercise emette gli stessi slotIndex, nello stesso ordine e con la stessa mano, di buildGrid', () => {
-    // Sticking scelto apposta con pause, suddivisioni miste (4, 1, 5, 2), un gruppo irregolare (5),
-    // ornamenti con acciaccatura (drag) e senza (buzz), accento, e piu' di una ripetizione:
-    // se planRepeat si scostasse anche di una sola posizione dall'ordine di buildRepeat, questo test fallirebbe.
+describe('ordering contract with buildGrid (the most important one)', () => {
+  it('planExercise emits the same slotIndex values, in the same order and with the same hand, as buildGrid', () => {
+    // Sticking chosen on purpose with rests, mixed subdivisions (4, 1, 5, 2), a tuplet (5),
+    // ornaments with a grace note (drag) and without (buzz), an accent, and more than one repeat:
+    // if planRepeat drifted from buildRepeat's order by even a single position, this test would fail.
     const ex = parseExercise({
       id: 'contract',
       name: 'contract',

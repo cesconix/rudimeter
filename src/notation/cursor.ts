@@ -1,17 +1,17 @@
 export interface CursorPoint {
   t: number
   x: number
-  /** indice della riga: il cursore interpola dentro la riga, non attraverso */
+  /** row index: the cursor interpolates inside the row, not across it */
   row: number
 }
 
 /**
- * Posizione del cursore a `now`: x in pixel di schermo dentro la riga, più la riga su cui sta.
- * Interpola fra i punti adiacenti (ordinati per t); prima del primo sta sul primo, dopo l'ultimo
- * sull'ultimo.
+ * Cursor position at `now`: x in screen pixels inside the row, plus the row it is on.
+ * Interpolates between adjacent points (sorted by t); before the first one it sits on the first,
+ * after the last one on the last.
  *
- * `rowEndX` è la x a cui il cursore arriva a fine riga (bordo destro della partitura, già in pixel
- * di schermo): serve solo nell'intervallo che scavalca il capo riga — vedi sotto.
+ * `rowEndX` is the x the cursor reaches at the end of the row (right edge of the score, already in
+ * screen pixels): it is only needed in the interval that spans the row wrap — see below.
  */
 export function cursorAt(points: CursorPoint[], now: number, rowEndX: number): { x: number; row: number } {
   if (points.length === 0) return { x: 0, row: 0 }
@@ -27,13 +27,14 @@ export function cursorAt(points: CursorPoint[], now: number, rowEndX: number): {
   }
   const a = points[lo]
   const b = points[hi]
-  // Attraverso il capo riga la x non si interpola verso `b`: tornerebbe indietro sullo schermo,
-  // perché la riga dopo riparte da sinistra. Ma nemmeno si ferma su `a`: sarebbe l'unico momento in
-  // cui il cursore sta immobile mentre la musica va avanti, e a occhio si legge come un inceppamento
-  // proprio dove serve fiducia. Nel tempo dell'ultima nota della riga scivola fino al bordo destro e
-  // riappare a sinistra sulla riga sotto — come esce di scena, non come si blocca.
-  // `max` con `a.x`: un `rowEndX` più a sinistra dell'ultima nota (partitura più stretta delle sue
-  // note, non dovrebbe capitare) manderebbe il cursore all'indietro. Meglio fermo che al contrario.
+  // Across the row wrap the x does not interpolate towards `b`: it would move backwards on screen,
+  // because the next row starts again from the left. But it does not stop on `a` either: that would
+  // be the only moment where the cursor sits still while the music keeps going, and to the eye it
+  // reads as a stutter right where trust matters. During the time of the row's last note it slides
+  // to the right edge and reappears on the left on the row below — like it exits the scene, not
+  // like it jams.
+  // `max` with `a.x`: a `rowEndX` to the left of the last note (a score narrower than its own
+  // notes, which should not happen) would send the cursor backwards. Better still than reversed.
   if (a.row !== b.row) {
     const end = Math.max(a.x, rowEndX)
     return { x: a.x + ((end - a.x) * (now - a.t)) / (b.t - a.t), row: a.row }

@@ -1,12 +1,12 @@
-// Buzz roll: VexFlow ha il glifo SMuFL (U+E22A) ma nessun modificatore che lo disegni. Stessa geometria di Tremolo.
+// Buzz roll: VexFlow has the SMuFL glyph (U+E22A) but no modifier that draws it. Same geometry as Tremolo.
 import { Metrics, Modifier, ModifierPosition, Stem } from 'vexflow/bravura'
 
 /**
- * `CATEGORY` ritorna volutamente `'Tremolo'`: eredita la geometria di spaziatura di quel
- * modificatore, e `ModifierContext` non tratta la categoria `'Tremolo'` in modo speciale, quindi
- * non ci sono effetti collaterali sul layout. Il costo: `note.getModifiersByType('Tremolo')`
- * restituirebbe istanze di `BuzzRoll` indistinguibili da un `Tremolo` vero. Nessuno lo interroga
- * oggi, ma un domani che lo facesse dovrebbe saperlo.
+ * `CATEGORY` deliberately returns `'Tremolo'`: it inherits that modifier's spacing geometry, and
+ * `ModifierContext` does not treat the `'Tremolo'` category specially, so there are no side effects
+ * on layout. The cost: `note.getModifiersByType('Tremolo')` would return `BuzzRoll` instances
+ * indistinguishable from a real `Tremolo`. Nobody queries it today, but whoever does tomorrow
+ * should know it.
  */
 export class BuzzRoll extends Modifier {
   static override get CATEGORY(): string {
@@ -16,7 +16,7 @@ export class BuzzRoll extends Modifier {
   constructor() {
     super()
     this.position = ModifierPosition.CENTER
-    this.text = '\ue22a' // SMuFL buzzRoll: VexFlow lo ha in Glyphs ma l'entry non lo esporta
+    this.text = '\ue22a' // SMuFL buzzRoll: VexFlow has it in Glyphs but the entry does not export it
   }
 
   override draw(): void {

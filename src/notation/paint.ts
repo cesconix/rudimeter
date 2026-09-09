@@ -13,12 +13,12 @@ interface PaintNode {
   setAttribute(name: string, value: string): void
 }
 
-/** Il gruppo SVG di una nota (o qualunque cosa risponda a querySelectorAll). */
+/** The SVG group of a note (or anything that responds to querySelectorAll). */
 export interface PaintTarget {
   querySelectorAll(selector: string): Iterable<PaintNode>
 }
 
-/** Testa, gambo, bandierina e modificatori stanno nel gruppo della nota: colora fill e, dove c'è, stroke. */
+/** Notehead, stem, flag and modifiers all live in the note's group: colours fill and, where present, stroke. */
 export function paintColor(el: PaintTarget, color: string): void {
   for (const c of el.querySelectorAll('path, text, rect')) {
     c.setAttribute('fill', color)
@@ -28,19 +28,19 @@ export function paintColor(el: PaintTarget, color: string): void {
 }
 
 /**
- * Applica solo i grade diversi da `last` e aggiorna `last`. Restituisce quante note ha toccato.
+ * Applies only the grades that differ from `last` and updates `last`. Returns how many notes it touched.
  *
- * `last` è la memoria di ciò che *questo* SVG mostra: creala e buttala insieme all'SVG che descrive.
- * Non esiste nessun ripasso che ridipinge tutto, quindi se le due vite si scollano la divergenza è
- * permanente e silenziosa. Una `last` che sopravvive a un render nuovo lascia note mai colorate (il
- * grade combacia, si salta il disegno); una `last` nuova su un SVG già colorato lascia i colori
- * vecchi, perché il primo `pending` di un indice mai visto aggiorna la memoria senza disegnare,
- * assumendo che la nota sia ancora al nero di default di VexFlow.
+ * `last` is the memory of what *this* SVG shows: create it and throw it away together with the SVG
+ * it describes. There is no re-pass that repaints everything, so if the two lives drift apart the
+ * divergence is permanent and silent. A `last` that survives a new render leaves notes never
+ * coloured (the grade matches, so the drawing is skipped); a fresh `last` on an already coloured SVG
+ * leaves the old colours, because the first `pending` of an index never seen before updates the
+ * memory without drawing, assuming the note is still at VexFlow's default black.
  *
- * Una nota il cui elemento manca non viene contata e viene ritentata a ogni chiamata: giusto per
- * un'assenza passeggera, ma se quell'indice nell'SVG non esiste proprio, la nota resta nera —
- * indistinguibile da `pending` — per sempre, e il valore di ritorno non distingue quel caso da
- * "non c'era niente da fare".
+ * A note whose element is missing is not counted and is retried on every call: fine for a passing
+ * absence, but if that index simply does not exist in the SVG, the note stays black — indistinguishable
+ * from `pending` — forever, and the return value does not tell that case apart from
+ * "there was nothing to do".
  */
 export function paintDiff(
   judged: Judged[],

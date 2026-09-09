@@ -18,7 +18,7 @@ function fakeEl(children: { stroke?: string }[]) {
 }
 
 describe('paintColor', () => {
-  it('colora il fill di tutti i figli e lo stroke solo dove esiste ed è diverso da none', () => {
+  it('colours the fill of every child and the stroke only where it exists and differs from none', () => {
     const { el, nodes } = fakeEl([{}, { stroke: '#000' }, { stroke: 'none' }])
     paintColor(el, '#2a2')
     expect(nodes.map((n) => n.attrs.fill)).toEqual(['#2a2', '#2a2', '#2a2'])
@@ -32,7 +32,7 @@ describe('paintDiff', () => {
   const judged = (grades: Grade[]): Judged[] =>
     grades.map((grade, i) => ({ slot: slot(i), hit: null, offsetMs: null, grade }))
 
-  it('tocca solo i grade cambiati e aggiorna la memoria', () => {
+  it('touches only the changed grades and updates the memory', () => {
     const els = [fakeEl([{}]), fakeEl([{}]), fakeEl([{}])]
     const last = new Map<number, Grade>()
     expect(paintDiff(judged(['pending', 'pending', 'pending']), (i) => els[i].el, last)).toBe(0)
@@ -42,7 +42,7 @@ describe('paintDiff', () => {
     expect(els[2].nodes[0].attrs.fill).toBe(GRADE_COLORS.miss)
     expect(paintDiff(judged(['good', 'pending', 'miss']), (i) => els[i].el, last)).toBe(0)
   })
-  it('un elemento mancante non blocca gli altri', () => {
+  it('a missing element does not block the others', () => {
     const els = [fakeEl([{}])]
     expect(paintDiff(judged(['good', 'ok']), (i) => els[i]?.el, new Map())).toBe(1)
   })

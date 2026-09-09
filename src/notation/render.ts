@@ -13,62 +13,62 @@ import {
 import { buildBar, KEY_5_LINE } from './build'
 import type { BarPlan } from './plan'
 
-/** Geometria naturale: la musica si disegna sempre così, poi si scala tutta insieme. */
+/** Natural geometry: the music is always drawn at this size, then scaled all together. */
 const NATURAL_BEAT_PX = 96
 const NATURAL_HEAD_PX = 70
 const NATURAL_SYSTEM_H = 140
 /**
- * Rigo a cinque linee. VexFlow tiene 10px fra una linea e l'altra, quindi il rigo è alto 40px;
- * sopra restano 70px per gambi, travi, accenti e numeri di gruppo irregolare, sotto 30px per le
- * diteggiature R/L. Somma 140.
+ * Five-line staff. VexFlow keeps 10px between one line and the next, so the staff is 40px tall;
+ * above it 70px remain for stems, beams, accents and tuplet numbers, below it 30px for the R/L
+ * sticking. Sums to 140.
  *
- * I 70px sopra sono misurati sul caso peggiore, non scelti: il numero di una terzina si posiziona
- * SOPRA l'accento (verificato — tolto l'accento, VexFlow lo riabbassa di 22,5px), e terzina più
- * accento sul primo colpo è il doppio paradiddle, cioè normale amministrazione fra i rudimenti. Con
- * i 40px di prima quel numero finiva 22px fuori dalla banda, cioè sopra le diteggiature della riga
- * PRECEDENTE. Il costo è una riga più alta del 27% anche dove terzine non ce ne sono: la banda è una
- * costante, non si misura per esercizio.
+ * The 70px above are measured on the worst case, not chosen: a triplet's number is positioned
+ * ABOVE the accent (verified — with the accent removed, VexFlow lowers it back by 22.5px), and a
+ * triplet plus an accent on the first hit is the double paradiddle, i.e. business as usual among
+ * rudiments. With the previous 40px that number ended up 22px outside the band, i.e. above the
+ * sticking of the PREVIOUS row. The cost is a row 27% taller even where there are no triplets: the
+ * band is a constant, it is not measured per exercise.
  *
- * `NATURAL_STAFF_TOP` e `NATURAL_STAFF_H` sono esportate perché il cursore non vive nell'SVG (è un
- * div fratello, vedi `Score`): per coprire il rigo e non l'intera banda della riga deve sapere dove
- * il rigo comincia e quanto è alto.
+ * `NATURAL_STAFF_TOP` and `NATURAL_STAFF_H` are exported because the cursor does not live in the
+ * SVG (it is a sibling div, see `Score`): to cover the staff and not the whole band of the row it
+ * needs to know where the staff starts and how tall it is.
  */
 const STAFF_LINES = 5
 export const NATURAL_STAFF_TOP = 70
 export const NATURAL_STAFF_H = (STAFF_LINES - 1) * 10
-/** Testa di nota alla scala naturale: serve per sapere quando lo zoom la rende illeggibile. */
+/** Notehead at natural scale: needed to know when zoom makes it unreadable. */
 export const NATURAL_NOTEHEAD_PX = 11.8
-/** Sotto questa dimensione la testa di nota non si legge più: è il vincolo che limita la densità. */
+/** Below this size the notehead is no longer readable: it is the constraint that limits density. */
 export const MIN_NOTEHEAD_PX = 8
 /**
- * Margine a destra dell'ultima battuta della riga. Senza, la stanghetta di fine battuta cade a
- * `x = larghezza` — cioè esattamente sul bordo dell'SVG — e viene tagliata: sulla riga si vede solo
- * la stanghetta di mezzo e la riga sembra finire nel nulla. Otto pixel bastano anche alla barra
- * finale, che è spessa.
+ * Margin to the right of the row's last bar. Without it, the end-of-bar barline lands at
+ * `x = width` — i.e. exactly on the SVG's edge — and gets clipped: the row shows only the middle
+ * barline and looks like it trails off into nothing. Eight pixels are enough even for the final
+ * barline, which is thick.
  */
 const NATURAL_RIGHT_PAD = 8
 /**
- * Gronda a sinistra della griglia, quando l'esercizio ha acciaccature. Un flam o un drag si disegna
- * PRIMA della sua nota, e sulla griglia del tempo nessuno gli riserva quello spazio: la nota sta al
- * suo istante, punto. Sul primo movimento della riga l'acciaccatura finirebbe quindi sopra la chiave
- * e il tempo (misurato: si prende 23,7px a sinistra della testa).
+ * Gutter to the left of the grid, when the exercise has grace notes. A flam or a drag is drawn
+ * BEFORE its note, and nothing reserves that space for it on the time grid: the note sits at its
+ * instant, period. On the row's first beat the grace note would therefore end up over the clef and
+ * time signature (measured: it takes up 23.7px to the left of the notehead).
  *
- * È una traslazione dell'intera griglia, non un'eccezione locale: sposta l'origine, non i passi, e
- * il cursore resta a velocità costante. Si paga solo dove serve — un esercizio senza acciaccature
- * non perde un pixel — perché 24px in meno di musica per riga, in 2/4 su un telefono, valgono una
- * battuta per riga invece di due.
+ * It is a translation of the whole grid, not a local exception: it moves the origin, not the steps,
+ * and the cursor stays at constant speed. It is paid only where it is needed — an exercise without
+ * grace notes does not lose a pixel — because 24px less music per row, in 2/4 on a phone, are worth
+ * one bar per row instead of two.
  */
 const NATURAL_GRACE_PX = 24
 
 export interface RenderOptions {
-  /** es. "2/4" */
+  /** e.g. "2/4" */
   timeSignature: string
   beatsPerBar: number
-  /** battute di UNA ripetizione: la riga si aggancia a questa unità musicale */
+  /** bars in ONE repeat: the row anchors to this musical unit */
   barsPerRepeat: number
-  /** battute dell'intero pezzo: la riga non è mai più lunga della musica che c'è */
+  /** bars in the whole piece: the row is never longer than the music there is */
   totalBars: number
-  /** larghezza utile in px: da qui si ricavano battute per riga e scala */
+  /** usable width in px: bars per row and scale are derived from this */
   availW: number
 }
 
@@ -80,9 +80,9 @@ export interface Fit {
 
 export interface RenderedNote {
   note: StaveNote
-  /** x del BORDO SINISTRO della testa in px di schermo (già moltiplicata per `scale`) */
+  /** x of the notehead's LEFT EDGE in screen px (already multiplied by `scale`) */
   x: number
-  /** indice della riga su cui sta la nota */
+  /** index of the row the note sits on */
   row: number
 }
 
@@ -92,46 +92,45 @@ export interface RenderedScore {
   rows: number
   fit: Fit
   /**
-   * x di schermo dove finisce la griglia del tempo di una riga, cioè dove cadrebbe la figura
-   * successiva se la riga continuasse. Il cursore ci scivola sopra durante il capo riga, e siccome è
-   * il punto giusto sull'asse del tempo lo fa alla stessa identica velocità del resto: la riga
-   * finisce senza che il cursore cambi passo. È la stanghetta di fine riga, `NATURAL_RIGHT_PAD`
-   * escluso.
+   * Screen x where the row's time grid ends, i.e. where the next note would land if the row kept
+   * going. The cursor slides over it during the row wrap, and since it is the right point on the
+   * time axis it does so at the exact same speed as the rest: the row ends without the cursor
+   * changing pace. It is the end-of-row barline, `NATURAL_RIGHT_PAD` excluded.
    */
   rowEndX: number
-  /** slotIndex → nota, x di schermo e riga */
+  /** slotIndex → note, screen x and row */
   notes: Map<number, RenderedNote>
   /**
-   * Travi e gruppi irregolari di tutte le battute, nell'ordine di disegno. Il colore vive sulla
-   * nota (`notes`), non qui: questi due array esistono solo perché la colorazione via
-   * `getSVGElement()` non raggiunge il gruppo SVG di `Beam`/`Tuplet` (è un fratello, non un figlio,
-   * di quello della nota) — un task futuro che avesse bisogno di intervenire su travi o
-   * parentesi ha già l'oggetto a disposizione, senza dover rifare il giro di `buildBar`.
+   * Beams and tuplets of every bar, in drawing order. The colour lives on the note (`notes`), not
+   * here: these two arrays exist only because colouring via `getSVGElement()` does not reach the
+   * SVG group of `Beam`/`Tuplet` (it is a sibling, not a child, of the note's) — a future task that
+   * needed to act on beams or brackets already has the object at hand, without redoing the
+   * `buildBar` pass.
    */
   beams: Beam[]
   tuplets: Tuplet[]
 }
 
 /**
- * Risolve quando i font sono pronti nel documento (incluso il font musicale Bravura di VexFlow).
- * Non tiene un riferimento al `FontFaceSet` di `document.fonts`: la promise risolta a `void` basta
- * al chiamante, che deve solo sapere *quando*, non *cosa*.
+ * Resolves when the fonts are ready in the document (including VexFlow's Bravura music font).
+ * It does not keep a reference to `document.fonts`' `FontFaceSet`: the promise resolved to `void`
+ * is enough for the caller, which only needs to know *when*, not *what*.
  */
 export function notationFontsReady(): Promise<void> {
   return document.fonts.ready.then(() => undefined)
 }
 
 /**
- * Dallo spazio disponibile ricava quante battute stanno su una riga e con quale scala.
- * Nessun controllo manuale: se lo schermo è stretto, le battute per riga scendono da sole.
+ * From the available space, works out how many bars fit on a row and at what scale.
+ * No manual control: if the screen is narrow, bars per row drop on their own.
  *
- * La regola, in una riga: **riempi la larghezza, a meno che una riga più corta la riempia già a meno
- * del 10% di scarto — in quel caso tieni le note grandi.**
+ * The rule, in one line: **fill the width, unless a shorter row already fills it to within a 10%
+ * gap — in that case keep the notes large.**
  *
- * `MIN_NOTEHEAD_PX` è un PAVIMENTO, non un obiettivo: impaccare fino al limite di leggibilità
- * spende tutto il budget ogni volta, e quasi sempre esiste una riga più corta che copre la stessa
- * larghezza con teste molto più grandi. A 847px di viewport, 6 battute in 2/4 scendono a 8.1px di
- * testa mentre 4 ne occupano 846 su 847 — cioè riempiono lo schermo — al corpo pieno di 11.8px.
+ * `MIN_NOTEHEAD_PX` is a FLOOR, not a target: packing up to the readability limit spends the whole
+ * budget every time, and there is almost always a shorter row that covers the same width with much
+ * bigger noteheads. At an 847px viewport, 6 bars in 2/4 drop to an 8.1px notehead while 4 take up
+ * 846 out of 847 — i.e. they fill the screen — at the full size of 11.8px.
  */
 export function fitLayout(
   availW: number,
@@ -140,36 +139,36 @@ export function fitLayout(
   totalBars: number,
   leftGutter = 0,
 ): Fit {
-  // `barsPerRepeat` a 0 (esercizio degenere, campo non popolato) darebbe `n % 0` e divisioni per
-  // zero: NaN che arriva silenzioso fino a `renderer.resize(NaN, NaN)` e a Stave con y NaN, cioè un
-  // riquadro bianco senza una riga in console. Meglio una riga sbagliata che nessun disegno.
+  // `barsPerRepeat` at 0 (degenerate exercise, unpopulated field) would give `n % 0` and divisions
+  // by zero: NaN that silently reaches `renderer.resize(NaN, NaN)` and a Stave with y NaN, i.e. a
+  // blank box with not a single line in the console. Better a wrong row than no drawing at all.
   const atLeastOneBar = (n: number) => (Number.isFinite(n) ? Math.max(1, Math.floor(n)) : 1)
   const repeat = atLeastOneBar(barsPerRepeat)
   const total = atLeastOneBar(totalBars)
-  // Stessa porta, terzo parametro: un `availW` non finito uscirebbe come scala e altezza NaN anche
-  // con gli altri due sani. Oggi arriva sempre da `clientWidth`, che è un numero; la guardia sta qui
-  // perché la funzione è esportata, non perché il chiamante di oggi ne abbia bisogno.
+  // Same gate, third parameter: a non-finite `availW` would come out as a NaN scale and height even
+  // with the other two sane. Today it always comes from `clientWidth`, which is a number; the guard
+  // is here because the function is exported, not because today's caller needs it.
   const width = Number.isFinite(availW) ? Math.max(0, availW) : 0
   const naturalBar = beatsPerBar * NATURAL_BEAT_PX
   const fixed = NATURAL_HEAD_PX + Math.max(0, leftGutter) + NATURAL_RIGHT_PAD
-  /** Larghezza che `n` battute occupano al corpo naturale, chiave e margine destro inclusi. */
+  /** Width that `n` bars take up at natural size, clef and right margin included. */
   const naturalW = (n: number) => n * naturalBar + fixed
 
-  // Candidati: solo righe che restano un'unità MUSICALE — i divisori della ripetizione (mezza
-  // ripetizione per riga, un quarto…) e i suoi multipli (una per riga, due, tre…). Troncati al
-  // pezzo: una riga più lunga della musica lascerebbe rigo vuoto a destra e, peggio, ridurrebbe la
-  // scala per fare spazio a battute che non esistono.
+  // Candidates: only rows that stay a MUSICAL unit — the divisors of the repeat (half a repeat per
+  // row, a quarter…) and its multiples (one per row, two, three…). Truncated to the piece: a row
+  // longer than the music would leave empty staff to the right and, worse, would shrink the scale
+  // to make room for bars that do not exist.
   //
-  // Limite noto e accettato: con `barsPerRepeat` primo e > 2 (7, 11) sotto la ripetizione c'è solo
-  // il candidato 1, quindi su schermo stretto si scende a una battuta per riga anche dove ne
-  // starebbero 3. La libreria non produce quel caso (gli esercizi hanno 1 o 2 battute per
-  // ripetizione) e spezzare il pattern a metà giro costerebbe al lettore più di quanto renda.
+  // Known and accepted limit: with `barsPerRepeat` prime and > 2 (7, 11) the only candidate under
+  // the repeat is 1, so on a narrow screen it drops to one bar per row even where 3 would fit. The
+  // library does not produce that case (the exercises have 1 or 2 bars per repeat) and splitting
+  // the pattern mid-repeat would cost the reader more than it is worth.
   const candidates: number[] = []
   for (let d = 1; d <= repeat && d <= total; d++) if (repeat % d === 0) candidates.push(d)
   for (let m = 2 * repeat; m <= total; m += repeat) candidates.push(m)
 
-  // `naturalW` è crescente in n e i candidati sono ordinati: il più grande che ci sta e il più
-  // piccolo che sfora si trovano in una passata.
+  // `naturalW` is increasing in n and the candidates are sorted: the largest that fits and the
+  // smallest that overflows are found in one pass.
   let nFit = 0
   let nOver = 0
   for (const n of candidates) {
@@ -177,49 +176,49 @@ export function fitLayout(
     else if (nOver === 0) nOver = n
   }
 
-  // Prima la riga che riempie già al corpo pieno (scarto sotto il 10%), poi quella che riempie
-  // rimpicciolendo ma resta leggibile, poi comunque quella al corpo pieno anche se lascia spazio.
+  // First the row that already fills up at full size (gap under 10%), then the one that fills by
+  // shrinking but stays readable, then the full-size one anyway even if it leaves space.
   let barsPerRow: number
   if (nFit !== 0 && width - naturalW(nFit) <= 0.1 * width) barsPerRow = nFit
   else if (nOver !== 0 && NATURAL_NOTEHEAD_PX * (width / naturalW(nOver)) >= MIN_NOTEHEAD_PX) barsPerRow = nOver
   else if (nFit !== 0) barsPerRow = nFit
-  // Nemmeno una battuta ci sta al minimo leggibile: si mostra comunque la riga più corta possibile,
-  // rimpicciolita oltre il pavimento. Una battuta illeggibile è meglio di zero battute.
+  // Not even one bar fits at the minimum readable size: the shortest possible row is shown anyway,
+  // shrunk past the floor. One unreadable bar is better than zero bars.
   else barsPerRow = candidates[0]
 
-  // La scala non sale mai sopra il naturale: su uno schermo largo la musica andrebbe gigante, non è
-  // più leggibile, è solo grande.
+  // The scale never goes above natural: on a wide screen the music would go huge, it is not more
+  // readable, it is only big.
   const scale = Math.min(1, width / naturalW(barsPerRow))
   return { barsPerRow, scale, systemH: NATURAL_SYSTEM_H * scale }
 }
 
 /**
- * Disegna le battute in un unico SVG dentro `host` (svuotato prima), andando a capo ogni
- * `fit.barsPerRow` battute. Il colore si applica poi al DOM (notation/paint) e lo scorrimento è
- * `scrollTop` sul viewport: nessuno dei due passa di qui.
+ * Draws the bars in a single SVG inside `host` (emptied first), wrapping every `fit.barsPerRow`
+ * bars. Colour is later applied to the DOM (notation/paint) and scrolling is `scrollTop` on the
+ * viewport: neither of the two goes through here.
  *
- * Si ri-disegna solo quando cambia lo spazio (o l'esercizio): il layout è calcolato una volta e
- * inciso nell'SVG, quindi chi chiama deve ridisegnare quando `availW` cambia.
+ * It only redraws when the space (or the exercise) changes: the layout is computed once and etched
+ * into the SVG, so the caller must redraw when `availW` changes.
  *
- * Non chiamare prima che `notationFontsReady()` sia risolta: VexFlow misura la larghezza dei glifi
- * leggendo il DOM, quindi un render fatto prima che il font musicale sia applicato calcola coordinate
- * x sbagliate che poi restano incise nell'SVG per sempre, perché questa funzione non fa re-layout.
+ * Do not call before `notationFontsReady()` has resolved: VexFlow measures glyph widths by reading
+ * the DOM, so a render done before the music font is applied computes wrong x coordinates that then
+ * stay etched in the SVG forever, because this function never re-lays-out.
  */
 /**
- * Riscrive la x di ogni figura della battuta sulla **griglia del tempo**: la riga è un asse dei
- * tempi, e la x di una figura è il suo istante moltiplicato per `NATURAL_BEAT_PX`.
+ * Rewrites the x of every note in the bar onto the **time grid**: the row is a time axis, and the x
+ * of a note is its instant multiplied by `NATURAL_BEAT_PX`.
  *
- * Il formatter di VexFlow ha già fatto il suo lavoro quando questa gira — gambi, travi, direzione dei
- * modificatori, larghezze minime — e quello resta. Qui si sposta soltanto DOVE cade ogni figura,
- * perché il formatter spazia in modo tipografico: dà a quattro sedicesimi 2,6 volte la larghezza di
- * un quarto che dura lo stesso tempo (misurato: 157 px/s contro 60 px/s di cursore). Con un cursore
- * che scorre, quella spaziatura racconta all'occhio una velocità che non esiste. Sulla griglia il
- * cursore va a passo costante, e le pause finiscono al posto giusto da sole, senza doverle ancorare.
+ * VexFlow's formatter has already done its job by the time this runs — stems, beams, modifier
+ * direction, minimum widths — and that stays. Here only WHERE each note lands is moved, because the
+ * formatter spaces things typographically: it gives four sixteenths 2.6 times the width of a
+ * quarter note that lasts the same time (measured: 157 px/s against a cursor at 60 px/s). With a
+ * scrolling cursor, that spacing tells the eye a speed that does not exist. On the grid the cursor
+ * moves at constant pace, and rests end up in the right place on their own, with no need to anchor
+ * them.
  *
- * Si sposta il TickContext e non la nota: travi, terzine, accenti e diteggiature leggono la
- * posizione al momento del disegno, quindi seguono senza doverli toccare. Vale finché ogni figura ha
- * il suo TickContext — una voce sola per battuta, com'è qui: due figure che ne condividessero uno si
- * sposterebbero due volte.
+ * The TickContext is moved, not the note: beams, tuplets, accents and sticking read the position at
+ * draw time, so they follow without having to be touched. This holds as long as every note has its
+ * own TickContext — one voice per bar, as it is here: two notes sharing one would move twice.
  */
 function placeOnTimeGrid(bar: BarPlan, notes: StaveNote[], barGridX: number): void {
   let k = 0
@@ -229,8 +228,8 @@ function placeOnTimeGrid(bar: BarPlan, notes: StaveNote[], barGridX: number): vo
       const note = notes[k++]
       const target = barGridX + (b + i / n) * NATURAL_BEAT_PX
       const tc = note.checkTickContext()
-      // Delta e non valore assoluto: fra la x del TickContext e il bordo sinistro della testa c'è un
-      // offset (spiazzamento della testa, larghezza del gambo) che non serve conoscere se si sposta.
+      // Delta and not an absolute value: between the TickContext's x and the notehead's left edge
+      // there is an offset (notehead displacement, stem width) that does not need to be known to shift it.
       tc.setX(tc.getX() + (target - note.getNoteHeadBeginX()))
     })
   })
@@ -241,7 +240,7 @@ export function renderScore(host: HTMLDivElement, bars: BarPlan[], opts: RenderO
   const fit = fitLayout(opts.availW, opts.barsPerRepeat, opts.beatsPerBar, opts.totalBars, grace)
   host.innerHTML = ''
   const naturalBar = opts.beatsPerBar * NATURAL_BEAT_PX
-  /** Origine della griglia del tempo: dove cade la prima figura di ogni riga. */
+  /** Origin of the time grid: where the first note of every row lands. */
   const gridX0 = NATURAL_HEAD_PX + grace
   const rows = Math.ceil(bars.length / fit.barsPerRow)
   const width = fit.scale * (fit.barsPerRow * naturalBar + gridX0 + NATURAL_RIGHT_PAD)
@@ -250,9 +249,9 @@ export function renderScore(host: HTMLDivElement, bars: BarPlan[], opts: RenderO
   const renderer = new Renderer(host, RendererBackends.SVG)
   renderer.resize(width, height)
   const ctx = renderer.getContext()
-  // Una sola scala su tutto il contesto: nota, spazio e altezza riga mantengono sempre lo stesso
-  // rapporto. Allargare solo le battute cambierebbe le distanze ma non i glifi, che VexFlow disegna
-  // a corpo fisso, e a righe fitte le teste finirebbero una sull'altra.
+  // A single scale over the whole context: note, spacing and row height always keep the same
+  // ratio. Widening only the bars would change the distances but not the glyphs, which VexFlow
+  // draws at a fixed size, and on tightly packed rows the noteheads would end up on top of each other.
   ctx.scale(fit.scale, fit.scale)
   const notes = new Map<number, RenderedNote>()
   const beams: Beam[] = []
@@ -264,21 +263,22 @@ export function renderScore(host: HTMLDivElement, bars: BarPlan[], opts: RenderO
     const first = col === 0
     const x = first ? 0 : gridX0 + col * naturalBar
     const w = naturalBar + (first ? gridX0 : 0)
-    // `spaceAboveStaffLn` è in interlinee da 10px: 7 = i 70px di `NATURAL_STAFF_TOP`, e vanno mossi
-    // insieme — è VexFlow a decidere da qui dove cade la prima linea dentro la banda.
+    // `spaceAboveStaffLn` is in 10px line spaces: 7 = the 70px of `NATURAL_STAFF_TOP`, and they must
+    // move together — it is VexFlow that decides from this where the first line falls inside the band.
     const stave = new Stave(x, row * NATURAL_SYSTEM_H, w, {
       numLines: STAFF_LINES,
       spaceAboveStaffLn: 7,
       spaceBelowStaffLn: 3,
     })
     if (first) stave.addClef('percussion')
-    // Il tempo si scrive una volta sola, a inizio pezzo: ripeterlo a ogni riga è rumore, e in
-    // 2/4 su riga stretta è rumore che costa un ottavo della larghezza utile.
+    // The time signature is written once, at the start of the piece: repeating it on every row is
+    // noise, and in 2/4 on a narrow row it is noise that costs an eighth of the usable width.
     if (row === 0 && col === 0) stave.addTimeSignature(opts.timeSignature)
     if (i === bars.length - 1) stave.setEndBarType(BarlineType.END)
     stave.setContext(ctx).draw()
-    // Numero di battuta solo a inizio riga: con 20 ripetizioni identiche è l'unico riferimento che
-    // dice DOVE sei nel pezzo. Sopra il rigo, non a sinistra: a sinistra ci sono chiave e tempo.
+    // Bar number only at the start of the row: with 20 identical repeats it is the only reference
+    // that tells you WHERE you are in the piece. Above the staff, not to the left: the left already
+    // has the clef and time signature.
     if (first) {
       ctx.save()
       ctx.setFont('system-ui, sans-serif', 13)
@@ -287,16 +287,17 @@ export function renderScore(host: HTMLDivElement, bars: BarPlan[], opts: RenderO
       ctx.restore()
     }
     const built = buildBar(bar, KEY_5_LINE)
-    // Si formatta e si disegna in due tempi (invece di `Formatter.FormatAndDraw`, che li fa in uno)
-    // perché fra i due passa la griglia. `SOFT`: le terzine tornano coi conti giusti solo dopo che
-    // `Tuplet` ha corretto i tick, e non è il caso di far fallire un disegno per un decimo di tick.
+    // Formatted and drawn in two passes (instead of `Formatter.FormatAndDraw`, which does both in
+    // one) because the grid runs between the two. `SOFT`: triplets only add up correctly once
+    // `Tuplet` has corrected the ticks, and a drawing should not fail over a tenth of a tick.
     const voice = new Voice({ numBeats: opts.beatsPerBar, beatValue: 4 })
       .setMode(VoiceMode.SOFT)
       .addTickables(built.notes)
-    // Il rigo va dato alle note PRIMA di misurarle: `formatToStave` lo usa per la larghezza ma non lo
-    // attacca alle note, e finché non ce l'hanno `getNoteHeadBeginX()` risponde senza l'offset di
-    // inizio-note (chiave, tempo, stanghetta). Sarebbe un errore costante per battuta — misurato:
-    // +66,1 sulla prima, +279 sulla seconda — cioè la griglia giusta nel posto sbagliato.
+    // The staff must be given to the notes BEFORE measuring them: `formatToStave` uses it for the
+    // width but does not attach it to the notes, and until they have it `getNoteHeadBeginX()`
+    // answers without the start-of-notes offset (clef, time signature, barline). That would be a
+    // constant error per bar — measured: +66.1 on the first, +279 on the second — i.e. the right
+    // grid in the wrong place.
     voice.setStave(stave)
     built.notes.forEach((n) => {
       n.setStave(stave)
@@ -310,9 +311,9 @@ export function renderScore(host: HTMLDivElement, bars: BarPlan[], opts: RenderO
     built.tuplets.forEach((t) => {
       t.setContext(ctx).draw()
     })
-    // `getNoteHeadBeginX`, non `getAbsoluteX`: quest'ultima è l'ancora della nota nel formatter e
-    // cade ~7px a destra del bordo sinistro della testa — irrilevante per una stanghetta da 2px,
-    // visibile per la banda del cursore, che è larga quanto la testa e ci deve stare sopra esatta.
+    // `getNoteHeadBeginX`, not `getAbsoluteX`: the latter is the note's anchor in the formatter and
+    // falls ~7px to the right of the notehead's left edge — irrelevant for a 2px barline, visible
+    // for the cursor's band, which is as wide as the notehead and must sit exactly on top of it.
     built.slotNotes.forEach((note, slotIndex) => {
       notes.set(slotIndex, { note, x: note.getNoteHeadBeginX() * fit.scale, row })
     })
@@ -320,8 +321,8 @@ export function renderScore(host: HTMLDivElement, bars: BarPlan[], opts: RenderO
     tuplets.push(...built.tuplets)
   })
 
-  // Dove cadrebbe la figura successiva se la riga continuasse: è la stanghetta di fine riga, e sta
-  // sulla griglia come tutto il resto.
+  // Where the next note would land if the row kept going: it is the end-of-row barline, and it sits
+  // on the grid like everything else.
   const rowEndX = fit.scale * (gridX0 + fit.barsPerRow * naturalBar)
   return { width, height, rows, fit, rowEndX, notes, beams, tuplets }
 }

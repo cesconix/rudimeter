@@ -1,11 +1,10 @@
-// Pagina dev: galleria di tutte le figure che notation/plan + notation/build possono produrre
-// (verifica visiva manuale, VexFlow disegna nel DOM) e controlli di misura (render di 40 battute,
-// ricolorazione via DOM a 20 note/s, scroll con translateX) ereditati dallo spike originale.
+// Dev page: gallery of every note that notation/plan + notation/build can produce (manual visual
+// check, VexFlow draws into the DOM) and measurement checks (rendering 40 bars, DOM recolouring at
+// 20 notes/s, scroll with translateX) inherited from the original spike.
 //
-// Il controllo "scroll" resta una misura di frame rate su un translateX orizzontale: la produzione
-// non scorre più così (lo spartito va a capo e scorre in verticale via `scrollTop`, vedi Score), ma
-// il numero che questo bottone produce — quanti frame saltano mentre un layer promosso si muove —
-// vale lo stesso.
+// The "scroll" check remains a frame-rate measurement on a horizontal translateX: production no
+// longer scrolls that way (the score wraps and scrolls vertically via `scrollTop`, see Score), but
+// the number this button produces — how many frames drop while a promoted layer moves — still holds.
 
 import type { StaveNote } from 'vexflow/bravura'
 import { parseExercise } from '../src/engine/exercise'
@@ -14,7 +13,7 @@ import { paintColor } from '../src/notation/paint'
 import { planExercise } from '../src/notation/plan'
 import { notationFontsReady, type RenderedScore, renderScore } from '../src/notation/render'
 
-// --- Esercizi per i controlli di misura (bottoni "1 battuta" / "40 battute") ---
+// --- Exercises for the measurement checks ("1 bar" / "40 bars" buttons) ---
 
 const SHOWCASE = parseExercise({
   id: 'showcase',
@@ -31,66 +30,66 @@ const PARADIDDLE = parseExercise({
   repeats: 40,
 })
 
-// --- Esercizi della galleria statica: ogni sezione isola le figure che il titolo promette ---
+// --- Exercises for the static gallery: each section isolates the notes its title promises ---
 
-/** Battuta di 1 movimento: la suddivisione n del movimento fissa la durata (1→q, 2→8, 4→16, 8→32). */
+/** Bar of 1 beat: the beat's subdivision n fixes the duration (1→q, 2→8, 4→16, 8→32). */
 const GALLERY_DURATIONS = parseExercise({
   id: 'gallery-durations',
-  name: 'durate',
+  name: 'durations',
   timeSignature: [1, 4],
   steps: 'R | RL | RLRL | RLRLRLRL',
   repeats: 1,
 })
 
-/** n=3,5,6,7 sono gruppi irregolari: 3-in-2, 5-in-4, 6-in-4, 7-in-4. */
+/** n=3,5,6,7 are tuplets: 3-in-2, 5-in-4, 6-in-4, 7-in-4. */
 const GALLERY_TUPLETS = parseExercise({
   id: 'gallery-tuplets',
-  name: 'gruppi irregolari',
+  name: 'tuplets',
   timeSignature: [1, 4],
   steps: 'RLR | RLRLR | RLRLRL | RLRLRLR',
   repeats: 1,
 })
 
-/** Una pausa per durata (q, 8, 16, 32), più una pausa dentro un movimento in terzina (3-in-2). */
+/** One rest per duration (q, 8, 16, 32), plus one rest inside a beat in a triplet (3-in-2). */
 const GALLERY_RESTS = parseExercise({
   id: 'gallery-rests',
-  name: 'pause',
+  name: 'rests',
   timeSignature: [1, 4],
   steps: '- | -R | -RLR | -RLRLRLR | RL-',
   repeats: 1,
 })
 
-/** flam (1 acciaccatura, slash), drag (2 acciaccature travate), buzz (glifo sullo stelo), tremolo (1 barra sullo stelo). */
+/** flam (1 grace note, slash), drag (2 beamed grace notes), buzz (glyph on the stem), tremolo (1 bar on the stem). */
 const GALLERY_ORNAMENTS = parseExercise({
   id: 'gallery-ornaments',
-  name: 'ornamenti',
+  name: 'ornaments',
   timeSignature: [1, 4],
   steps: 'fR | dR | zR | tR',
   repeats: 1,
 })
 
-/** Accento e ornamento sulla stessa nota: flam accentato, buzz accentato. */
+/** Accent and ornament on the same note: accented flam, accented buzz. */
 const GALLERY_ACCENT_ORNAMENT = parseExercise({
   id: 'gallery-accent-ornament',
-  name: 'accento + ornamento',
+  name: 'accent + ornament',
   timeSignature: [1, 4],
   steps: '>fR | >zR',
   repeats: 1,
 })
 
-/** Una battuta in 4/4, 4 movimenti di ottavi: deve uscire una trave per movimento, non una sola trave per battuta. */
+/** One bar in 4/4, 4 beats of eighths: one beam per beat must come out, not a single beam for the whole bar. */
 const GALLERY_BEAMS = parseExercise({
   id: 'gallery-beams',
-  name: 'travi per movimento',
+  name: 'beams per beat',
   timeSignature: [4, 4],
   steps: 'RL RL RL RL',
   repeats: 1,
 })
 
-/** Paradiddle singolo, 2 ripetizioni: un esercizio vero, non un campionario di figure sintetico. */
+/** Single paradiddle, 2 repeats: a real exercise, not a synthetic sampler of notes. */
 const GALLERY_REALISTIC = parseExercise({
   id: 'gallery-realistic',
-  name: 'esercizio realistico',
+  name: 'realistic exercise',
   timeSignature: [4, 4],
   steps: '>RLRR >LRLL >RLRR >LRLL',
   repeats: 2,
@@ -99,10 +98,10 @@ const GALLERY_REALISTIC = parseExercise({
 const allNotes: StaveNote[] = []
 
 /**
- * `barsPerRepeat` = tutte le battute dell'esercizio: la galleria non ha ripetizioni da rispettare e
- * vuole il massimo su una riga sola, e con `totalBars` uguale la riga non supera mai il pezzo.
- * `availW` è la larghezza del contenitore, con un fallback generoso per quando la pagina misura 0
- * (host non ancora in layout).
+ * `barsPerRepeat` = all the exercise's bars: the gallery has no repeats to respect and wants the
+ * max on a single row, and with `totalBars` equal the row never exceeds the piece.
+ * `availW` is the container's width, with a generous fallback for when the page measures 0
+ * (host not yet in layout).
  */
 function optionsFor(host: HTMLDivElement, ex: Exercise, bars: number) {
   return {
@@ -119,8 +118,8 @@ function draw(ex: typeof SHOWCASE): number {
   allNotes.length = 0
   const bars = planExercise(ex)
   const t = performance.now()
-  // Le 40 battute ora escono su più righe invece che in striscia: la misura è la stessa, è il
-  // tempo di disegnare tutto l'SVG.
+  // The 40 bars now come out over several rows instead of in a strip: the measurement is the same,
+  // it is the time to draw the whole SVG.
   const r: RenderedScore = renderScore(host, bars, optionsFor(host, ex, bars.length))
   r.notes.forEach((n) => {
     allNotes.push(n.note)
@@ -129,10 +128,10 @@ function draw(ex: typeof SHOWCASE): number {
 }
 
 /**
- * Render statico di una sezione della galleria: una volta, nessuna misura, nessun bottone.
- * La larghezza del movimento non è più negoziabile dal chiamante (la decide `fitLayout` dallo
- * spazio, e non sale mai sopra il naturale): le sezioni con movimenti da 5-8 figure stanno più
- * strette di prima.
+ * Static render of a gallery section: once, no measurement, no button.
+ * The beat's width is no longer negotiable by the caller (`fitLayout` decides it from the
+ * available space, and it never goes above natural): the sections with beats of 5-8 notes sit
+ * narrower than before.
  */
 function renderGallery(id: string, ex: Exercise): void {
   const host = document.getElementById(id) as HTMLDivElement
@@ -145,7 +144,7 @@ const COLORS = ['#2a2', '#c90', '#d33', '#888']
 function paint(n: StaveNote, color: string): void {
   const el = n.getSVGElement()
   if (!el) {
-    log('getSVGElement() vuoto: gli id non sono nel DOM')
+    log('getSVGElement() empty: the ids are not in the DOM')
     return
   }
   paintColor(el, color)
@@ -153,7 +152,7 @@ function paint(n: StaveNote, color: string): void {
 
 function paintLoop(): void {
   if (allNotes.length === 0) {
-    log('prima disegna')
+    log('draw first')
     return
   }
   let i = 0
@@ -173,7 +172,7 @@ function paintLoop(): void {
     if (now - t0 < 5000) requestAnimationFrame(raf)
     else {
       clearInterval(timer)
-      log(`colora: ${i} note in 5 s, ${frames} frame, ${slow} frame > 32 ms`)
+      log(`colour: ${i} notes in 5 s, ${frames} frames, ${slow} frames > 32 ms`)
     }
   }
   requestAnimationFrame(raf)
@@ -196,7 +195,7 @@ function scrollLoop(): void {
     if (px < width) requestAnimationFrame(raf)
     else
       log(
-        `scroll: ${width.toFixed(0)} px in ${((now - t0) / 1000).toFixed(1)} s, ${frames} frame, ${slow} frame > 32 ms`,
+        `scroll: ${width.toFixed(0)} px in ${((now - t0) / 1000).toFixed(1)} s, ${frames} frames, ${slow} frames > 32 ms`,
       )
   }
   requestAnimationFrame(raf)
@@ -208,21 +207,21 @@ function log(s: string): void {
 }
 
 // biome-ignore lint/style/noNonNullAssertion: the id is hardcoded in gallery.html; a missing one must break the dev page loudly.
-document.getElementById('one')!.addEventListener('click', () => log(`1 battuta: ${draw(SHOWCASE).toFixed(1)} ms`))
+document.getElementById('one')!.addEventListener('click', () => log(`1 bar: ${draw(SHOWCASE).toFixed(1)} ms`))
 // biome-ignore lint/style/noNonNullAssertion: the id is hardcoded in gallery.html; a missing one must break the dev page loudly.
 document.getElementById('forty')!.addEventListener('click', () => {
   const ms = draw(PARADIDDLE)
-  log(`40 battute: ${ms.toFixed(1)} ms, ${allNotes.length} note`)
+  log(`40 bars: ${ms.toFixed(1)} ms, ${allNotes.length} notes`)
 })
 // biome-ignore lint/style/noNonNullAssertion: the id is hardcoded in gallery.html; a missing one must break the dev page loudly.
 document.getElementById('paint')!.addEventListener('click', paintLoop)
 // biome-ignore lint/style/noNonNullAssertion: the id is hardcoded in gallery.html; a missing one must break the dev page loudly.
 document.getElementById('scroll')!.addEventListener('click', scrollLoop)
 
-// Il font musicale (Bravura) arriva async via @font-face: VexFlow misura i glifi nel DOM per
-// calcolare le x, quindi un render prima che il font sia applicato usa il fallback e inchioda
-// coordinate sbagliate nell'SVG (render.ts non fa mai re-layout). I bottoni sopra sono già al
-// sicuro perché scattano dopo il load; la galleria invece disegna da sola all'avvio, quindi aspetta.
+// The music font (Bravura) arrives async via @font-face: VexFlow measures glyphs in the DOM to
+// compute the x coordinates, so a render before the font is applied uses the fallback and nails
+// down wrong coordinates in the SVG (render.ts never re-lays-out). The buttons above are already
+// safe because they fire after load; the gallery instead draws itself on startup, so it waits.
 await notationFontsReady()
 
 renderGallery('gallery-durations', GALLERY_DURATIONS)

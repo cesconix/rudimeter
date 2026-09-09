@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="it">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>spike notazione</title>
+    <title>notation gallery</title>
     <style>
       body { margin: 0; font-family: system-ui, sans-serif; background: #fff; color: #000; }
       #controls { padding: 8px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
@@ -18,53 +18,53 @@
   </head>
   <body>
     <div id="controls">
-      <button type="button" id="one">1 battuta (tutte le figure)</button>
-      <button type="button" id="forty">40 battute</button>
-      <button type="button" id="paint">Colora 20/s per 5 s</button>
-      <button type="button" id="scroll">Scorri</button>
+      <button type="button" id="one">1 bar (every figure)</button>
+      <button type="button" id="forty">40 bars</button>
+      <button type="button" id="paint">Colour 20/s for 5 s</button>
+      <button type="button" id="scroll">Scroll</button>
     </div>
     <div id="viewport"><div id="score"></div></div>
     <pre id="log"></pre>
 
-    <h2>Galleria — verifica manuale di ogni figura</h2>
+    <h2>Gallery — manual check of every figure</h2>
 
     <div class="figure">
-      <h3>Durate — movimento di 1, 2, 4, 8 figure (q, 8, 16, 32)</h3>
+      <h3>Durations — a beat of 1, 2, 4, 8 notes (q, 8, 16, 32)</h3>
       <div id="gallery-durations" class="score-box"></div>
     </div>
 
     <div class="figure">
-      <h3>Gruppi irregolari — 3-in-2, 5-in-4, 6-in-4, 7-in-4</h3>
+      <h3>Tuplets — 3-in-2, 5-in-4, 6-in-4, 7-in-4</h3>
       <div id="gallery-tuplets" class="score-box"></div>
     </div>
 
     <div class="figure">
-      <h3>Pause — una per durata (q, 8, 16, 32) + una dentro una terzina</h3>
+      <h3>Rests — one per duration (q, 8, 16, 32) + one inside a triplet</h3>
       <div id="gallery-rests" class="score-box"></div>
     </div>
 
     <div class="figure">
-      <h3>Ornamenti — flam, drag, buzz roll, tremolo</h3>
+      <h3>Ornaments — flam, drag, buzz roll, tremolo</h3>
       <div id="gallery-ornaments" class="score-box"></div>
     </div>
 
     <div class="figure">
-      <h3>Accento + ornamento sulla stessa nota — flam accentato, buzz accentato</h3>
+      <h3>Accent + ornament on the same note — accented flam, accented buzz</h3>
       <div id="gallery-accent-ornament" class="score-box"></div>
     </div>
 
     <div class="figure">
-      <h3>Travi per movimento — 4 ottavi in 4/4, una trave per movimento (non una per battuta)</h3>
+      <h3>Beams per beat — 4 eighths in 4/4, one beam per beat (not one per bar)</h3>
       <div id="gallery-beams" class="score-box"></div>
     </div>
 
     <div class="figure">
-      <h3>Showcase — tutte le figure in 1 battuta (identica al bottone "1 battuta")</h3>
+      <h3>Showcase — every figure in 1 bar (same as the "1 bar" button)</h3>
       <div id="gallery-showcase" class="score-box"></div>
     </div>
 
     <div class="figure">
-      <h3>Esercizio realistico — paradiddle singolo, 2 ripetizioni</h3>
+      <h3>Realistic exercise — single paradiddle, 2 repeats</h3>
       <div id="gallery-realistic" class="score-box"></div>
     </div>
 

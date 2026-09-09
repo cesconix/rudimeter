@@ -8,10 +8,10 @@ export interface NotePlan {
   duration: Duration
   accent: boolean
   sticking: Hand | null
-  /** acciaccature prima della nota: [] nessuna, 1 = flam, 2 = drag */
+  /** grace notes before the note: [] none, 1 = flam, 2 = drag */
   grace: Hand[]
   ornament: Ornament | null
-  /** indice dello slot nella griglia; null per le pause */
+  /** index of the slot in the grid; null for rests */
   slotIndex: number | null
 }
 
@@ -29,14 +29,14 @@ export interface BarPlan {
 const DURATION: Record<number, Duration> = { 1: 'q', 2: '8', 3: '8', 4: '16', 5: '16', 6: '16', 7: '16', 8: '32' }
 const OCCUPIED: Record<number, number> = { 3: 2, 5: 4, 6: 4, 7: 4 }
 
-/** Durata VexFlow di una figura in un movimento diviso in `n`. */
+/** VexFlow duration of a note in a beat split into `n`. */
 export function durationFor(n: number): Duration {
   const d = DURATION[n]
-  if (!d) throw new Error(`suddivisione ${n} non supportata`)
+  if (!d) throw new Error(`subdivision ${n} not supported`)
   return d
 }
 
-/** Gruppo irregolare per `n` figure nel movimento, o null se regolare. */
+/** Tuplet for `n` notes in the beat, or null if regular. */
 export function tupletFor(n: number): { numNotes: number; notesOccupied: number } | null {
   const occupied = OCCUPIED[n]
   return occupied ? { numNotes: n, notesOccupied: occupied } : null
@@ -52,7 +52,7 @@ export function graceHands(step: Step): Hand[] {
   return []
 }
 
-/** Piano di una ripetizione; gli slotIndex continuano da `slotOffset` nello stesso ordine di buildRepeat. */
+/** Plan of a repeat; the slotIndex values continue from `slotOffset` in the same order as buildRepeat. */
 export function planRepeat(ex: Exercise, repeat: number, slotOffset: number): BarPlan[] {
   let next = slotOffset
   return ex.bars.map((bar, b) => ({
@@ -81,7 +81,7 @@ export function planRepeat(ex: Exercise, repeat: number, slotOffset: number): Ba
   }))
 }
 
-/** Tutte le ripetizioni srotolate, una dopo l'altra. */
+/** All the repeats unrolled, one after another. */
 export function planExercise(ex: Exercise): BarPlan[] {
   const per = slotsPerRepeat(ex)
   const out: BarPlan[] = []

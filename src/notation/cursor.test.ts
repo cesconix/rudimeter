@@ -7,37 +7,37 @@ describe('cursorAt', () => {
     { t: 1, x: 50, row: 0 },
     { t: 2, x: 90, row: 0 },
   ]
-  /** Dentro la riga il bordo destro non entra nel conto: un valore qualsiasi non cambia nulla. */
+  /** Inside the row the right edge does not enter the count: any value at all changes nothing. */
   const END = 400
-  it('interpola fra i punti adiacenti', () => {
+  it('interpolates between adjacent points', () => {
     expect(cursorAt(pts, 0.5, END)).toEqual({ x: 30, row: 0 })
     expect(cursorAt(pts, 1.25, END)).toEqual({ x: 60, row: 0 })
     expect(cursorAt(pts, 1, END)).toEqual({ x: 50, row: 0 })
   })
-  it('prima del primo punto sta sul primo, dopo l ultimo sull ultimo', () => {
+  it('before the first point it sits on the first, after the last on the last', () => {
     expect(cursorAt(pts, -3, END)).toEqual({ x: 10, row: 0 })
     expect(cursorAt(pts, 7, END)).toEqual({ x: 90, row: 0 })
   })
-  it('senza punti: 0', () => {
+  it('with no points: 0', () => {
     expect(cursorAt([], 1, END)).toEqual({ x: 0, row: 0 })
   })
-  // Al capo riga la x del punto successivo è più a SINISTRA (nuova riga, si riparte da capo):
-  // interpolare verso di essa farebbe tornare indietro il cursore sullo schermo. Fermarlo
-  // sull'ultima nota invece lo lascerebbe immobile mentre la musica va avanti — e si vede.
+  // At the row wrap the next point's x is further to the LEFT (new row, starts again from the
+  // start): interpolating towards it would move the cursor backwards on screen. Stopping it on the
+  // last note instead would leave it motionless while the music keeps going — and it shows.
   const wrapped = [
     { t: 0, x: 300, row: 0 },
     { t: 1, x: 20, row: 1 },
   ]
-  it('al capo riga continua verso il bordo destro: non si ferma e non torna indietro', () => {
+  it('at the row wrap it keeps going towards the right edge: it does not stop and does not go back', () => {
     expect(cursorAt(wrapped, 0.5, 380)).toEqual({ x: 340, row: 0 })
     expect(cursorAt(wrapped, 0.75, 380)).toEqual({ x: 360, row: 0 })
-    // A fine intervallo è praticamente al bordo; al punto dopo è già sulla riga sotto.
+    // At the end of the interval it is practically at the edge; at the point after it is already on the row below.
     expect(cursorAt(wrapped, 0.999, 380).x).toBeCloseTo(379.92, 2)
     expect(cursorAt(wrapped, 1, 380)).toEqual({ x: 20, row: 1 })
   })
-  it('al capo riga non arretra mai, nemmeno con un bordo destro assurdo', () => {
-    // Bordo a sinistra dell'ultima nota: non dovrebbe capitare (la partitura è larga almeno quanto
-    // le sue note), e se capita il cursore sta fermo invece di scorrere all'indietro.
+  it('at the row wrap it never moves back, not even with an absurd right edge', () => {
+    // Edge to the left of the last note: should not happen (the score is at least as wide as its
+    // notes), and if it does the cursor stays still instead of scrolling backwards.
     expect(cursorAt(wrapped, 0.5, 100)).toEqual({ x: 300, row: 0 })
     expect(cursorAt(wrapped, 0.5, 0)).toEqual({ x: 300, row: 0 })
   })
