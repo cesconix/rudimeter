@@ -1,38 +1,38 @@
 import type { Exercise, Slot } from './types'
 
 /**
- * `bar`/`beat`/`sub` sono il metronomo: dicono DOVE sei nella battuta. `note`/`note-accent` sono la
- * guida: dicono COSA suonare. Timbri diversi (vedi `audio/click`), perché una guida fatta con lo
- * stesso bip del metronomo renderebbe indistinguibile il movimento dalla nota.
+ * `bar`/`beat`/`sub` are the metronome: they say WHERE you are in the bar. `note`/`note-accent` are
+ * the guide: they say WHAT to play. Different timbres (see `audio/click`), because a guide made with
+ * the same metronome beep would make the beat indistinguishable from the note.
  */
 export type MetronomeKind = 'bar' | 'beat' | 'sub'
 export type GuideKind = 'note' | 'note-accent'
 export type ClickKind = MetronomeKind | GuideKind
 
-/** I due timbri non sono intercambiabili: separarli qui costringe chi schedula a dire quale vuole. */
+/** The two timbres are not interchangeable: splitting them here forces the scheduler to say which it wants. */
 export const isGuide = (kind: ClickKind): kind is GuideKind => kind === 'note' || kind === 'note-accent'
 
 export interface Click {
   t: number
   kind: ClickKind
-  /** gap training: il click esiste nel piano ma non suona */
+  /** gap training: the click exists in the plan but does not sound */
   silent: boolean
 }
 
 export interface MetronomeOptions {
-  /** click per movimento: 1 = solo i movimenti, 2/3/4 = anche le suddivisioni */
+  /** clicks per beat: 1 = beats only, 2/3/4 = subdivisions too */
   clickSubdivision: 1 | 2 | 3 | 4
-  /** gap training: `on` battute con click, `off` senza; conta dalla prima battuta dopo il count-in, attraverso le ripetizioni */
+  /** gap training: `on` bars with click, `off` without; counts from the first bar after the count-in, across the repeats */
   gap?: { on: number; off: number }
   /**
-   * Suono di guida: un colpo su ogni nota, più forte sugli accenti. Serve a IMPARARE il pattern —
-   * si accende per sentirlo, si spegne per verificarsi. Segue il gap come il click: se continuasse
-   * a suonare nelle battute mute, il gap training non esisterebbe più.
+   * Guide sound: one stroke on every note, louder on the accents. It is there to LEARN the pattern —
+   * you turn it on to hear it, you turn it off to check yourself. It follows the gap like the click:
+   * if it kept sounding through the muted bars, gap training would no longer exist.
    *
-   * Da uno speaker questa finisce nel microfono ESATTAMENTE sugli istanti attesi: ogni nota prende
-   * un colpo perfetto e la sessione riporta un'esecuzione impeccabile che non è avvenuta. Il click,
-   * cadendo sui movimenti, sporca il risultato; questa lo falsifica. Per questo il report si porta
-   * dietro che era attiva.
+   * From a speaker this ends up in the microphone EXACTLY on the expected instants: every note gets
+   * a perfect stroke and the session reports a flawless run that never happened. The click, falling
+   * on the beats, dirties the result; this one falsifies it. That is why the report carries along
+   * that it was on.
    */
   guide?: boolean
 }
@@ -54,11 +54,11 @@ export interface Grid {
   end: number
   countInClicks: Click[]
   repeats: RepeatPlan[]
-  /** tutti gli slot in ordine; `slots[i].index === i` */
+  /** all the slots in order; `slots[i].index === i` */
   slots: Slot[]
-  /** count-in + ripetizioni, in ordine di tempo */
+  /** count-in + repeats, in time order */
   clicks: Click[]
-  /** durata minima di uno step: soglia per scartare i colpi del count-in */
+  /** minimum duration of a step: threshold for discarding the count-in hits */
   minStepDur: number
 }
 
@@ -88,7 +88,7 @@ function beatClicks(beatStart: number, beat: number, k: number, silent: boolean,
   return out
 }
 
-/** Click del count-in: `bars` battute, mai silenziose. */
+/** Count-in clicks: `bars` bars, never silent. */
 function buildCountIn(ex: Exercise, bpm: number, t0: number, bars: number, metro: MetronomeOptions): Click[] {
   const [num] = ex.timeSignature
   const beat = beatDuration(bpm)
@@ -100,8 +100,8 @@ function buildCountIn(ex: Exercise, bpm: number, t0: number, bars: number, metro
 }
 
 /**
- * Una ripetizione: slot (solo step con mano) e click.
- * `indexOffset` = slot già emessi dalle ripetizioni precedenti; `barOffset` = battute già suonate (per il gap).
+ * One repeat: slots (steps with a hand only) and clicks.
+ * `indexOffset` = slots already emitted by the previous repeats; `barOffset` = bars already played (for the gap).
  */
 function buildRepeat(
   ex: Exercise,
@@ -127,9 +127,9 @@ function buildRepeat(
         if (step.hand === null) return
         const t = beatStart + i * dur
         slots.push({ index: indexOffset + slots.length, t, dur, step, repeat, bar: b, beat: k, sub: i })
-        // La guida esce dallo stesso giro dello slot: stesso istante per costruzione, senza una
-        // seconda passata che potrebbe divergere. Entra nella coda dei click, quindi eredita
-        // lookahead, count-in e il taglio-e-ripianifica dell'auto-increment senza aggiungere nulla.
+        // The guide comes out of the same loop as the slot: same instant by construction, with no
+        // second pass that could diverge. It enters the click queue, so it inherits lookahead,
+        // count-in and the cut-and-replan of the auto-increment without adding anything.
         if (metro.guide) clicks.push({ t, kind: step.accent ? 'note-accent' : 'note', silent })
       })
     })
@@ -169,7 +169,7 @@ export function buildGrid(ex: Exercise, bpm: number, t0: number, opts: GridOptio
   return assemble(t0, countInEnd, buildCountIn(ex, bpm, t0, countInBars, metro), repeats)
 }
 
-/** Ricostruisce le ripetizioni da `fromRepeat` in poi a un nuovo bpm, dalla fine della precedente. Le precedenti restano identiche. */
+/** Rebuilds the repeats from `fromRepeat` on at a new bpm, from the end of the previous one. The previous ones stay identical. */
 export function replanGrid(grid: Grid, ex: Exercise, fromRepeat: number, bpm: number, metro: MetronomeOptions): Grid {
   const kept = grid.repeats.slice(0, fromRepeat)
   let start = kept.length ? kept[kept.length - 1].end : grid.countInEnd
@@ -184,7 +184,7 @@ export function replanGrid(grid: Grid, ex: Exercise, fromRepeat: number, bpm: nu
   return assemble(grid.t0, grid.countInEnd, grid.countInClicks, [...kept, ...rebuilt])
 }
 
-/** Indice dell'ultimo slot con t ≤ now, o -1 prima del primo. */
+/** Index of the last slot with t ≤ now, or -1 before the first one. */
 export function slotIndexAt(grid: Grid, now: number): number {
   const s = grid.slots
   if (s.length === 0 || now < s[0].t) return -1
@@ -198,7 +198,7 @@ export function slotIndexAt(grid: Grid, now: number): number {
   return lo
 }
 
-/** Ripetizione in corso a `now`: 0 prima dell'inizio, l'ultima dopo la fine. */
+/** Repeat in progress at `now`: 0 before the start, the last one after the end. */
 export function repeatAt(grid: Grid, now: number): number {
   const i = grid.repeats.findIndex((r) => now >= r.start && now < r.end)
   if (i >= 0) return i

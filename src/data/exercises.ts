@@ -26,15 +26,15 @@ const EXERCISES_JSON: ExerciseJson[] = [
     steps: 'RL RR | LR LL',
     repeats: 20,
   },
-  // Studio di lettura, non di tecnica: Stone è tutto ottavi in 2/4, quindi sul rigo non compare mai
-  // una figura diversa dall'altra. Qui in due battute passano quarto, ottavi, sedicesimi, terzina e
-  // pause — di movimento, di ottavo e di sedicesimo — che è ciò che mette alla prova il disegno
-  // (travi interrotte, parentesi di terzina, larghezze diverse nello stesso movimento) e la lettura.
-  // Le mani alternano da sole; le pause spezzano l'alternanza, come in musica.
+  // A reading study, not a technique one: Stone is all eighths in 2/4, so the staff never puts one
+  // note value next to a different one. Here two bars go through a quarter, eighths, sixteenths, a
+  // triplet and rests — beat, eighth and sixteenth — which is what puts the drawing to the test
+  // (broken beams, triplet brackets, different widths inside the same beat) and the reading.
+  // The hands alternate on their own; the rests break the alternation, as in music.
   {
-    id: 'lettura-4-4',
-    name: 'Lettura mista',
-    source: 'studio',
+    id: 'reading-4-4',
+    name: 'Mixed reading',
+    source: 'study',
     timeSignature: [4, 4],
     steps: '>R LR LRLR L- | >RLR -L R-LR -',
     repeats: 8,

@@ -2,11 +2,11 @@ import type { Grid } from './grid'
 import type { Judged, JudgeResult } from './types'
 
 export interface AutoIncrement {
-  /** bpm da aggiungere */
+  /** bpm to add */
   step: number
-  /** ripetizioni consecutive pulite richieste (>= 1: precondizione non validata, vedi `nextBpm`) */
+  /** consecutive clean repeats required (>= 1: unvalidated precondition, see `nextBpm`) */
   after: number
-  /** (good + ok) / slot minimo */
+  /** minimum (good + ok) / slots */
   minAccuracy: number
   maxBpm: number
 }
@@ -24,8 +24,8 @@ export function repeatAccuracy(
 }
 
 /**
- * All'inizio della ripetizione `current`: se le `after` precedenti sono tutte al bpm corrente,
- * senza miss e sopra `minAccuracy`, il bpm per `current + 1`; altrimenti null.
+ * At the start of repeat `current`: if the `after` previous ones are all at the current bpm,
+ * with no miss and above `minAccuracy`, the bpm for `current + 1`; otherwise null.
  */
 export function nextBpm(result: JudgeResult, grid: Grid, current: number, ai: AutoIncrement): number | null {
   if (current < ai.after || current + 1 >= grid.repeats.length) return null

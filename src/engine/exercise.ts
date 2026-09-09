@@ -3,12 +3,12 @@ import type { Exercise, ExerciseJson, Step } from './types'
 
 export function parseExercise(json: ExerciseJson): Exercise {
   const [num, den] = json.timeSignature
-  if (den !== 4 || !Number.isInteger(num) || num < 1) throw new Error(`${json.id}: in v1 solo tempi x/4`)
+  if (den !== 4 || !Number.isInteger(num) || num < 1) throw new Error(`${json.id}: only x/4 time signatures in v1`)
   const bars = parseSticking(json.steps, num)
   const flat = bars.flatMap((b) => b.beats.flatMap((bt) => bt.steps))
-  if (!flat.some((s) => s.hand !== null)) throw new Error(`${json.id}: solo pause`)
+  if (!flat.some((s) => s.hand !== null)) throw new Error(`${json.id}: rests only`)
   const repeats = json.repeats ?? 20
-  if (!Number.isInteger(repeats) || repeats < 1) throw new Error(`${json.id}: repeats non valido`)
+  if (!Number.isInteger(repeats) || repeats < 1) throw new Error(`${json.id}: invalid repeats`)
   return {
     id: json.id,
     name: json.name,
@@ -25,13 +25,13 @@ export interface FlatStep {
   bar: number
   beat: number
   sub: number
-  /** figure nel movimento (= suddivisione) */
+  /** notes in the beat (= subdivision) */
   n: number
-  /** posizione nella ripetizione, pause incluse */
+  /** position within the repeat, rests included */
   ordinal: number
 }
 
-/** Gli step in ordine battuta → movimento → figura, pause incluse. */
+/** The steps in bar → beat → note order, rests included. */
 export function stepsFlat(ex: Exercise): FlatStep[] {
   const out: FlatStep[] = []
   ex.bars.forEach((bar, b) => {
@@ -46,5 +46,5 @@ export function stepsFlat(ex: Exercise): FlatStep[] {
 
 export const barsOf = (ex: Exercise): number => ex.bars.length
 
-/** Slot (step con mano) in una ripetizione. */
+/** Slots (steps with a hand) in one repeat. */
 export const slotsPerRepeat = (ex: Exercise): number => stepsFlat(ex).filter((f) => f.step.hand !== null).length

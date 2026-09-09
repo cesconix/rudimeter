@@ -5,61 +5,61 @@ import { barsOf, parseExercise, slotsPerRepeat, stepsFlat } from './exercise'
 const base = { id: 'x', name: 'x', timeSignature: [2, 4] as [number, number] }
 
 describe('parseExercise', () => {
-  it('legge la DSL v2, conserva la stringa, repeats default 20', () => {
+  it('reads DSL v2, keeps the string, repeats defaults to 20', () => {
     const ex = parseExercise({ ...base, steps: 'RL RL | RL RL' })
     expect(ex.bars).toHaveLength(2)
     expect(ex.sticking).toBe('RL RL | RL RL')
     expect(ex.repeats).toBe(20)
     expect(barsOf(ex)).toBe(2)
   })
-  it('rifiuta tempi che non sono x/4', () => {
+  it('rejects time signatures that are not x/4', () => {
     expect(() => parseExercise({ ...base, timeSignature: [6, 8], steps: 'RLR LRL' })).toThrow(/x\/4/)
   })
-  it('rifiuta esercizi di sole pause', () => {
-    expect(() => parseExercise({ ...base, steps: '-- --' })).toThrow(/solo pause/)
+  it('rejects exercises made of rests only', () => {
+    expect(() => parseExercise({ ...base, steps: '-- --' })).toThrow(/rests only/)
   })
-  it('rifiuta repeats non intero positivo', () => {
+  it('rejects a repeats that is not a positive integer', () => {
     expect(() => parseExercise({ ...base, steps: 'RL RL', repeats: 0 })).toThrow(/repeats/)
   })
-  it('propaga gli errori del parser con il numero di battuta', () => {
-    expect(() => parseExercise({ ...base, steps: 'RL RL | RL' })).toThrow(/battuta 2/)
+  it('propagates the parser errors with the bar number', () => {
+    expect(() => parseExercise({ ...base, steps: 'RL RL | RL' })).toThrow(/bar 2/)
   })
 })
 
 describe('stepsFlat / slotsPerRepeat', () => {
   const ex = parseExercise({ ...base, steps: 'R- LRL | RL RL' })
-  it('elenca gli step in ordine battuta → movimento → figura, pause incluse, con ordinale', () => {
+  it('lists the steps in bar → beat → note order, rests included, with an ordinal', () => {
     const flat = stepsFlat(ex)
     expect(flat.map((f) => f.step.hand)).toEqual(['R', null, 'L', 'R', 'L', 'R', 'L', 'R', 'L'])
     expect(flat[2]).toMatchObject({ bar: 0, beat: 1, sub: 0, n: 3, ordinal: 2 })
     expect(flat[8]).toMatchObject({ bar: 1, beat: 1, sub: 1, n: 2, ordinal: 8 })
   })
-  it('conta solo gli step con mano', () => {
+  it('counts only the steps with a hand', () => {
     expect(slotsPerRepeat(ex)).toBe(8)
   })
 })
 
-describe('esercizi built-in', () => {
-  it('i tre di Stick Control più lo studio di lettura, validi', () => {
-    expect(EXERCISES.map((e) => e.id)).toEqual(['stone-1', 'stone-3', 'stone-5', 'lettura-4-4'])
+describe('built-in exercises', () => {
+  it('the three from Stick Control plus the reading study, all valid', () => {
+    expect(EXERCISES.map((e) => e.id)).toEqual(['stone-1', 'stone-3', 'stone-5', 'reading-4-4'])
     expect(
       stepsFlat(EXERCISES[2])
         .map((f) => f.step.hand)
         .join(''),
     ).toBe('RLRRLRLL')
   })
-  it('lo studio di lettura porta le figure che Stone non ha', () => {
-    // Il punto dell'esercizio è la VARIETÀ: se un giorno qualcuno lo "semplifica" a suddivisione
-    // costante non serve più a niente, e questo test lo dice invece di lasciarlo passare.
+  it('the reading study brings the note values Stone does not have', () => {
+    // The point of the exercise is VARIETY: if one day someone "simplifies" it to a constant
+    // subdivision it is good for nothing any more, and this test says so instead of letting it pass.
     // biome-ignore lint/style/noNonNullAssertion: the exercise ships in EXERCISES, and if it is ever removed this test must fail here.
-    const l = EXERCISES.find((e) => e.id === 'lettura-4-4')!
+    const l = EXERCISES.find((e) => e.id === 'reading-4-4')!
     expect(l.timeSignature).toEqual([4, 4])
-    // Figure per movimento: quarto, ottavi, sedicesimi, ottavi | terzina, ottavi, sedicesimi, quarto.
+    // Notes per beat: quarter, eighths, sixteenths, eighths | triplet, eighths, sixteenths, quarter.
     expect(l.bars.map((b) => b.beats.map((bt) => bt.steps.length))).toEqual([
       [1, 2, 4, 2],
       [3, 2, 4, 1],
     ])
-    // Pause di tre valori diversi: di ottavo, di ottavo, di sedicesimo, di movimento.
+    // Rests of three different values: eighth, eighth, sixteenth, beat.
     expect(
       stepsFlat(l)
         .filter((f) => f.step.hand === null)

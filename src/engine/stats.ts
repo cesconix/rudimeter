@@ -20,7 +20,7 @@ export interface BlockStats {
 }
 
 export interface UniformityStats {
-  /** σ dei dB dei colpi non accentati */
+  /** σ of the dB of the unaccented strokes */
   sdDbTaps: number | null
   hands: { hand: Hand; sdDbTaps: number | null }[]
 }
@@ -28,9 +28,9 @@ export interface UniformityStats {
 export interface AccentStats {
   slots: number
   hits: number
-  /** media dB(accenti) − media dB(non accentati) */
+  /** mean dB(accents) − mean dB(unaccented) */
   meanDeltaDb: number | null
-  /** accenti colpiti che stanno sotto la soglia rispetto alla media dei non accentati; null se non ci sono taps a cui confrontarli */
+  /** accents hit that fall below the threshold against the mean of the unaccented ones; null if there are no taps to compare them with */
   belowThreshold: number | null
   thresholdDb: number
 }
@@ -39,7 +39,7 @@ export interface StatsOptions {
   blockSize?: number
   bpmByRepeat?: number[]
   accentThresholdDb?: number
-  /** Il suono guida era attivo: vedi `SessionStats.guide`. */
+  /** The guide sound was on: see `SessionStats.guide`. */
   guide?: boolean
 }
 
@@ -60,10 +60,10 @@ export interface SessionStats {
   accents: AccentStats
   bpmByRepeat: number[]
   /**
-   * Il suono guida era attivo durante la sessione. Non è una statistica: è la condizione in cui il
-   * risultato è stato ottenuto, e va col risultato ovunque vada. Con la guida attiva e senza cuffie
-   * il microfono sente i colpi della guida sugli istanti attesi, e questi numeri descrivono
-   * un'esecuzione perfetta che non è avvenuta — senza questo campo, indistinguibile da un record.
+   * The guide sound was on during the session. It is not a statistic: it is the condition the
+   * result was obtained under, and it goes with the result wherever it goes. With the guide on and
+   * no headphones the microphone hears the guide strokes on the expected instants, and these numbers
+   * describe a perfect run that never happened — without this field, indistinguishable from a record.
    */
   guide: boolean
 }
@@ -72,7 +72,7 @@ export function mean(xs: number[]): number | null {
   return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null
 }
 
-/** Deviazione standard campionaria (n − 1). */
+/** Sample standard deviation (n − 1). */
 export function sd(xs: number[]): number | null {
   if (xs.length < 2) return null
   const m = mean(xs) as number

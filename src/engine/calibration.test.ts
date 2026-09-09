@@ -10,16 +10,16 @@ import {
 } from './calibration'
 
 describe('matchOffsets', () => {
-  it('abbina a ogni click il primo onset entro 300 ms e ritorna gli offset in ms', () => {
+  it('matches every click to the first onset within 300 ms and returns the offsets in ms', () => {
     const clicks = [1, 1.5, 2, 2.5]
     const onsets = [1.068, 1.568, 2.9]
     expect(matchOffsets(clicks, onsets)).toEqual([68, 68])
   })
-  it('accetta un onset fino a 5 ms prima del click (jitter)', () => {
+  it('accepts an onset up to 5 ms before the click (jitter)', () => {
     expect(matchOffsets([1], [0.997])).toHaveLength(1)
     expect(matchOffsets([1], [0.99])).toHaveLength(0)
   })
-  it('ogni onset viene abbinato al massimo una volta anche con finestre sovrapposte', () => {
+  it('every onset is matched at most once, even with overlapping windows', () => {
     const clicks = [1, 1.01]
     const onsets = [1.005]
     expect(matchOffsets(clicks, onsets)).toEqual([5])
@@ -27,7 +27,7 @@ describe('matchOffsets', () => {
 })
 
 describe('matchRampPoints', () => {
-  it('abbina a ogni click il primo hit entro 300 ms e ritorna RampPoint[]', () => {
+  it('matches every click to the first hit within 300 ms and returns RampPoint[]', () => {
     const clicks = [
       { t: 1, db: -22 },
       { t: 1.4, db: -11 },
@@ -45,7 +45,7 @@ describe('matchRampPoints', () => {
       { expectedDb: 0, measuredDb: null },
     ])
   })
-  it('ritorna measuredDb: null se nessun hit rilevato per il click', () => {
+  it('returns measuredDb: null if no hit was detected for the click', () => {
     const clicks = [
       { t: 1, db: -22 },
       { t: 1.4, db: -11 },
@@ -59,7 +59,7 @@ describe('matchRampPoints', () => {
       { expectedDb: 0, measuredDb: null },
     ])
   })
-  it("non sposta l'abbinamento di click successivi quando uno non ha hit", () => {
+  it('does not shift the matching of the later clicks when one has no hit', () => {
     const clicks = [
       { t: 1, db: -22 },
       { t: 1.4, db: -11 },
@@ -76,7 +76,7 @@ describe('matchRampPoints', () => {
       { expectedDb: 0, measuredDb: 2 },
     ])
   })
-  it('ogni hit viene abbinato al massimo una volta anche con finestre sovrapposte', () => {
+  it('every hit is matched at most once, even with overlapping windows', () => {
     const clicks = [
       { t: 1, db: -22 },
       { t: 1.01, db: -11 },
@@ -91,19 +91,19 @@ describe('matchRampPoints', () => {
 })
 
 describe('median / latencyFromOffsets', () => {
-  it('mediana pari e dispari', () => {
+  it('even and odd median', () => {
     expect(median([3, 1, 2])).toBe(2)
     expect(median([4, 1, 3, 2])).toBe(2.5)
     expect(median([])).toBeNull()
   })
-  it('latenza = mediana; null sotto 4 match', () => {
+  it('latency = median; null below 4 matches', () => {
     expect(latencyFromOffsets([68, 68, 69, 200])).toBe(68.5)
     expect(latencyFromOffsets([68, 68, 69])).toBeNull()
   })
 })
 
 describe('rampGainsDb', () => {
-  it('12 valori equispaziati da −22 a 0', () => {
+  it('12 evenly spaced values from −22 to 0', () => {
     const g = rampGainsDb()
     expect(g).toHaveLength(12)
     expect(g[0]).toBe(-22)
@@ -113,7 +113,7 @@ describe('rampGainsDb', () => {
 })
 
 describe('fitRamp', () => {
-  it('pendenza 1 e R² 1 su una rampa perfetta traslata', () => {
+  it('slope 1 and R² 1 on a perfect shifted ramp', () => {
     const points = rampGainsDb().map((db) => ({ expectedDb: db, measuredDb: db - 7 }))
     // biome-ignore lint/style/noNonNullAssertion: the fixture feeds fitRamp enough points, so it cannot return null in this test.
     const fit = fitRamp(points)!
@@ -121,12 +121,12 @@ describe('fitRamp', () => {
     expect(fit.r2).toBeCloseTo(1)
     expect(fit.n).toBe(12)
   })
-  it('pendenza 0.5 su una rampa compressa 2:1', () => {
+  it('slope 0.5 on a 2:1 compressed ramp', () => {
     const points = rampGainsDb().map((db) => ({ expectedDb: db, measuredDb: db * 0.5 - 20 }))
     // biome-ignore lint/style/noNonNullAssertion: the fixture feeds fitRamp enough points, so it cannot return null in this test.
     expect(fitRamp(points)!.slope).toBeCloseTo(0.5)
   })
-  it('ignora i punti non rilevati e ritorna null sotto 4 punti', () => {
+  it('ignores the undetected points and returns null below 4 points', () => {
     const points = rampGainsDb().map((db, i) => ({ expectedDb: db, measuredDb: i < 9 ? null : db }))
     expect(fitRamp(points)).toBeNull()
     const four = rampGainsDb().map((db, i) => ({ expectedDb: db, measuredDb: i < 8 ? null : db }))
@@ -136,10 +136,10 @@ describe('fitRamp', () => {
 })
 
 describe('dynamicsVerdict', () => {
-  it('soglie 0.85 e 0.5', () => {
-    expect(dynamicsVerdict(0.99)).toBe('intatta')
-    expect(dynamicsVerdict(0.85)).toBe('intatta')
-    expect(dynamicsVerdict(0.7)).toBe('compressa')
-    expect(dynamicsVerdict(0.3)).toBe('schiacciata')
+  it('thresholds 0.85 and 0.5', () => {
+    expect(dynamicsVerdict(0.99)).toBe('intact')
+    expect(dynamicsVerdict(0.85)).toBe('intact')
+    expect(dynamicsVerdict(0.7)).toBe('compressed')
+    expect(dynamicsVerdict(0.3)).toBe('crushed')
   })
 })

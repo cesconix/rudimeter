@@ -38,108 +38,108 @@ const stats: SessionStats = {
 describe('toMarkdown', () => {
   const md = toMarkdown(stats, EXERCISES[0], 80, new Date('2026-09-07T10:00:00Z'))
 
-  it('apre con data, esercizio e bpm', () => {
+  it('opens with the date, the exercise and the bpm', () => {
     expect(md.split('\n')[0]).toBe('### 2026-09-07 — Stick Control #1 @ 80 bpm')
   })
-  it('riporta i totali e gli offset', () => {
-    expect(md).toContain('Slot 80: good 60 · ok 10 · off 2 · miss 8 · extra 1')
-    expect(md).toContain('Offset medio 4.3 ms (σ 12.5)')
+  it('reports the totals and the offsets', () => {
+    expect(md).toContain('Slots 80: good 60 · ok 10 · off 2 · miss 8 · extra 1')
+    expect(md).toContain('Mean offset 4.3 ms (σ 12.5)')
   })
-  it('ha una riga per mano e una per blocco, ripetizioni 1-based', () => {
+  it('has one row per hand and one per block, repeats 1-based', () => {
     expect(md).toContain('| R | 38/40 | 1.2 | 10.1 | -15.3 | 1.1 |')
     expect(md).toContain('| L | 34/40 | 7.8 | 14.9 | -19.9 | 2.4 |')
     expect(md).toContain('| 1–5 | 2/40 | 11.0 | -17.0 |')
     expect(md).toContain('| 6–10 | 6/40 | 14.0 | -18.2 |')
   })
 
-  it('usa la data locale, non UTC', () => {
-    // Mezzanotte e mezza dell'8 settembre, ora locale: in UTC è ancora il 7.
+  it('uses the local date, not UTC', () => {
+    // Half past midnight on 8 September, local time: in UTC it is still the 7th.
     const d = new Date(2026, 8, 8, 0, 30)
     const expected = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     expect(toMarkdown(stats, EXERCISES[0], 80, d).split('\n')[0]).toBe(`### ${expected} — Stick Control #1 @ 80 bpm`)
   })
-  it('registra la calibrazione usata, così due log restano confrontabili', () => {
+  it('records the calibration used, so that two logs stay comparable', () => {
     const md2 = toMarkdown(stats, EXERCISES[0], 80, new Date(), {
       latencyMs: 30.63,
       slope: 0.99,
       deviceLabel: 'iPad Microphone',
     })
-    expect(md2).toContain('Calibrazione: latenza 30.6 ms · pendenza 0.99 · iPad Microphone')
+    expect(md2).toContain('Calibration: latency 30.6 ms · slope 0.99 · iPad Microphone')
   })
-  it('senza calibrazione non stampa la riga', () => {
-    expect(toMarkdown(stats, EXERCISES[0], 80, new Date())).not.toContain('Calibrazione:')
+  it('with no calibration it does not print the line', () => {
+    expect(toMarkdown(stats, EXERCISES[0], 80, new Date())).not.toContain('Calibration:')
   })
-  it('pendenza assente diventa —', () => {
+  it('a missing slope becomes —', () => {
     const md2 = toMarkdown(stats, EXERCISES[0], 80, new Date(), { latencyMs: 75.6, slope: null, deviceLabel: '' })
-    expect(md2).toContain('Calibrazione: latenza 75.6 ms · pendenza —')
+    expect(md2).toContain('Calibration: latency 75.6 ms · slope —')
   })
-  it('stampa — al posto dei null', () => {
+  it('prints — in place of the nulls', () => {
     const md2 = toMarkdown({ ...stats, meanOffsetMs: null, sdOffsetMs: null }, EXERCISES[0], 80, new Date())
-    expect(md2).toContain('Offset medio — ms (σ —)')
+    expect(md2).toContain('Mean offset — ms (σ —)')
   })
 
-  it('riporta assorbiti, uniformità, accenti e la curva dei bpm compressa', () => {
-    expect(md).toContain('Slot 80: good 60 · ok 10 · off 2 · miss 8 · extra 1 · assorbiti 3')
-    expect(md).toContain('Uniformità: σ dB 1.4 (R 1.1 · L 1.7)')
-    expect(md).toContain('Accenti: 19/20 · +7.2 dB sui colpi normali · 2 sotto +6 dB')
+  it('reports absorbed, evenness, accents and the compressed bpm curve', () => {
+    expect(md).toContain('Slots 80: good 60 · ok 10 · off 2 · miss 8 · extra 1 · absorbed 3')
+    expect(md).toContain('Evenness: σ dB 1.4 (R 1.1 · L 1.7)')
+    expect(md).toContain('Accents: 19/20 · +7.2 dB over plain strokes · 2 below +6 dB')
     expect(md).toContain('Bpm: 60 ×4 → 64 ×4 → 68 ×2')
   })
-  it('a bpm costante non stampa la curva; a zero assorbiti non li nomina', () => {
+  it('at constant bpm it does not print the curve; at zero absorbed it does not name them', () => {
     const md2 = toMarkdown({ ...stats, absorbed: 0, bpmByRepeat: [60, 60] }, EXERCISES[0], 60, new Date())
     expect(md2).not.toContain('Bpm:')
-    expect(md2).not.toContain('assorbiti')
+    expect(md2).not.toContain('absorbed')
   })
-  it('col suono guida il report lo dichiara PRIMA dei numeri', () => {
-    // Senza cuffie la guida rientra dal microfono sugli istanti attesi: i numeri qui sotto possono
-    // descrivere un'esecuzione che non è avvenuta, e chi rilegge deve saperlo prima di crederci.
+  it('with the guide sound the report declares it BEFORE the numbers', () => {
+    // With no headphones the guide comes back in from the microphone on the expected instants: the
+    // numbers below can describe a run that never happened, and the rereader must know it first.
     const md2 = toMarkdown({ ...stats, guide: true }, EXERCISES[0], 80, new Date())
     const lines = md2.split('\n')
-    expect(lines[2]).toContain('Suono guida attivo')
-    expect(lines.findIndex((l) => l.startsWith('Slot 80'))).toBeGreaterThan(2)
+    expect(lines[2]).toContain('Guide sound was on')
+    expect(lines.findIndex((l) => l.startsWith('Slots 80'))).toBeGreaterThan(2)
   })
-  it('senza suono guida non compare nessun avviso', () => {
-    expect(md).not.toContain('Suono guida')
+  it('with no guide sound no warning shows up', () => {
+    expect(md).not.toContain('Guide sound')
   })
 
-  it('bpmRuns comprime le ripetizioni consecutive', () => {
+  it('bpmRuns compresses the consecutive repeats', () => {
     expect(bpmRuns([60, 60, 64])).toBe('60 ×2 → 64 ×1')
     expect(bpmRuns([])).toBe('')
   })
 
-  it('un delta negativo stampa il segno meno, non "+-"', () => {
+  it('a negative delta prints the minus sign, not "+-"', () => {
     const md2 = toMarkdown(
       { ...stats, accents: { slots: 20, hits: 19, meanDeltaDb: -3.2, belowThreshold: 15, thresholdDb: 6 } },
       EXERCISES[0],
       80,
       new Date(),
     )
-    expect(md2).toContain('Accenti: 19/20 · -3.2 dB sui colpi normali · 15 sotto +6 dB')
+    expect(md2).toContain('Accents: 19/20 · -3.2 dB over plain strokes · 15 below +6 dB')
     expect(md2).not.toContain('+-')
   })
-  it('sotto-soglia null (nessun tap di riferimento) non stampa uno zero rassicurante', () => {
+  it('a null below-threshold (no reference tap) does not print a reassuring zero', () => {
     const md2 = toMarkdown(
       { ...stats, accents: { slots: 4, hits: 4, meanDeltaDb: null, belowThreshold: null, thresholdDb: 6 } },
       EXERCISES[0],
       80,
       new Date(),
     )
-    expect(md2).toContain('Accenti: 4/4 · — dB sui colpi normali · — sotto +6 dB')
+    expect(md2).toContain('Accents: 4/4 · — dB over plain strokes · — below +6 dB')
   })
-  it('esercizio senza accenti: la riga Accenti non compare affatto', () => {
+  it('exercise with no accents: the Accents line does not show up at all', () => {
     const md2 = toMarkdown(
       { ...stats, accents: { slots: 0, hits: 0, meanDeltaDb: null, belowThreshold: null, thresholdDb: 6 } },
       EXERCISES[0],
       80,
       new Date(),
     )
-    expect(md2).not.toContain('Accenti:')
+    expect(md2).not.toContain('Accents:')
   })
-  it('nessuna mano con taps: niente parentesi vuote dopo la sd', () => {
+  it('no hand with taps: no empty parentheses after the sd', () => {
     const md2 = toMarkdown({ ...stats, uniformity: { sdDbTaps: null, hands: [] } }, EXERCISES[0], 80, new Date())
-    expect(md2).toContain('Uniformità: σ dB —')
+    expect(md2).toContain('Evenness: σ dB —')
     expect(md2).not.toContain('()')
   })
-  it('sessione completamente vuota: nessun NaN/undefined/Infinity nel markdown', () => {
+  it('completely empty session: no NaN/undefined/Infinity in the markdown', () => {
     const empty = computeStats({ judged: [], extras: [], absorbed: [] })
     const md2 = toMarkdown(empty, EXERCISES[0], 80, new Date())
     expect(md2).not.toMatch(/NaN|undefined|Infinity/)

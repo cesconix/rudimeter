@@ -1,18 +1,18 @@
 export type Hand = 'R' | 'L'
 
-/** flam = 1 acciaccatura, drag = 2, buzz = rullo non misurato, tremolo = rullo misurato (una barra = doppi) */
+/** flam = 1 grace note, drag = 2, buzz = unmeasured roll, tremolo = measured roll (one beam = doubles) */
 export type Ornament = 'flam' | 'drag' | 'buzz' | 'tremolo'
 
-/** Uno step dello sticking. hand null = pausa. */
+/** One sticking step. hand null = rest. */
 export interface Step {
   hand: Hand | null
   accent: boolean
   ornament?: Ornament
-  /** mano delle acciaccature (solo flam/drag); default: opposta a `hand` */
+  /** grace note hand (flam/drag only); default: opposite of `hand` */
   graceHand?: Hand
 }
 
-/** Un movimento: gli step lo dividono in parti uguali (steps.length = suddivisione, 1-8). */
+/** One beat: the steps split it into equal parts (steps.length = subdivision, 1-8). */
 export interface Beat {
   steps: Step[]
 }
@@ -26,13 +26,13 @@ export interface Exercise {
   name: string
   source?: string
   timeSignature: [number, number]
-  /** la stringa DSL originale: si mostra nel picker e si riesporta */
+  /** the original DSL string: shown in the picker and re-exported */
   sticking: string
   bars: Bar[]
   repeats: number
 }
 
-/** Forma su file. `steps` è la DSL v2: spazio = movimento, `|` = battuta, prefissi `>` `f` `d` `z` `t`, `-` pausa. */
+/** On-file shape. `steps` is DSL v2: space = beat, `|` = bar, prefixes `>` `f` `d` `z` `t`, `-` rest. */
 export interface ExerciseJson {
   id: string
   name: string
@@ -42,13 +42,13 @@ export interface ExerciseJson {
   repeats?: number
 }
 
-/** Colpo rilevato. t in secondi nel clock AudioContext, già corretto di latenza quando entra nel motore. */
+/** Detected hit. t in seconds on the AudioContext clock, already latency-corrected when it enters the engine. */
 export interface Hit {
   t: number
   peakDb: number
 }
 
-/** Uno slot atteso (solo step con mano). `dur` = durata dello step in secondi; la finestra di assegnazione è dur/2. */
+/** One expected slot (steps with a hand only). `dur` = step duration in seconds; the assignment window is dur/2. */
 export interface Slot {
   index: number
   t: number
@@ -79,6 +79,6 @@ export const DEFAULT_WINDOWS: Windows = { goodMs: 20, okMs: 40 }
 export interface JudgeResult {
   judged: Judged[]
   extras: Hit[]
-  /** extra riconosciuti come acciaccature o rimbalzi di rullo: non contano come errore */
+  /** extras recognized as grace notes or roll bounces: they do not count as an error */
   absorbed: Hit[]
 }

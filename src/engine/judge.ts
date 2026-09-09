@@ -3,7 +3,7 @@ import { DEFAULT_WINDOWS } from './types'
 
 export interface JudgeOptions {
   windows?: Windows
-  /** tempo corrente: gli slot con finestra ancora aperta restano 'pending' */
+  /** current time: the slots whose window is still open stay 'pending' */
   now?: number
 }
 
@@ -14,12 +14,12 @@ function gradeOf(offsetMs: number, w: Windows): Grade {
   return 'off'
 }
 
-/** Arrotonda al microsecondo: evita che 1.02 − 1 dia 20.000000000000018 ms. */
+/** Rounds to the microsecond: keeps 1.02 − 1 from giving 20.000000000000018 ms. */
 function offsetMs(hit: Hit, slot: Slot): number {
   return Math.round((hit.t - slot.t) * 1e6) / 1000
 }
 
-/** `slots` ordinati per t (lo sono per costruzione: buildGrid). */
+/** `slots` sorted by t (they are by construction: buildGrid). */
 function nearestSlot(slots: Slot[], t: number): Slot | null {
   if (slots.length === 0) return null
   let lo = 0
@@ -73,10 +73,10 @@ export function judge(slots: Slot[], hits: Hit[], opts: JudgeOptions = {}): Judg
   return { judged, extras: extras.filter((h) => !isAbsorbed(slots, h, claimed)), absorbed }
 }
 
-/** Un extra fino a 60 ms prima di uno slot flam/drag è l'acciaccatura. */
+/** An extra up to 60 ms before a flam/drag slot is the grace note. */
 const ABSORB_BEFORE_S = 0.06
 
-/** Primo slot con t > x, o undefined. `slots` ordinati per t. */
+/** First slot with t > x, or undefined. `slots` sorted by t. */
 function firstAfter(slots: Slot[], x: number): Slot | undefined {
   let lo = 0
   let hi = slots.length
@@ -88,7 +88,7 @@ function firstAfter(slots: Slot[], x: number): Slot | undefined {
   return slots[lo]
 }
 
-/** Ultimo slot con t ≤ x, o undefined. */
+/** Last slot with t ≤ x, or undefined. */
 function lastAtOrBefore(slots: Slot[], x: number): Slot | undefined {
   let lo = 0
   let hi = slots.length
@@ -101,13 +101,13 @@ function lastAtOrBefore(slots: Slot[], x: number): Slot | undefined {
 }
 
 /**
- * Un extra è assorbito se è l'acciaccatura di un flam/drag imminente o un rimbalzo dentro un buzz/tremolo in corso.
- * `claimed` = indici degli slot che hanno un colpo principale assegnato (vedi `judge`): un'acciaccatura senza il
- * colpo principale non è un'acciaccatura, quindi l'assorbimento vale solo se lo slot ornamentato è stato assegnato.
- * Per flam/drag c'è una condizione in più: lo slot subito prima di quello ornamentato non deve essere un miss.
- * Un colpo tardivo che sfugge alla finestra dello slot precedente e un'acciaccatura anticipata occupano lo stesso
- * intervallo di tempo — nessuna geometria li distingue. Ciò che li distingue è se lo slot precedente ha bisogno
- * di quella prova: se è un miss, quel colpo resta la sua unica spiegazione e non va tolto da `extras`.
+ * An extra is absorbed if it is the grace note of an imminent flam/drag or a bounce inside a buzz/tremolo in progress.
+ * `claimed` = indices of the slots that have a main hit assigned (see `judge`): a grace note without the
+ * main hit is not a grace note, so absorption only holds if the ornamented slot was assigned.
+ * For flam/drag there is one more condition: the slot right before the ornamented one must not be a miss.
+ * A late hit that escapes the window of the previous slot and an early grace note take up the same
+ * time interval — no geometry tells them apart. What tells them apart is whether the previous slot needs
+ * that evidence: if it is a miss, that hit stays its only explanation and must not be taken out of `extras`.
  */
 export function isAbsorbed(slots: Slot[], hit: Hit, claimed: Set<number>): boolean {
   const next = firstAfter(slots, hit.t)

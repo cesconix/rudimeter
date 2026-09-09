@@ -9,7 +9,7 @@ export interface RampFit {
   n: number
 }
 
-/** Per ogni click, il primo onset in [click − 5 ms, click + maxMs). Ritorna gli offset in ms. */
+/** For every click, the first onset in [click − 5 ms, click + maxMs). Returns the offsets in ms. */
 export function matchOffsets(clickTimes: number[], onsetTimes: number[], maxMs = 300): number[] {
   const out: number[] = []
   let cursor = 0
@@ -31,7 +31,7 @@ export function matchOffsets(clickTimes: number[], onsetTimes: number[], maxMs =
   return out
 }
 
-/** Per ogni click della rampa, il primo hit in [click − 5 ms, click + maxMs). Ritorna RampPoint[] con expectedDb e measuredDb. */
+/** For every ramp click, the first hit in [click − 5 ms, click + maxMs). Returns RampPoint[] with expectedDb and measuredDb. */
 export function matchRampPoints(
   clicks: { t: number; db: number }[],
   hits: { t: number; peakDb: number }[],
@@ -74,7 +74,7 @@ export function rampGainsDb(n = 12, fromDb = -22, toDb = 0): number[] {
   return Array.from({ length: n }, (_, i) => fromDb + ((toDb - fromDb) * i) / (n - 1))
 }
 
-/** Regressione lineare dB misurati vs attesi. null sotto minPoints rilevati. */
+/** Linear regression of measured vs expected dB. null below minPoints detected. */
 export function fitRamp(points: RampPoint[], minPoints = 4): RampFit | null {
   const ok = points.filter((p): p is { expectedDb: number; measuredDb: number } => p.measuredDb !== null)
   if (ok.length < minPoints) return null
@@ -91,10 +91,10 @@ export function fitRamp(points: RampPoint[], minPoints = 4): RampFit | null {
   return { slope: sxy / sxx, r2: syy > 0 ? (sxy * sxy) / (sxx * syy) : 1, n: ok.length }
 }
 
-export type DynamicsVerdict = 'intatta' | 'compressa' | 'schiacciata'
+export type DynamicsVerdict = 'intact' | 'compressed' | 'crushed'
 
 export function dynamicsVerdict(slope: number): DynamicsVerdict {
-  if (slope >= 0.85) return 'intatta'
-  if (slope >= 0.5) return 'compressa'
-  return 'schiacciata'
+  if (slope >= 0.85) return 'intact'
+  if (slope >= 0.5) return 'compressed'
+  return 'crushed'
 }
