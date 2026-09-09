@@ -129,9 +129,9 @@ describe('fitLayout', () => {
     // With the 24px the flam on the first beat needs, they become 486, and it shrinks to still
     // keep 2 — the alternative (dropping to 1) would waste half a row.
     expect(fitLayout(468, 2, 2, 40)).toMatchObject({ barsPerRow: 2, scale: 1 })
-    const conGronda = fitLayout(468, 2, 2, 40, 24)
-    expect(conGronda.barsPerRow).toBe(2)
-    expect(conGronda.scale).toBeCloseTo(468 / 486, 3)
+    const withGutter = fitLayout(468, 2, 2, 40, 24)
+    expect(withGutter.barsPerRow).toBe(2)
+    expect(withGutter.scale).toBeCloseTo(468 / 486, 3)
   })
 
   it('negative gutter: treated as absent, never a row wider than the true one', () => {
