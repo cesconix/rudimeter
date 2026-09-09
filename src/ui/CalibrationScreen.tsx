@@ -30,7 +30,7 @@ export function CalibrationScreen({ engine, existing, onDone }: Props) {
       if (lat.latencyMs === null) {
         setStep('failed')
         setDetail(
-          `Il microfono ha sentito ${lat.offsetsMs.length} click su 8. Quasi sempre è perché le cuffie sono collegate: con le cuffie lo speaker è muto. Toglile, alza il volume e riprova.`,
+          `The microphone heard ${lat.offsetsMs.length} clicks out of 8. Almost always this means headphones are connected: with headphones on, the speaker is silent. Take them off, turn the volume up and try again.`,
         )
         return
       }
@@ -43,14 +43,14 @@ export function CalibrationScreen({ engine, existing, onDone }: Props) {
       const n = ramp.points.filter((p) => p.measuredDb !== null).length
       setDetail(
         s === null
-          ? `Rampa: solo ${n}/12 click rilevati, dinamica non calibrata.`
-          : `Rampa: ${n}/12 click, pendenza ${s.toFixed(2)}, r² ${(ramp.fit?.r2 ?? 0).toFixed(3)} → dinamica ${dynamicsVerdict(s)}.`,
+          ? `Ramp: only ${n}/12 clicks detected, dynamics not calibrated.`
+          : `Ramp: ${n}/12 clicks, slope ${s.toFixed(2)}, r² ${(ramp.fit?.r2 ?? 0).toFixed(3)} → dynamics ${dynamicsVerdict(s)}.`,
       )
       setStep('done')
     } catch (err) {
       const msg = (err as { message?: string })?.message
       setStep('failed')
-      setDetail(msg ? `Errore durante la calibrazione: ${msg}. Riprova.` : 'Errore durante la calibrazione. Riprova.')
+      setDetail(msg ? `Error during calibration: ${msg}. Try again.` : 'Error during calibration. Try again.')
     }
   }
 
@@ -61,40 +61,40 @@ export function CalibrationScreen({ engine, existing, onDone }: Props) {
 
   const running =
     step === 'latency'
-      ? 'Misuro la latenza: 8 click. Non toccare niente.'
+      ? 'Measuring latency: 8 clicks. Do not touch anything.'
       : step === 'ramp'
-        ? 'Misuro la dinamica: 12 click dal piano al forte. Non toccare niente.'
+        ? 'Measuring dynamics: 12 clicks from soft to loud. Do not touch anything.'
         : step === 'done'
-          ? 'Fatto. Ora metti le cuffie e premi Continua.'
+          ? 'Done. Now put your headphones on and press Continue.'
           : ''
 
-  // Una pendenza negativa o una retta che non spiega i punti non sono "poca dinamica":
-  // sono il sintomo che la misura non vale niente e va ripetuta.
+  // A negative slope, or a line that does not explain the points, is not "little dynamics":
+  // it is the symptom of a measurement worth nothing, one that has to be repeated.
   const incoherent = slope !== null && (slope <= 0 || (r2 !== null && r2 < 0.9))
 
   const info = engine.capture.info
   const mic = info
-    ? `Microfono: ${info.deviceLabel || 'senza nome'} · ${
+    ? `Microphone: ${info.deviceLabel || 'unnamed'} · ${
         info.supported.autoGainControl === true
           ? info.settings.autoGainControl === true
-            ? 'guadagno automatico ATTIVO: può alterare la dinamica'
-            : 'guadagno automatico disattivato'
-          : 'guadagno automatico non governabile da questo browser (il vincolo viene ignorato)'
+            ? 'auto gain control ON: it can alter the dynamics'
+            : 'auto gain control off'
+          : 'auto gain control not governable from this browser (the constraint is ignored)'
       }`
     : ''
 
   return (
     <main>
-      <h1>Calibrazione</h1>
+      <h1>Calibration</h1>
       {step === 'idle' || step === 'failed' ? (
         <>
           <p>
-            <b>Togli le cuffie</b> e alza il volume: il microfono deve sentire i click dallo speaker. Appoggia il device
-            fermo davanti a te, in silenzio.
+            <b>Take your headphones off</b> and turn the volume up: the microphone must hear the clicks from the
+            speaker. Put the device down in front of you, still and silent.
           </p>
           <p>
-            <b>Tu non devi suonare.</b> Premi Calibra e aspetta ~10 secondi senza toccare niente: l'app si suona dei
-            click e li riascolta da sola per misurare quanto tarda il microfono.
+            <b>You must not play.</b> Press Calibrate and wait ~10 seconds without touching anything: the app plays
+            clicks to itself and listens back to them on its own to measure how late the microphone is.
           </p>
         </>
       ) : (
@@ -102,38 +102,38 @@ export function CalibrationScreen({ engine, existing, onDone }: Props) {
       )}
       {existing && step === 'idle' && (
         <p>
-          Calibrazione salvata: latenza {existing.latencyMs.toFixed(1)} ms
-          {existing.slope !== null ? `, pendenza ${existing.slope.toFixed(2)}` : ''} ({existing.deviceLabel}).
+          Saved calibration: latency {existing.latencyMs.toFixed(1)} ms
+          {existing.slope !== null ? `, slope ${existing.slope.toFixed(2)}` : ''} ({existing.deviceLabel}).
         </p>
       )}
       <div className="row">
         <button type="button" onClick={run} disabled={step === 'latency' || step === 'ramp'}>
-          {step === 'latency' ? 'Latenza…' : step === 'ramp' ? 'Rampa…' : existing ? 'Ricalibra' : 'Calibra'}
+          {step === 'latency' ? 'Latency…' : step === 'ramp' ? 'Ramp…' : existing ? 'Recalibrate' : 'Calibrate'}
         </button>
         {existing && (step === 'idle' || step === 'failed') && (
           <button type="button" className="secondary" onClick={() => onDone(existing)}>
-            Usa quella salvata
+            Use the saved one
           </button>
         )}
         {step === 'done' && (
           <button type="button" onClick={finish}>
-            Continua
+            Continue
           </button>
         )}
       </div>
-      {latencyMs !== null && <p className="big">Latenza {latencyMs.toFixed(1)} ms</p>}
+      {latencyMs !== null && <p className="big">Latency {latencyMs.toFixed(1)} ms</p>}
       {incoherent ? (
         <p className="error">
           {/* biome-ignore lint/style/noNonNullAssertion: incoherent is only true when slope is not null, which TypeScript cannot narrow from a boolean. */}
-          Misura incoerente: il livello rilevato non sale col volume del click (pendenza {slope!.toFixed(2)}, r²{' '}
-          {(r2 ?? 0).toFixed(2)}). Non è una dinamica compressa, è una misura da buttare. Controlla che non ci siano
-          cuffie collegate e <b>rifai la calibrazione</b>.
+          Inconsistent measurement: the detected level does not rise with the click volume (slope {slope!.toFixed(2)},
+          r² {(r2 ?? 0).toFixed(2)}). This is not compressed dynamics, it is a measurement to throw away. Check that no
+          headphones are connected and <b>redo the calibration</b>.
         </p>
       ) : (
         slope !== null &&
         slope < 0.5 && (
           <p className="error">
-            Dinamica poco affidabile su questo dispositivo (pendenza {slope.toFixed(2)}). Il timing resta valido.
+            Dynamics unreliable on this device (slope {slope.toFixed(2)}). The timing is still valid.
           </p>
         )
       )}

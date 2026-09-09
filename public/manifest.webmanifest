@@ -1,6 +1,8 @@
 {
   "name": "stick-coach",
   "short_name": "stick-coach",
+  "description": "Practice-pad coach: metronome, score with a moving cursor, and per-stroke grading from the microphone.",
+  "lang": "en",
   "start_url": "./",
   "display": "standalone",
   "orientation": "landscape",

@@ -78,9 +78,9 @@ input[type="number"] {
   background: #fff;
   opacity: 0.8;
 }
-/* L'altezza piena sta sul contenitore, non su `main`: quando il contesto audio si sospende (lock
-   dell'iPhone) App mette il banner "Audio in pausa" come FRATELLO di <main>, e un main alto 100dvh
-   più il banner sfondano la finestra — il meter finisce sotto la piega e con lui il tasto follow. */
+/* The full height sits on the container, not on `main`: when the audio context suspends (iPhone
+   lock) App puts the "Audio paused" banner as a SIBLING of <main>, and a main 100dvh tall plus the
+   banner burst through the window — the meter ends up below the fold and the follow button with it. */
 #root:has(main.session) {
   display: flex;
   flex-direction: column;
@@ -92,8 +92,8 @@ main.session {
   display: flex;
   flex-direction: column;
 }
-/* Il frame è grande esattamente quanto il viewport: è lui il contenitore posizionato di
-   `.score-follow`, che ancorato a `main` galleggerebbe sotto la partitura, sopra il meter. */
+/* The frame is exactly as big as the viewport: it is the positioned container of
+   `.score-follow`, which anchored to `main` would float below the score, above the meter. */
 main.session .score-frame {
   position: relative;
   flex: 1;
@@ -115,14 +115,14 @@ main.session .score-viewport {
 .score-host {
   position: relative;
 }
-/* L'<svg> è inline e siede sulla linea di base: quattro pixel di discendente sotto la partitura, che
-   rendono il viewport scrollabile anche a musica esatta e falsano `maxScroll`. */
+/* The <svg> is inline and sits on the baseline: four pixels of descender below the score, which
+   make the viewport scrollable even when the music fits exactly and falsify `maxScroll`. */
 .score-host svg {
   display: block;
 }
-/* Banda, non stanghetta: larga quanto la testa di nota e alta quanto serve a coprire accenti e
-   diteggiature (misure da `Score`, che le scala con la partitura). Sta SOPRA la musica e per questo
-   è trasparente al 25%: sotto devono restare leggibili la testa nera e la R o la L. */
+/* A band, not a barline: as wide as the notehead and as tall as it takes to cover accents and
+   sticking (measurements from `Score`, which scales them with the score). It sits OVER the music and
+   that is why it is 25% transparent: the black head and the R or the L must stay readable under it. */
 .score-cursor {
   position: absolute;
   left: 0;

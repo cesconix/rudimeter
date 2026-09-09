@@ -5,9 +5,9 @@ import type { Exercise } from '../engine/types'
 import type { SessionOptions } from './options'
 
 interface Props {
-  /** Ultimo bpm scelto (o il default): seed dello stato locale, non un valore controllato. */
+  /** Last bpm chosen (or the default): seed of the local state, not a controlled value. */
   previousBpm: number
-  /** Ultime opzioni scelte (o `DEFAULT_SESSION_OPTIONS`): seed dello stato locale, non un valore controllato. */
+  /** Last options chosen (or `DEFAULT_SESSION_OPTIONS`): seed of the local state, not a controlled value. */
   previousOptions: SessionOptions
   onPick(exercise: Exercise, bpm: number, options: SessionOptions): void
   onRecalibrate(): void
@@ -28,8 +28,8 @@ export function ExercisePicker({ previousBpm, previousOptions, onPick, onRecalib
 
   return (
     <main>
-      <h1>Esercizio</h1>
-      <select aria-label="Esercizio" value={id} onChange={(e) => setId(e.target.value)}>
+      <h1>Exercise</h1>
+      <select aria-label="Exercise" value={id} onChange={(e) => setId(e.target.value)}>
         {EXERCISES.map((e) => (
           <option key={e.id} value={e.id}>
             {e.name}
@@ -38,7 +38,7 @@ export function ExercisePicker({ previousBpm, previousOptions, onPick, onRecalib
         ))}
       </select>
       <p>
-        <code>{exercise.sticking}</code> · {exercise.timeSignature.join('/')} · {exercise.repeats} ripetizioni
+        <code>{exercise.sticking}</code> · {exercise.timeSignature.join('/')} · {exercise.repeats} repeats
       </p>
       <div className="row">
         <button type="button" className="secondary" onClick={() => setBpm((b) => Math.max(30, b - 5))}>
@@ -60,9 +60,9 @@ export function ExercisePicker({ previousBpm, previousOptions, onPick, onRecalib
         </button>
       </div>
       <fieldset className="transport">
-        <legend>Trasporto</legend>
+        <legend>Transport</legend>
         <label>
-          Click per movimento
+          Clicks per beat
           <select
             value={clickSubdivision}
             onChange={(e) => setClickSubdivision(Number(e.target.value) as 1 | 2 | 3 | 4)}
@@ -74,33 +74,33 @@ export function ExercisePicker({ previousBpm, previousOptions, onPick, onRecalib
           </select>
         </label>
         <label>
-          <input type="checkbox" checked={guide} onChange={(e) => setGuide(e.target.checked)} /> Suono guida: un colpo
-          su ogni nota, più forte sugli accenti
+          <input type="checkbox" checked={guide} onChange={(e) => setGuide(e.target.checked)} /> Guide sound: one hit on
+          every note, louder on accents
         </label>
         <label>
-          <input type="checkbox" checked={gap} onChange={(e) => setGap(e.target.checked)} /> Gap training: 2 battute con
-          click, 2 senza
+          <input type="checkbox" checked={gap} onChange={(e) => setGap(e.target.checked)} /> Gap training: 2 bars with
+          click, 2 without
         </label>
         <label>
           <input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} /> Auto-increment: +
-          {DEFAULT_AUTO_INCREMENT.step} bpm dopo {DEFAULT_AUTO_INCREMENT.after} ripetizioni pulite (≥{' '}
+          {DEFAULT_AUTO_INCREMENT.step} bpm after {DEFAULT_AUTO_INCREMENT.after} clean repeats (≥{' '}
           {DEFAULT_AUTO_INCREMENT.minAccuracy * 100} %)
         </label>
       </fieldset>
-      {/* Con la guida attiva l'avviso cambia di natura, non di tono: il click che rientra dallo
-          speaker cade sui movimenti e sporca il risultato, la guida cade sugli istanti attesi e lo
-          falsifica — la sessione riporterebbe un'esecuzione perfetta che non è avvenuta. */}
+      {/* With the guide on the warning changes in kind, not in tone: the click coming back from the
+          speaker falls on the beats and dirties the result, the guide falls on the expected instants
+          and falsifies it — the session would report a perfect run that never happened. */}
       <p className={guide ? 'error' : undefined}>
         {guide
-          ? 'Cuffie obbligatorie con il suono guida: dallo speaker rientra nel microfono esattamente sulle note attese, e la sessione risulterebbe perfetta senza che tu abbia suonato.'
-          : 'Metti le cuffie prima di partire: il click dallo speaker verrebbe contato come colpo.'}
+          ? 'Headphones are mandatory with the guide sound: from the speaker it comes back into the microphone exactly on the expected notes, and the session would score perfect without you playing.'
+          : 'Put your headphones on before starting: the click from the speaker would be counted as a stroke.'}
       </p>
       <div className="row">
         <button type="button" onClick={() => onPick(exercise, bpm, options)}>
-          Parti
+          Start
         </button>
         <button type="button" className="secondary" onClick={onRecalibrate}>
-          Ricalibra
+          Recalibrate
         </button>
       </div>
     </main>

@@ -24,7 +24,7 @@ export function App() {
   const [stats, setStats] = useState<SessionStats | null>(null)
   const [suspended, setSuspended] = useState(false)
 
-  // iOS sospende il contesto dopo lock/background: mostra il banner e riprendi al tap.
+  // iOS suspends the context after lock/background: show the banner and resume on tap.
   useEffect(() => {
     if (!engine) return
     const check = () => setSuspended(engine.ctx.state !== 'running')
@@ -51,12 +51,12 @@ export function App() {
   }
 
   function onCalibrated(data: CalibrationData) {
-    // In Safari privato setItem lancia: la calibrazione resta valida per questa sessione,
-    // si ricalibrerà al prossimo avvio. Perdere il salvataggio non deve far cadere la pagina.
+    // In private Safari setItem throws: the calibration stays valid for this session,
+    // it will be redone on the next start. Losing the save must not bring the page down.
     try {
       saveCalibration(localStorage, data)
     } catch {
-      // Ignore: memorizzare è un'ottimizzazione, non un requisito.
+      // Ignore: storing it is an optimization, not a requirement.
     }
     setCalibration(data)
     setScreen('pick')
@@ -69,7 +69,7 @@ export function App() {
 
   const banner = suspended && engine && (
     <button type="button" onClick={() => engine.ctx.resume().then(() => setSuspended(false))}>
-      Audio in pausa: tocca per riprendere
+      Audio paused: tap to resume
     </button>
   )
 
@@ -89,13 +89,13 @@ export function App() {
           previousBpm={pick?.bpm ?? DEFAULT_BPM}
           previousOptions={pick?.options ?? DEFAULT_SESSION_OPTIONS}
           onPick={(exercise, bpm, options) => {
-            // `options` deve restare la stessa reference per tutta la sessione: l'effetto di
-            // SessionScreen che possiede il SessionRunner è tenuto in dipendenza da `pick.options`
-            // (vedi SessionScreen). Se qui rientrasse un oggetto nuovo a ogni render invece che quello
-            // fissato al click, l'effetto smonterebbe e rimonterebbe il runner: l'esercizio
-            // ripartirebbe da capo, i colpi accumulati andrebbero persi e i click verrebbero
-            // ri-schedulati. `options` arriva già fissato da ExercisePicker al momento di "Parti":
-            // qui lo si congela in stato e non lo si ricrea mai.
+            // `options` must stay the same reference for the whole session: the effect in
+            // SessionScreen that owns the SessionRunner keeps `pick.options` among its dependencies
+            // (see SessionScreen). If a new object came back in here on every render instead of the
+            // one fixed at click time, the effect would unmount and remount the runner: the exercise
+            // would restart from the top, the hits collected so far would be lost and the clicks
+            // would be rescheduled. `options` arrives already fixed from ExercisePicker at "Start":
+            // here it is frozen in state and never recreated.
             setPick({ exercise, bpm, options })
             setScreen('session')
           }}

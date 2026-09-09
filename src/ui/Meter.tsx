@@ -3,21 +3,21 @@ import { DEFAULT_THRESHOLDS } from '../audio/capture'
 import { audibleTime } from '../audio/clock'
 import type { Engine } from '../audio/engine'
 
-/** Da dBFS a percentuale della barra: la scala copre da -60 a 0. */
+/** From dBFS to a percentage of the bar: the scale covers -60 to 0. */
 const toPct = (db: number): number => Math.max(0, Math.min(100, ((db + 60) / 60) * 100))
 
 /**
- * Livello del microfono con la soglia di rilevamento disegnata sopra.
- * Serve a posizionare il device: sotto la tacca il colpo non viene contato.
+ * Microphone level with the detection threshold drawn on top.
+ * It is there to place the device: below the mark the hit is not counted.
  */
 export function Meter({ engine, floorDb = DEFAULT_THRESHOLDS.floorDb }: { engine: Engine; floorDb?: number }) {
   const [peak, setPeak] = useState(-120)
-  // Latenza di uscita DAL VIVO: quanto ci mette un campione schedulato ad arrivare all'orecchio.
-  // È la differenza fra il clock di schedulazione e quello udibile (vedi `audibleTime`), e cambia
-  // quando cambia il percorso audio — le cuffie Bluetooth ne aggiungono un centinaio di ms. La
-  // calibrazione invece congela un numero solo e lo riusa per sempre: se i due divergono, i colpi
-  // vengono giudicati con la correzione di un percorso che non stai usando. Sta a schermo perché è
-  // l'unico modo, su un iPad, di vedere questa divergenza mentre succede.
+  // LIVE output latency: how long a scheduled sample takes to reach the ear. It is the difference
+  // between the scheduling clock and the audible one (see `audibleTime`), and it changes when the
+  // audio path changes — Bluetooth headphones add a hundred ms or so. The calibration, instead,
+  // freezes a single number and reuses it forever: if the two diverge, the hits are judged with the
+  // correction of a path you are not using. It is on screen because it is the only way, on an iPad,
+  // to see this divergence while it happens.
   const [outMs, setOutMs] = useState<number | null>(null)
   useEffect(() => engine.capture.onMeter((m) => setPeak(m.peakDb)), [engine])
   useEffect(() => {
@@ -32,8 +32,8 @@ export function Meter({ engine, floorDb = DEFAULT_THRESHOLDS.floorDb }: { engine
         <i className="threshold" style={{ left: `${toPct(floorDb)}%` }} />
       </div>
       <small>
-        mic {peak.toFixed(0)} dBFS · soglia {floorDb} {audible ? '· sopra soglia' : '· sotto soglia'}
-        {outMs !== null ? ` · uscita ${outMs.toFixed(0)} ms` : ''}
+        mic {peak.toFixed(0)} dBFS · threshold {floorDb} {audible ? '· above threshold' : '· below threshold'}
+        {outMs !== null ? ` · output ${outMs.toFixed(0)} ms` : ''}
       </small>
     </div>
   )

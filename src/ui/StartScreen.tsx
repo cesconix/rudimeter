@@ -8,9 +8,9 @@ export function StartScreen({ onStart, busy, error }: Props) {
   return (
     <main>
       <h1>stick-coach</h1>
-      <p>Pad sotto, iPad sul leggio, cuffie pronte. Tocca per attivare audio e microfono.</p>
+      <p>Pad in front of you, iPad on the music stand, headphones ready. Tap to turn on audio and microphone.</p>
       <button type="button" onClick={onStart} disabled={busy}>
-        {busy ? 'Avvio…' : 'Inizia'}
+        {busy ? 'Starting…' : 'Start'}
       </button>
       {error && <p className="error">{error}</p>}
     </main>

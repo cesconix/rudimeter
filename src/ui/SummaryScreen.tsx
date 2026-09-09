@@ -22,9 +22,9 @@ export function SummaryScreen({ stats, exercise, bpm, calibration, onRepeat, onP
   async function copy() {
     try {
       await navigator.clipboard.writeText(md)
-      setCopied('copiato')
+      setCopied('copied')
     } catch {
-      setCopied('clipboard negata: seleziona il testo sotto')
+      setCopied('clipboard denied: select the text below')
     }
   }
 
@@ -35,24 +35,24 @@ export function SummaryScreen({ stats, exercise, bpm, calibration, onRepeat, onP
       </h1>
       <p className="big">
         good {stats.good} · ok {stats.ok} · off {stats.off} · miss {stats.miss} · extra {stats.extras}
-        {stats.absorbed > 0 ? ` · assorbiti ${stats.absorbed}` : ''}
+        {stats.absorbed > 0 ? ` · absorbed ${stats.absorbed}` : ''}
       </p>
       <p>
-        Offset medio {f(stats.meanOffsetMs)} ms (σ {f(stats.sdOffsetMs)}) — positivo = in ritardo
+        Mean offset {f(stats.meanOffsetMs)} ms (σ {f(stats.sdOffsetMs)}) — positive = late
       </p>
       <p>
-        Uniformità: σ dB {f(stats.uniformity.sdDbTaps)}
+        Evenness: σ dB {f(stats.uniformity.sdDbTaps)}
         {stats.uniformity.hands.length > 0
           ? ` (${stats.uniformity.hands.map((h) => `${h.hand} ${f(h.sdDbTaps)}`).join(' · ')})`
           : ''}
       </p>
       {stats.accents.slots > 0 && (
         <p>
-          Accenti: {stats.accents.hits}/{stats.accents.slots} ·{' '}
+          Accents: {stats.accents.hits}/{stats.accents.slots} ·{' '}
           {stats.accents.meanDeltaDb === null
             ? '—'
             : `${stats.accents.meanDeltaDb >= 0 ? '+' : ''}${f(stats.accents.meanDeltaDb)}`}{' '}
-          dB sui colpi normali · {stats.accents.belowThreshold === null ? '—' : stats.accents.belowThreshold} sotto +
+          dB over plain strokes · {stats.accents.belowThreshold === null ? '—' : stats.accents.belowThreshold} below +
           {stats.accents.thresholdDb} dB
         </p>
       )}
@@ -60,8 +60,8 @@ export function SummaryScreen({ stats, exercise, bpm, calibration, onRepeat, onP
       <table>
         <thead>
           <tr>
-            <th>Mano</th>
-            <th>Colpi</th>
+            <th>Hand</th>
+            <th>Strokes</th>
             <th>Offset</th>
             <th>σ</th>
             <th>dB</th>
@@ -86,7 +86,7 @@ export function SummaryScreen({ stats, exercise, bpm, calibration, onRepeat, onP
       <table>
         <thead>
           <tr>
-            <th>Ripetizioni</th>
+            <th>Repeats</th>
             <th>Miss</th>
             <th>σ offset</th>
             <th>dB</th>
@@ -109,13 +109,13 @@ export function SummaryScreen({ stats, exercise, bpm, calibration, onRepeat, onP
       </table>
       <div className="row">
         <button type="button" onClick={onRepeat}>
-          Ripeti
+          Repeat
         </button>
         <button type="button" className="secondary" onClick={onPick}>
-          Altro esercizio
+          Another exercise
         </button>
         <button type="button" className="secondary" onClick={copy}>
-          Copia markdown
+          Copy markdown
         </button>
         {copied && <span>{copied}</span>}
       </div>
