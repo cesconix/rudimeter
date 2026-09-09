@@ -6,11 +6,11 @@
 // non scorre più così (lo spartito va a capo e scorre in verticale via `scrollTop`, vedi Score), ma
 // il numero che questo bottone produce — quanti frame saltano mentre un layer promosso si muove —
 // vale lo stesso.
-import { parseExercise } from '../engine/exercise'
-import type { Exercise } from '../engine/types'
-import { paintColor } from './paint'
-import { planExercise } from './plan'
-import { notationFontsReady, renderScore, type RenderedScore } from './render'
+import { parseExercise } from '../src/engine/exercise'
+import type { Exercise } from '../src/engine/types'
+import { paintColor } from '../src/notation/paint'
+import { planExercise } from '../src/notation/plan'
+import { notationFontsReady, renderScore, type RenderedScore } from '../src/notation/render'
 import type { StaveNote } from 'vexflow/bravura'
 
 // --- Esercizi per i controlli di misura (bottoni "1 battuta" / "40 battute") ---
