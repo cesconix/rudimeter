@@ -15,13 +15,13 @@ import { DEFAULT_WINDOWS } from '../engine/types'
 
 export interface ClickSink {
   add(clicks: Click[]): void
-  /** Ritorna il taglio effettivo (può essere posticipato per clamp): i click aggiunti dopo devono avere `t` ≥ quel valore. */
+  /** Returns the effective cut (it can be pushed later by the clamp): the clicks added afterwards must have `t` ≥ that value. */
   dropAfter(t: number): number
   stop(): void
 }
 
 export interface RunnerDeps {
-  /** tempo corrente nel clock audio, secondi */
+  /** current time in the audio clock, seconds */
   now(): number
   scheduleClicks(clicks: Click[]): ClickSink
   onHit(listener: (hit: Hit) => void): () => void
@@ -45,11 +45,11 @@ export interface RunnerState {
   grid: Grid
   result: JudgeResult
   hits: Hit[]
-  /** bpm della ripetizione in corso */
+  /** bpm of the repeat in progress */
   bpm: number
 }
 
-/** Collega griglia, click e colpi. I colpi entrano grezzi e vengono corretti di latenza e pendenza. */
+/** Wires up grid, clicks and hits. The hits come in raw and get corrected for latency and slope. */
 export class SessionRunner {
   private hits: Hit[] = []
   private grid: Grid | null = null
@@ -88,7 +88,7 @@ export class SessionRunner {
     this.emit()
   }
 
-  /** Da chiamare periodicamente (requestAnimationFrame): aggiorna la fase e i pending. */
+  /** To be called periodically (requestAnimationFrame): updates the phase and the pendings. */
   tick(): RunnerState | null {
     if (!this.grid || this.phase === 'idle' || this.phase === 'done') return null
     const now = this.deps.now()
@@ -98,7 +98,7 @@ export class SessionRunner {
     return this.snapshot()
   }
 
-  /** Una valutazione per ripetizione, al suo inizio. Se passa, le ripetizioni da current+1 vengono ripianificate al bpm nuovo. */
+  /** One evaluation per repeat, at its start. If it passes, the repeats from current+1 on get replanned at the new bpm. */
   private maybeIncrement(now: number): void {
     const ai = this.cfg.autoIncrement
     if (!ai || !this.grid) return
@@ -109,10 +109,10 @@ export class SessionRunner {
     if (bpm === null) return
     this.grid = replanGrid(this.grid, this.cfg.exercise, r + 1, bpm, this.cfg.metronome ?? DEFAULT_METRONOME)
     const from = this.grid.repeats[r + 1].start
-    // dropAfter può posticipare il taglio oltre `from` (clamp sul margine audio già committato): se
-    // aggiungessimo comunque tutti i click da `from`, uno nuovo potrebbe cadere sullo stesso istante
-    // di un vecchio non rimosso e produrre un doppio click. Si aggiungono solo i click a partire dal
-    // taglio effettivo.
+    // dropAfter can push the cut past `from` (clamp on the audio margin already committed): if
+    // we added all the clicks from `from` anyway, a new one could land on the same instant
+    // as an old one that was not removed and produce a double click. Only the clicks from the
+    // effective cut on are added.
     const actualCut = this.clicks?.dropAfter(from) ?? from
     this.clicks?.add(
       this.grid.repeats
@@ -145,7 +145,7 @@ export class SessionRunner {
   }
 
   snapshot(): RunnerState {
-    if (!this.grid) throw new Error('runner non avviato')
+    if (!this.grid) throw new Error('runner not started')
     const now = this.phase === 'done' ? undefined : this.deps.now()
     const result = judge(this.grid.slots, this.hits, { windows: this.cfg.windows ?? DEFAULT_WINDOWS, now })
     const bpm = this.grid.repeats[repeatAt(this.grid, now ?? this.deps.now())].bpm

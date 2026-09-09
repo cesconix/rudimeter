@@ -33,7 +33,7 @@ afterAll(() => {
   }))
 })
 
-/** AudioContext fittizio: solo `currentTime`, mutabile per simulare il passare del tempo. */
+/** Fake AudioContext: only `currentTime`, mutable to simulate time passing. */
 function fakeCtx(currentTime: number): { ctx: AudioContext; set(t: number): void } {
   const obj = { currentTime }
   return {
@@ -51,7 +51,7 @@ describe('ClickScheduler', () => {
     sounded.length = 0
   })
 
-  it('estrae un click silenzioso dalla coda ma non lo suona', () => {
+  it('pulls a silent click out of the queue but does not play it', () => {
     const { ctx } = fakeCtx(0)
     const s = new ClickScheduler(ctx, { lookahead: 1, intervalMs: 1000 })
     s.add([click(0.1, 'beat', false), click(0.2, 'beat', true)])
@@ -60,7 +60,7 @@ describe('ClickScheduler', () => {
     s.stop()
   })
 
-  it('una battuta muta (run di click silenziosi consecutivi) non produce audio; i click udibili intorno restano al loro orario esatto', () => {
+  it('a muted bar (a run of consecutive silent clicks) produces no audio; the audible clicks around it stay at their exact time', () => {
     const { ctx } = fakeCtx(0)
     const s = new ClickScheduler(ctx, { lookahead: 1, intervalMs: 1000 })
     s.add([
@@ -75,12 +75,12 @@ describe('ClickScheduler', () => {
     s.stop()
   })
 
-  it('dropAfter non taglia mai sotto il margine già committato sul clock audio (now + lookahead + intervalMs), e ritorna il taglio effettivo', () => {
+  it('dropAfter never cuts below the margin already committed on the audio clock (now + lookahead + intervalMs), and returns the effective cut', () => {
     const { ctx, set } = fakeCtx(10)
     const s = new ClickScheduler(ctx, { lookahead: 0.1, intervalMs: 25 })
     s.add([click(10.05), click(10.1), click(10.2), click(20)])
-    // margine di sicurezza = 10 + 0.1 + 0.025 = 10.125: il taglio richiesto (10.06) cade sotto,
-    // quindi il taglio effettivo si sposta a 10.125 (non 10.06) e 10.1 sopravvive.
+    // safety margin = 10 + 0.1 + 0.025 = 10.125: the requested cut (10.06) falls below it,
+    // so the effective cut moves to 10.125 (not 10.06) and 10.1 survives.
     const actual = s.dropAfter(10.06)
     expect(actual).toBeCloseTo(10.125, 6)
     set(1000)
@@ -89,11 +89,11 @@ describe('ClickScheduler', () => {
     s.stop()
   })
 
-  it('dropAfter senza clamp (taglio già oltre il margine) ritorna esattamente il taglio richiesto', () => {
+  it('dropAfter without clamp (cut already past the margin) returns exactly the requested cut', () => {
     const { ctx, set } = fakeCtx(10)
     const s = new ClickScheduler(ctx, { lookahead: 0.1, intervalMs: 25 })
     s.add([click(10.05), click(10.1), click(15), click(20)])
-    // margine di sicurezza = 10.125: il taglio richiesto (15) è già oltre, nessun clamp.
+    // safety margin = 10.125: the requested cut (15) is already past it, no clamp.
     const actual = s.dropAfter(15)
     expect(actual).toBe(15)
     set(1000)

@@ -6,14 +6,14 @@ export interface ClickOptions {
   dur?: number
 }
 
-/** Primo movimento della battuta più acuto e più forte; suddivisioni più basse e più piano. */
+/** First beat of the bar higher and louder; subdivisions lower and softer. */
 export function clickOptionsFor(kind: MetronomeKind): ClickOptions {
   if (kind === 'bar') return { freq: 1500, gain: 0.6 }
   if (kind === 'sub') return { freq: 800, gain: 0.25 }
   return { freq: 1000, gain: 0.5 }
 }
 
-/** Sinusoide breve con inviluppo corto, schedulata nel clock del contesto. */
+/** Short sine with a short envelope, scheduled in the context clock. */
 export function scheduleClick(ctx: AudioContext, time: number, opts: ClickOptions = {}): void {
   const { freq = 1000, gain = 0.5, dur = 0.005 } = opts
   const osc = ctx.createOscillator()
@@ -28,12 +28,12 @@ export function scheduleClick(ctx: AudioContext, time: number, opts: ClickOption
   osc.stop(time + dur + 0.01)
 }
 
-/** Durata del rumore in cache: più lunga del colpo più lungo, così l'inviluppo non finisce il materiale. */
+/** Duration of the cached noise: longer than the longest stroke, so the envelope does not run out of material. */
 const NOISE_SEC = 0.08
-// Un buffer per contesto, non uno per colpo: a sedicesimi veloci sarebbero decine di allocazioni al
-// secondo dentro la finestra di lookahead, cioè jitter proprio dove serve precisione. `WeakMap` e non
-// una variabile: il contesto si chiude e si riapre (permesso microfono, ripresa da iOS) e un buffer
-// legato al contesto vecchio non suonerebbe.
+// One buffer per context, not one per stroke: at fast sixteenths that would be dozens of allocations
+// per second inside the lookahead window, that is jitter exactly where precision is needed. `WeakMap` and not
+// a variable: the context closes and reopens (microphone permission, iOS resume) and a buffer
+// tied to the old context would not sound.
 const noiseByCtx = new WeakMap<AudioContext, AudioBuffer>()
 
 function noiseBuffer(ctx: AudioContext): AudioBuffer {
@@ -47,10 +47,10 @@ function noiseBuffer(ctx: AudioContext): AudioBuffer {
 }
 
 /**
- * Colpo di guida: rumore breve attraverso un passa-banda, non una sinusoide. Il metronomo è già
- * fatto di bip, e due bip a frequenze diverse sotto le cuffie, con le bacchette in mano, si
- * confondono: il rumore filtrato si legge come "colpo", il click come "tempo". L'accento è più
- * forte E più brillante — solo più forte, a volume di studio, non si sente abbastanza.
+ * Guide stroke: short noise through a bandpass, not a sine. The metronome is already
+ * made of beeps, and two beeps at different frequencies under headphones, with the sticks in your hands, get
+ * confused: the filtered noise reads as "stroke", the click as "time". The accent is
+ * louder AND brighter — only louder, at practice volume, is not audible enough.
  */
 export function scheduleGuide(ctx: AudioContext, time: number, accent: boolean): void {
   const src = ctx.createBufferSource()
@@ -64,9 +64,9 @@ export function scheduleGuide(ctx: AudioContext, time: number, accent: boolean):
   const decay = accent ? 0.05 : 0.035
   g.gain.setValueAtTime(0, time)
   g.gain.linearRampToValueAtTime(peak, time + 0.001)
-  // Esponenziale e non lineare: la coda che si spegne è ciò che fa "colpo" invece di "tac". Non può
-  // puntare a zero — `exponentialRampToValueAtTime` con 0 è un errore — quindi si scende a un valore
-  // inudibile e si stacca la sorgente subito dopo.
+  // Exponential and not linear: the tail dying out is what makes a "stroke" instead of a "tick". It cannot
+  // aim at zero — `exponentialRampToValueAtTime` with 0 is an error — so it goes down to an
+  // inaudible value and the source is stopped right after.
   g.gain.exponentialRampToValueAtTime(0.0001, time + decay)
   src.connect(band).connect(g).connect(ctx.destination)
   src.start(time)

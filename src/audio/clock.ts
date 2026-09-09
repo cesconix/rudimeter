@@ -1,30 +1,30 @@
 /**
- * Il clock UDIBILE: quale istante della timeline sta uscendo dagli altoparlanti adesso.
+ * The AUDIBLE clock: which instant of the timeline is coming out of the speakers right now.
  *
- * `ctx.currentTime` è il clock di SCHEDULAZIONE — quando un campione entra nel grafo, non quando lo
- * si sente. Fra i due c'è la latenza di uscita del device: 16,6 ms misurati sul Mac di sviluppo
- * (stabili entro 0,05 ms), molto di più via Bluetooth.
+ * `ctx.currentTime` is the SCHEDULING clock — when a sample enters the graph, not when you
+ * hear it. Between the two sits the output latency of the device: 16.6 ms measured on the development
+ * Mac (stable within 0.05 ms), far more over Bluetooth.
  *
- * Chi DISEGNA deve usare questa funzione. Il batterista si sincronizza con l'orecchio, e la
- * correzione applicata ai colpi (`SessionRunner.addHit`, che sottrae l'intera latenza di andata e
- * ritorno misurata dalla calibrazione) assume esattamente quello. Un cursore disegnato sul clock di
- * schedulazione arriva sulla nota prima che il suo click si senta: chi lo segue con gli occhi suona
- * in anticipo di tutta la latenza di uscita e viene giudicato in anticipo. Con una finestra `good`
- * di 20 ms, i 16,6 ms misurati se ne mangiano l'83%.
+ * Whoever DRAWS must use this function. The drummer syncs by ear, and the
+ * correction applied to the hits (`SessionRunner.addHit`, which subtracts the whole round-trip
+ * latency measured by the calibration) assumes exactly that. A cursor drawn on the scheduling
+ * clock reaches the note before its click is heard: whoever follows it with their eyes plays
+ * early by the whole output latency and gets judged early. With a `good` window
+ * of 20 ms, the measured 16.6 ms eat up 83% of it.
  *
- * Chi SCHEDULA deve invece continuare a usare `ctx.currentTime`: è il clock in cui si prenotano i
- * click, e anticiparlo sposterebbe il metronomo invece del disegno.
+ * Whoever SCHEDULES must instead keep using `ctx.currentTime`: it is the clock the clicks are
+ * booked in, and moving it earlier would shift the metronome instead of the drawing.
  *
- * `contextTime` avanza fluido quanto `currentTime` (misurato: passo mediano 15,99 ms contro 16,00,
- * zero frame fermi su 199), quindi leggerlo a ogni frame non costa scorrevolezza, e a differenza di
- * una latenza misurata una volta sola si riadatta da solo se il device di uscita cambia a metà
- * sessione — cuffie Bluetooth collegate dopo l'avvio, per dire.
+ * `contextTime` advances as smoothly as `currentTime` (measured: median step 15.99 ms against 16.00,
+ * zero stalled frames out of 199), so reading it every frame costs no smoothness, and unlike
+ * a latency measured only once it re-adapts by itself if the output device changes halfway through
+ * the session — Bluetooth headphones connected after the start, say.
  */
 export function audibleTime(ctx: AudioContext): number {
   const contextTime = ctx.getOutputTimestamp?.().contextTime
-  // Prima che il device abbia reso il primo blocco — e sui browser senza getOutputTimestamp —
-  // non esiste ancora una posizione di uscita. Zero lì non vuol dire "inizio della partitura" ma
-  // "non lo so ancora": preso alla lettera farebbe saltare il cursore all'inizio del pezzo.
+  // Before the device has rendered the first block — and on browsers without getOutputTimestamp —
+  // there is no output position yet. Zero there does not mean "start of the score" but
+  // "I do not know yet": taken literally it would make the cursor jump to the start of the piece.
   if (typeof contextTime !== 'number' || contextTime <= 0) return ctx.currentTime
   return contextTime
 }

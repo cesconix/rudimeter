@@ -2,7 +2,7 @@ import { describe, expect, it } from 'bun:test'
 import { clickOptionsFor } from './click'
 
 describe('clickOptionsFor', () => {
-  it('bar è più acuto e più forte di beat; beat più acuto e più forte di sub (il vincolo dello spec)', () => {
+  it('bar is higher and louder than beat; beat higher and louder than sub (the spec constraint)', () => {
     const bar = clickOptionsFor('bar')
     const beat = clickOptionsFor('beat')
     const sub = clickOptionsFor('sub')
@@ -15,7 +15,7 @@ describe('clickOptionsFor', () => {
     // biome-ignore lint/style/noNonNullAssertion: clickOptionsFor always sets freq and gain, and asserting on them is the point of this test.
     expect(beat.gain!).toBeGreaterThan(sub.gain!)
   })
-  it('valori esatti per ciascun kind', () => {
+  it('exact values for each kind', () => {
     expect(clickOptionsFor('bar')).toEqual({ freq: 1500, gain: 0.6 })
     expect(clickOptionsFor('beat')).toEqual({ freq: 1000, gain: 0.5 })
     expect(clickOptionsFor('sub')).toEqual({ freq: 800, gain: 0.25 })

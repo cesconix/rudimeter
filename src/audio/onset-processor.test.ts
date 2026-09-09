@@ -10,11 +10,11 @@ interface Msg {
   bg?: number
 }
 
-/** Istanzia il worklet in Node con gli stub del global scope AudioWorklet. */
+/** Instantiates the worklet in Node with the stubs of the AudioWorklet global scope. */
 function loadProcessor(): { proc: { process(inputs: Float32Array[][]): boolean }; out: Msg[] } {
   const out: Msg[] = []
   const g = globalThis as Record<string, unknown>
-  // `as` evita che TS restringa il tipo a null (l'assegnazione avviene in una closure)
+  // `as` keeps TS from narrowing the type to null (the assignment happens in a closure)
   let registered = null as (new () => { process(inputs: Float32Array[][]): boolean }) | null
   g.sampleRate = SR
   g.currentFrame = 0
@@ -26,7 +26,7 @@ function loadProcessor(): { proc: { process(inputs: Float32Array[][]): boolean }
   }
   const src = readFileSync(new URL('../../public/worklets/onset-processor.js', import.meta.url), 'utf8')
   new Function(src)()
-  if (!registered) throw new Error('registerProcessor non chiamato')
+  if (!registered) throw new Error('registerProcessor was not called')
   return { proc: new registered(), out }
 }
 
@@ -61,7 +61,7 @@ function run(sig: Float32Array): Msg[] {
 }
 
 describe('onset-processor', () => {
-  it('rileva colpi piano e forte con timing esatto e picco fedele', () => {
+  it('detects soft and loud hits with exact timing and a faithful peak', () => {
     const hits = [
       { t: 0.5, db: -30 },
       { t: 1.0, db: -30 },
@@ -77,7 +77,7 @@ describe('onset-processor', () => {
       expect(Math.abs(20 * Math.log10(o.peak!) - hits[i].db)).toBeLessThan(1.5)
     })
   })
-  it('separa due colpi a 60 ms e non ritrigghera sulla coda', () => {
+  it('separates two hits 60 ms apart and does not retrigger on the tail', () => {
     const onsets = run(
       synth([
         { t: 1.0, db: -20 },
@@ -86,16 +86,16 @@ describe('onset-processor', () => {
     )
     expect(onsets).toHaveLength(2)
   })
-  it('ignora il rumore di fondo', () => {
+  it('ignores the background noise', () => {
     expect(run(synth([]))).toHaveLength(0)
   })
-  // I test sopra usano `synth`, che pianta un impulso di UN campione sull'istante vero (`sig[start] += a`):
-  // la soglia viene così attraversata per costruzione al campione giusto, e il timing torna esatto
-  // qualunque cosa faccia il rilevatore. Verificano che il colpo sia RILEVATO, non che sia datato bene.
-  // Un colpo vero ha una salita finita, e un rilevatore a soglia scatta tanto più tardi quanto più il
-  // colpo è piano: è un bias che dipende dalla dinamica, quindi la calibrazione — un solo click, sempre
-  // allo stesso livello — non può assorbirlo. Qui si misura proprio quello.
-  it('data i colpi entro un millisecondo su tutta la dinamica, con attacco realistico', () => {
+  // The tests above use `synth`, which plants a ONE-sample impulse on the true instant (`sig[start] += a`):
+  // the threshold is thus crossed by construction at the right sample, and the timing comes out exact
+  // whatever the detector does. They verify that the hit is DETECTED, not that it is dated well.
+  // A real stroke has a finite rise, and a threshold detector fires the later the softer the
+  // stroke is: it is a bias that depends on the dynamics, so the calibration — a single click, always
+  // at the same level — cannot absorb it. This is exactly what gets measured here.
+  it('dates the hits within a millisecond across the whole dynamics, with a realistic attack', () => {
     const strokes = (peakDb: number, riseMs: number): { sig: Float32Array; trueFrames: number[] } => {
       const N = SR * 2
       const sig = new Float32Array(N)
@@ -117,26 +117,26 @@ describe('onset-processor', () => {
       return { sig, trueFrames }
     }
 
-    // Da accento (−6) a ghost note (−30), con salite da pad vero.
+    // From accent (−6) to ghost note (−30), with rises from a real pad.
     for (const riseMs of [0.2, 0.5, 1.0]) {
       for (const db of [-6, -12, -18, -24, -30]) {
         const { sig, trueFrames } = strokes(db, riseMs)
         const onsets = run(sig)
-        expect(onsets, `${db} dB, salita ${riseMs} ms: colpi rilevati`).toHaveLength(trueFrames.length)
+        expect(onsets, `${db} dB, rise ${riseMs} ms: hits detected`).toHaveLength(trueFrames.length)
         onsets.forEach((o, i) => {
           // biome-ignore lint/style/noNonNullAssertion: an onset message always carries frame and peak, and if that stops being true the test must fail here.
           const biasMs = ((o.frame! - trueFrames[i]) / SR) * 1000
-          // Sempre in ritardo, mai in anticipo: la soglia si attraversa dopo l'inizio della salita.
-          expect(biasMs, `${db} dB, salita ${riseMs} ms: bias`).toBeGreaterThanOrEqual(0)
-          expect(biasMs, `${db} dB, salita ${riseMs} ms: bias`).toBeLessThan(1)
+          // Always late, never early: the threshold is crossed after the start of the rise.
+          expect(biasMs, `${db} dB, rise ${riseMs} ms: bias`).toBeGreaterThanOrEqual(0)
+          expect(biasMs, `${db} dB, rise ${riseMs} ms: bias`).toBeLessThan(1)
         })
       }
     }
   })
 
-  it('data il click di calibrazione con bias trascurabile: il riferimento della latenza è onesto', () => {
-    // Se il click di riferimento fosse datato in ritardo, quel ritardo entrerebbe nella latenza
-    // misurata e verrebbe poi sottratto a ogni colpo della sessione.
+  it('dates the calibration click with negligible bias: the latency reference is honest', () => {
+    // If the reference click were dated late, that delay would enter the measured latency
+    // and would then be subtracted from every hit of the session.
     const N = SR
     const sig = new Float32Array(N)
     let seed = 11
@@ -146,7 +146,7 @@ describe('onset-processor', () => {
     }
     for (let i = 0; i < N; i++) sig[i] = rnd() * 10 ** (-70 / 20)
     const start = Math.round(0.5 * SR)
-    // Stessa forma di scheduleClick: 1000 Hz, gain 0.8, rampa 0.5 ms, dur 10 ms.
+    // Same shape as scheduleClick: 1000 Hz, gain 0.8, ramp 0.5 ms, dur 10 ms.
     for (let k = 0; k < Math.round(SR * 0.014); k++) {
       const t = k / SR
       const env = t < 0.0005 ? t / 0.0005 : t < 0.0105 ? 1 : Math.max(0, 1 - (t - 0.0105) / 0.003)
@@ -158,7 +158,7 @@ describe('onset-processor', () => {
     expect(((onsets[0].frame! - start) / SR) * 1000).toBeLessThan(0.1)
   })
 
-  it('rispetta la soglia: a floor −25 dB il colpo a −30 non passa', () => {
+  it('respects the threshold: at floor −25 dB the hit at −30 does not pass', () => {
     const { proc, out } = loadProcessor()
     const p = proc as unknown as { port: { onmessage: (e: { data: unknown }) => void } }
     p.port.onmessage({ data: { floor: 10 ** (-25 / 20) } })

@@ -21,7 +21,7 @@ async function collectHits(ctx: AudioContext, capture: Capture, untilAudioTime: 
   return hits
 }
 
-/** 8 click dallo speaker; latenza = mediana (onset − click). null se meno di 4 rilevati. */
+/** 8 clicks from the speaker; latency = median (onset − click). null if fewer than 4 detected. */
 export async function runLatencyCalibration(
   ctx: AudioContext,
   capture: Capture,
@@ -41,7 +41,7 @@ export async function runLatencyCalibration(
   return { latencyMs: latencyFromOffsets(offsetsMs), offsetsMs }
 }
 
-/** Rampa di 12 click da −22 a 0 dB con soglia abbassata a −58 durante il test. */
+/** Ramp of 12 clicks from −22 to 0 dB with the threshold lowered to −58 during the test. */
 export async function runRampCalibration(
   ctx: AudioContext,
   capture: Capture,

@@ -20,7 +20,7 @@ export interface CaptureInfo {
 
 const toDb = (x: number): number => (x > 0 ? 20 * Math.log10(x) : -120)
 
-/** Microfono → AudioWorklet onset → eventi Hit (t in secondi del clock audio, non corretti) e meter. */
+/** Microphone → AudioWorklet onset → Hit events (t in seconds of the audio clock, uncorrected) and meter. */
 export class Capture {
   private stream: MediaStream | null = null
   private source: MediaStreamAudioSourceNode | null = null
@@ -35,7 +35,7 @@ export class Capture {
   ) {}
 
   async start(thresholds: Thresholds = DEFAULT_THRESHOLDS): Promise<void> {
-    if (!this.ctx.audioWorklet) throw new Error('AudioWorklet non supportato da questo browser')
+    if (!this.ctx.audioWorklet) throw new Error('AudioWorklet is not supported by this browser')
     this.stream = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 },
       video: false,

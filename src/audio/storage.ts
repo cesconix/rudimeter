@@ -5,7 +5,7 @@ export interface CalibrationData {
   savedAt: string
 }
 
-/** Sottoinsieme di Storage: localStorage lo soddisfa, i test usano una Map. */
+/** Subset of Storage: localStorage satisfies it, the tests use a Map. */
 export interface KeyValueStore {
   getItem(key: string): string | null
   setItem(key: string, value: string): void

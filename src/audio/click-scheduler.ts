@@ -7,7 +7,7 @@ export interface ClickSchedulerOptions {
   intervalMs?: number
 }
 
-/** Schedula i click con lookahead sul clock audio. Accetta aggiunte e tagli mentre gira (auto-increment). */
+/** Schedules the clicks with lookahead on the audio clock. Accepts additions and cuts while running (auto-increment). */
 export class ClickScheduler {
   private timer: number | null = null
   private running = false
@@ -24,17 +24,17 @@ export class ClickScheduler {
   }
 
   /**
-   * Un click già estratto da `due()` ha già chiamato `osc.start()` sul clock audio e non può essere
-   * ritirato. Tagliare prima del margine raggiungibile non lo rimuoverebbe: aggiungerebbe solo un
-   * secondo click accanto a quello già suonato. Il taglio effettivo non scende mai sotto
-   * `now + lookahead + intervalMs`, cioè l'orizzonte che il prossimo tick può già aver committato.
-   * Compromesso: al più un click dentro il lookahead sopravvive al tempo vecchio — comunque meglio
-   * di un click duplicato, perché quello vecchio è già irrevocabilmente sull'hardware.
+   * A click already pulled out by `due()` has already called `osc.start()` on the audio clock and cannot be
+   * withdrawn. Cutting before the reachable margin would not remove it: it would only add a
+   * second click next to the one already played. The effective cut never goes below
+   * `now + lookahead + intervalMs`, that is the horizon the next tick may already have committed.
+   * Trade-off: at most one click inside the lookahead survives at the old tempo — still better
+   * than a duplicated click, because the old one is already irrevocably on the hardware.
    *
-   * Ritorna il taglio effettivo (`t`, o il margine di sicurezza se più avanti nel tempo): chi
-   * aggiunge nuovi click dopo questa chiamata deve scartare quelli con `t` inferiore al valore
-   * ritornato, altrimenti un nuovo click può cadere esattamente sull'istante del vecchio non
-   * rimosso — un doppio click udibile nello stesso istante.
+   * Returns the effective cut (`t`, or the safety margin if that is later in time): whoever
+   * adds new clicks after this call must discard those with a `t` lower than the returned
+   * value, otherwise a new click can land exactly on the instant of the old one that was not
+   * removed — an audible double click at the same instant.
    */
   dropAfter(t: number): number {
     const { lookahead = 0.1, intervalMs = 25 } = this.opts
@@ -54,7 +54,7 @@ export class ClickScheduler {
     const tick = () => {
       for (const c of this.queue.due(this.ctx.currentTime, lookahead)) {
         if (c.silent) continue
-        // Stessa coda, stesso lookahead, stesso taglio all'auto-increment: cambia solo il timbro.
+        // Same queue, same lookahead, same cut at the auto-increment: only the timbre changes.
         if (isGuide(c.kind)) scheduleGuide(this.ctx, c.t, c.kind === 'note-accent')
         else scheduleClick(this.ctx, c.t, clickOptionsFor(c.kind))
       }

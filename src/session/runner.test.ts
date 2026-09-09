@@ -5,9 +5,9 @@ import type { Hit } from '../engine/types'
 import { type RunnerDeps, SessionRunner } from './runner'
 
 /**
- * `dropAfterReturns` simula il clamp del ClickSink reale (`ClickScheduler.dropAfter`): per default
- * ritorna esattamente il taglio richiesto (nessun clamp), ma un test può fargli ritornare un taglio
- * effettivo posticipato per verificare che il runner scarti i click aggiunti prima di quel punto.
+ * `dropAfterReturns` simulates the clamp of the real ClickSink (`ClickScheduler.dropAfter`): by default
+ * it returns exactly the requested cut (no clamp), but a test can make it return an effective
+ * cut pushed later to verify that the runner discards the clicks added before that point.
  */
 function fakeDeps(opts: { dropAfterReturns?: (requested: number) => number } = {}) {
   let t = 100
@@ -52,7 +52,7 @@ function fakeDeps(opts: { dropAfterReturns?: (requested: number) => number } = {
 const ex = parseExercise({ id: 'e', name: 'e', timeSignature: [2, 4], steps: 'RL RL | RL RL', repeats: 1 })
 
 describe('SessionRunner', () => {
-  it('parte in count-in, schedula i click con accento sul primo movimento e corregge la latenza', () => {
+  it('starts in count-in, schedules the clicks with an accent on the first beat and corrects the latency', () => {
     const f = fakeDeps()
     const r = new SessionRunner(f.deps, { exercise: ex, bpm: 60, latencyMs: 50, slope: null })
     r.start()
@@ -64,7 +64,7 @@ describe('SessionRunner', () => {
     expect(r.snapshot().result.judged[0].offsetMs).toBeCloseTo(10)
   })
 
-  it('ignora i colpi durante il count-in', () => {
+  it('ignores the hits during the count-in', () => {
     const f = fakeDeps()
     const r = new SessionRunner(f.deps, { exercise: ex, bpm: 60, latencyMs: 0, slope: null })
     r.start()
@@ -72,7 +72,7 @@ describe('SessionRunner', () => {
     expect(r.snapshot().hits).toHaveLength(0)
   })
 
-  it('compensa la dinamica con la pendenza', () => {
+  it('compensates the dynamics with the slope', () => {
     const f = fakeDeps()
     const r = new SessionRunner(f.deps, { exercise: ex, bpm: 60, latencyMs: 0, slope: 0.5 })
     r.start()
@@ -80,7 +80,7 @@ describe('SessionRunner', () => {
     expect(r.snapshot().hits[0].peakDb).toBeCloseTo(-20)
   })
 
-  it('live: gli slot futuri sono pending; a fine griglia diventano miss e la fase è done', () => {
+  it('live: the future slots are pending; at the end of the grid they become miss and the phase is done', () => {
     const f = fakeDeps()
     const r = new SessionRunner(f.deps, { exercise: ex, bpm: 60, latencyMs: 0, slope: null })
     r.start()
@@ -98,7 +98,7 @@ describe('SessionRunner', () => {
     expect(f.hasListener()).toBe(false)
   })
 
-  it('stop anticipato chiude la sessione e notifica gli iscritti', () => {
+  it('an early stop closes the session and notifies the subscribers', () => {
     const f = fakeDeps()
     const r = new SessionRunner(f.deps, { exercise: ex, bpm: 60, latencyMs: 0, slope: null })
     const phases: string[] = []
@@ -109,7 +109,7 @@ describe('SessionRunner', () => {
     expect(r.tick()).toBeNull()
   })
 
-  it('boundary: hit esattamente al limite countInEnd - minStepDur/2 viene mantenuto', () => {
+  it('boundary: a hit exactly at the countInEnd - minStepDur/2 limit is kept', () => {
     const f = fakeDeps()
     const r = new SessionRunner(f.deps, { exercise: ex, bpm: 60, latencyMs: 0, slope: null })
     r.start()
@@ -120,7 +120,7 @@ describe('SessionRunner', () => {
     expect(r.snapshot().result.judged[0].grade).not.toBe('miss')
   })
 
-  it('boundary: hit leggermente prima del limite viene scartato', () => {
+  it('boundary: a hit slightly before the limit is discarded', () => {
     const f = fakeDeps()
     const r = new SessionRunner(f.deps, { exercise: ex, bpm: 60, latencyMs: 0, slope: null })
     r.start()
@@ -130,7 +130,7 @@ describe('SessionRunner', () => {
     expect(r.snapshot().hits).toHaveLength(0)
   })
 
-  it('boundary: hit leggermente dopo il limite viene mantenuto', () => {
+  it('boundary: a hit slightly after the limit is kept', () => {
     const f = fakeDeps()
     const r = new SessionRunner(f.deps, { exercise: ex, bpm: 60, latencyMs: 0, slope: null })
     r.start()
@@ -146,7 +146,7 @@ describe('auto-increment', () => {
   const ex6 = parseExercise({ id: 'e', name: 'e', timeSignature: [2, 4], steps: 'RL RL | RL RL', repeats: 6 })
   const ai = { step: 10, after: 2, minAccuracy: 0.9, maxBpm: 240 }
 
-  it('dopo 2 ripetizioni pulite alza di 10 dalla ripetizione successiva a quella in corso e aggiorna i click', () => {
+  it('after 2 clean repeats it raises by 10 from the repeat following the one in progress and updates the clicks', () => {
     const f = fakeDeps()
     const r = new SessionRunner(f.deps, { exercise: ex6, bpm: 60, latencyMs: 0, slope: null, autoIncrement: ai })
     r.start()
@@ -167,7 +167,7 @@ describe('auto-increment', () => {
     expect(s.bpm).toBe(60)
   })
 
-  it('con un miss non alza', () => {
+  it('with one miss it does not raise', () => {
     const f = fakeDeps()
     const r = new SessionRunner(f.deps, { exercise: ex6, bpm: 60, latencyMs: 0, slope: null, autoIncrement: ai })
     r.start()
@@ -184,9 +184,9 @@ describe('auto-increment', () => {
     expect(f.scheduled[0].added).toEqual([])
   })
 
-  it('se il ClickSink posticipa il taglio (clamp), i click aggiunti restano tutti al taglio effettivo o dopo', () => {
-    // Simula il clamp di ClickScheduler.dropAfter: il taglio effettivo torna 2 beat (al bpm nuovo,
-    // 70) dopo quello richiesto — come se il margine audio già committato avesse divorato quel tratto.
+  it('if the ClickSink pushes the cut later (clamp), the clicks added all stay at the effective cut or after', () => {
+    // Simulates the clamp of ClickScheduler.dropAfter: the effective cut comes back 2 beats (at the new
+    // bpm, 70) after the requested one — as if the audio margin already committed had eaten that stretch.
     const beat = 60 / 70
     const f = fakeDeps({ dropAfterReturns: (requested) => requested + 2 * beat })
     const r = new SessionRunner(f.deps, { exercise: ex6, bpm: 60, latencyMs: 0, slope: null, autoIncrement: ai })
@@ -203,14 +203,14 @@ describe('auto-increment', () => {
     const requested = f.scheduled[0].droppedAfter[0]
     const actualCut = requested + 2 * beat
     const added = f.scheduled[0].added[0]
-    // repeat 3 (il primo ripianificato) ha 4 click a offset [0, beat, 2beat, 3beat] da `requested`:
-    // i primi due (0 e beat) cadono prima del taglio effettivo e devono essere scartati; repeat 4 e
-    // 5 restano interi (i loro click partono da 4beat, ben oltre il taglio effettivo).
+    // repeat 3 (the first replanned one) has 4 clicks at offsets [0, beat, 2beat, 3beat] from `requested`:
+    // the first two (0 and beat) fall before the effective cut and must be discarded; repeat 4 and
+    // 5 stay whole (their clicks start at 4beat, well past the effective cut).
     expect(added.every((c) => c.t >= actualCut)).toBe(true)
     expect(added).toHaveLength(3 * 4 - 2)
   })
 
-  it('senza clamp (taglio effettivo = richiesto) tutti i click ripianificati vengono aggiunti', () => {
+  it('without clamp (effective cut = requested) all the replanned clicks are added', () => {
     const f = fakeDeps({ dropAfterReturns: (requested) => requested })
     const r = new SessionRunner(f.deps, { exercise: ex6, bpm: 60, latencyMs: 0, slope: null, autoIncrement: ai })
     r.start()
@@ -230,7 +230,7 @@ describe('auto-increment', () => {
     expect(f.scheduled[0].added[0].every((c) => c.t >= requested)).toBe(true)
   })
 
-  it('la ripetizione in corso al momento del rialzo non viene toccata dal replan (stessa istanza)', () => {
+  it('the repeat in progress at the moment of the raise is not touched by the replan (same instance)', () => {
     const f = fakeDeps()
     const r = new SessionRunner(f.deps, { exercise: ex6, bpm: 60, latencyMs: 0, slope: null, autoIncrement: ai })
     r.start()
@@ -251,7 +251,7 @@ describe('auto-increment', () => {
     )
   })
 
-  it('più tick nella stessa ripetizione non alzano il bpm più di una volta', () => {
+  it('several ticks in the same repeat do not raise the bpm more than once', () => {
     const f = fakeDeps()
     const r = new SessionRunner(f.deps, { exercise: ex6, bpm: 60, latencyMs: 0, slope: null, autoIncrement: ai })
     r.start()

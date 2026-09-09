@@ -6,7 +6,7 @@ export interface Engine {
   capture: Capture
 }
 
-/** Da chiamare dentro un gesto utente. Apre contesto e microfono. */
+/** To be called inside a user gesture. Opens the context and the microphone. */
 export async function createEngine(): Promise<Engine> {
   const ctx = createAudioContext()
   await ensureRunning(ctx)
@@ -27,9 +27,9 @@ export async function createEngine(): Promise<Engine> {
 export function describeMicError(err: unknown): string {
   const name = (err as { name?: string })?.name
   if (name === 'NotAllowedError' || name === 'SecurityError') {
-    return 'Microfono negato. Su iPad: Impostazioni → Safari → Microfono → Consenti, poi ricarica.'
+    return 'Microphone denied. On iPad: Settings → Safari → Microphone → Allow, then reload.'
   }
-  if (name === 'NotFoundError') return 'Nessun microfono trovato.'
+  if (name === 'NotFoundError') return 'No microphone found.'
   const msg = (err as { message?: string })?.message
-  return msg ? `Errore audio: ${msg}` : 'Errore audio sconosciuto.'
+  return msg ? `Audio error: ${msg}` : 'Unknown audio error.'
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import { audibleTime } from './clock'
 
-/** AudioContext ridotto ai due membri che `audibleTime` guarda. */
+/** AudioContext reduced to the two members `audibleTime` looks at. */
 function fakeCtx(currentTime: number, contextTime?: number | null): AudioContext {
   const ctx: Record<string, unknown> = { currentTime }
   if (contextTime !== null) ctx.getOutputTimestamp = () => ({ contextTime, performanceTime: 0 })
@@ -9,27 +9,27 @@ function fakeCtx(currentTime: number, contextTime?: number | null): AudioContext
 }
 
 describe('audibleTime', () => {
-  it('ritorna la posizione di uscita, non il clock di schedulazione', () => {
-    // 16,6 ms di latenza di uscita: è la misura reale sul Mac di sviluppo.
+  it('returns the output position, not the scheduling clock', () => {
+    // 16.6 ms of output latency: it is the real measurement on the development Mac.
     expect(audibleTime(fakeCtx(10, 9.9834))).toBeCloseTo(9.9834, 6)
   })
 
-  it('resta indietro rispetto a currentTime: è questo il punto della funzione', () => {
+  it('lags behind currentTime: that is the very point of the function', () => {
     const ctx = fakeCtx(10, 9.9834)
     expect(audibleTime(ctx)).toBeLessThan(ctx.currentTime)
   })
 
-  it('ripiega su currentTime se il browser non espone getOutputTimestamp', () => {
+  it('falls back to currentTime if the browser does not expose getOutputTimestamp', () => {
     expect(audibleTime(fakeCtx(10, null))).toBe(10)
   })
 
-  it('ripiega su currentTime finché il device non ha reso il primo blocco (contextTime 0)', () => {
-    // Zero non è "inizio partitura": è "non lo so ancora". Prenderlo alla lettera farebbe
-    // saltare il cursore all'inizio del pezzo nei primi frame.
+  it('falls back to currentTime until the device has rendered the first block (contextTime 0)', () => {
+    // Zero is not "start of the score": it is "I do not know yet". Taking it literally would make
+    // the cursor jump to the start of the piece in the first frames.
     expect(audibleTime(fakeCtx(0.5, 0))).toBe(0.5)
   })
 
-  it('ripiega su currentTime se contextTime non è un numero', () => {
+  it('falls back to currentTime if contextTime is not a number', () => {
     expect(audibleTime(fakeCtx(3, undefined))).toBe(3)
   })
 })

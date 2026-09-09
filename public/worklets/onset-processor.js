@@ -1,13 +1,13 @@
-// AudioWorklet: rileva i colpi (onset) su un practice pad e misura il picco.
-// Gira nel thread audio, blocchi da 128 frame. Timestamp in frame del contesto
-// (currentFrame + i), quindi nello stesso clock usato per schedulare il click.
+// AudioWorklet: detects the hits (onsets) on a practice pad and measures the peak.
+// Runs in the audio thread, blocks of 128 frames. Timestamps in frames of the context
+// (currentFrame + i), hence in the same clock used to schedule the click.
 //
-// Algoritmo (sample-level):
-//  - fast: peak follower con decadimento ~3 ms (segue l'attacco)
-//  - bg: media mobile del livello, aggiornata solo fuori dal periodo refrattario
-//  - onset quando fast > floor assoluto e fast > bg * ratio
-//  - dopo l'onset: hold 5 ms per catturare il picco vero, poi refrattario 40 ms
-//    (due colpi più vicini di 40 ms vengono fusi: limite noto, accettato)
+// Algorithm (sample-level):
+//  - fast: peak follower with ~3 ms decay (tracks the attack)
+//  - bg: moving average of the level, updated only outside the refractory period
+//  - onset when fast > absolute floor and fast > bg * ratio
+//  - after the onset: 5 ms hold to capture the true peak, then 40 ms refractory
+//    (two hits closer than 40 ms get merged: known limit, accepted)
 
 class OnsetProcessor extends AudioWorkletProcessor {
   constructor() {

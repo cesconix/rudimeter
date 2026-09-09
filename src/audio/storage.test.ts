@@ -15,13 +15,13 @@ function fakeStore(): KeyValueStore {
 }
 
 describe('calibration storage', () => {
-  it('salva e rilegge', () => {
+  it('saves and reads back', () => {
     const s = fakeStore()
     const data = { latencyMs: 68, slope: 0.98, deviceLabel: 'iPad Microphone', savedAt: '2026-09-07T10:00:00.000Z' }
     saveCalibration(s, data)
     expect(loadCalibration(s)).toEqual(data)
   })
-  it('null se assente, corrotto o senza latenza numerica', () => {
+  it('null if absent, corrupted or without a numeric latency', () => {
     const s = fakeStore()
     expect(loadCalibration(s)).toBeNull()
     s.setItem('stick-coach.calibration.v1', '{not json')
@@ -29,7 +29,7 @@ describe('calibration storage', () => {
     s.setItem('stick-coach.calibration.v1', JSON.stringify({ slope: 1 }))
     expect(loadCalibration(s)).toBeNull()
   })
-  it('clear rimuove', () => {
+  it('clear removes', () => {
     const s = fakeStore()
     saveCalibration(s, { latencyMs: 1, slope: null, deviceLabel: '', savedAt: '' })
     clearCalibration(s)
