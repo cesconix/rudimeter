@@ -1,8 +1,12 @@
-import { beforeEach, describe, expect, it, mock } from 'bun:test'
+import { afterAll, beforeEach, describe, expect, it, mock } from 'bun:test'
 import type { Click } from '../engine/grid'
 
 /** Captures what `scheduleClick`/`scheduleGuide` would have played, without touching real Web Audio. */
 const sounded: { t: number }[] = []
+
+// Copied eagerly: `mock.module` mutates the live namespace object in place, so reading these back
+// after the mock is installed would hand out the stubs instead of the real functions.
+const real = { ...(await import('./click')) }
 
 // `mock.module` must run before the module under test is loaded, hence the dynamic import below:
 // a static `import { ClickScheduler }` would be hoisted above the mock.
@@ -17,6 +21,17 @@ mock.module('./click', () => ({
 }))
 
 const { ClickScheduler } = await import('./click-scheduler')
+
+// Module mocks are process-global and outlive this file, so `click.test.ts` gets the stub whenever the
+// directory walk reaches it second. `mock.restore()` does not undo module mocks, and re-mocking with a
+// live namespace object does not restore either: only a plain object of the real exports does.
+afterAll(() => {
+  mock.module('./click', () => ({
+    clickOptionsFor: real.clickOptionsFor,
+    scheduleClick: real.scheduleClick,
+    scheduleGuide: real.scheduleGuide,
+  }))
+})
 
 /** AudioContext fittizio: solo `currentTime`, mutabile per simulare il passare del tempo. */
 function fakeCtx(currentTime: number): { ctx: AudioContext; set(t: number): void } {
