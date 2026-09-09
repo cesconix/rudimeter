@@ -6,9 +6,13 @@ describe('clickOptionsFor', () => {
     const bar = clickOptionsFor('bar')
     const beat = clickOptionsFor('beat')
     const sub = clickOptionsFor('sub')
+    // biome-ignore lint/style/noNonNullAssertion: clickOptionsFor always sets freq and gain, and asserting on them is the point of this test.
     expect(bar.freq!).toBeGreaterThan(beat.freq!)
+    // biome-ignore lint/style/noNonNullAssertion: clickOptionsFor always sets freq and gain, and asserting on them is the point of this test.
     expect(beat.freq!).toBeGreaterThan(sub.freq!)
+    // biome-ignore lint/style/noNonNullAssertion: clickOptionsFor always sets freq and gain, and asserting on them is the point of this test.
     expect(bar.gain!).toBeGreaterThan(beat.gain!)
+    // biome-ignore lint/style/noNonNullAssertion: clickOptionsFor always sets freq and gain, and asserting on them is the point of this test.
     expect(beat.gain!).toBeGreaterThan(sub.gain!)
   })
   it('valori esatti per ciascun kind', () => {

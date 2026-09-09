@@ -28,9 +28,9 @@ function synth(hits: { t: number; db: number }[], seconds = 3): Float32Array {
   const sig = new Float32Array(N)
   let seed = 1
   const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return (seed / 0x7fffffff) * 2 - 1 }
-  for (let i = 0; i < N; i++) sig[i] = rnd() * Math.pow(10, -70 / 20)
+  for (let i = 0; i < N; i++) sig[i] = rnd() * 10 ** (-70 / 20)
   for (const h of hits) {
-    const a = Math.pow(10, h.db / 20)
+    const a = 10 ** (h.db / 20)
     const start = Math.round(h.t * SR)
     for (let k = 0; k < SR * 0.05; k++) {
       sig[start + k] += a * Math.exp(-k / (SR * 0.01)) * Math.sin((2 * Math.PI * 180 * k) / SR)
@@ -56,7 +56,9 @@ describe('onset-processor', () => {
     const onsets = run(synth(hits))
     expect(onsets).toHaveLength(4)
     onsets.forEach((o, i) => {
+      // biome-ignore lint/style/noNonNullAssertion: an onset message always carries frame and peak, and if that stops being true the test must fail here.
       expect(Math.abs(o.frame! / SR - hits[i].t) * 1000).toBeLessThan(1)
+      // biome-ignore lint/style/noNonNullAssertion: an onset message always carries frame and peak, and if that stops being true the test must fail here.
       expect(Math.abs(20 * Math.log10(o.peak!) - hits[i].db)).toBeLessThan(1.5)
     })
   })
@@ -79,9 +81,9 @@ describe('onset-processor', () => {
       const sig = new Float32Array(N)
       let seed = 7
       const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return (seed / 0x7fffffff) * 2 - 1 }
-      for (let i = 0; i < N; i++) sig[i] = rnd() * Math.pow(10, -70 / 20)
+      for (let i = 0; i < N; i++) sig[i] = rnd() * 10 ** (-70 / 20)
       const trueFrames = [0.5, 0.9, 1.3].map((t) => Math.round(t * SR))
-      const peak = Math.pow(10, peakDb / 20)
+      const peak = 10 ** (peakDb / 20)
       const rise = Math.max(1, Math.round((riseMs / 1000) * SR))
       for (const start of trueFrames) {
         for (let k = 0; k < Math.round(SR * 0.06); k++) {
@@ -99,6 +101,7 @@ describe('onset-processor', () => {
         const onsets = run(sig)
         expect(onsets, `${db} dB, salita ${riseMs} ms: colpi rilevati`).toHaveLength(trueFrames.length)
         onsets.forEach((o, i) => {
+          // biome-ignore lint/style/noNonNullAssertion: an onset message always carries frame and peak, and if that stops being true the test must fail here.
           const biasMs = ((o.frame! - trueFrames[i]) / SR) * 1000
           // Sempre in ritardo, mai in anticipo: la soglia si attraversa dopo l'inizio della salita.
           expect(biasMs, `${db} dB, salita ${riseMs} ms: bias`).toBeGreaterThanOrEqual(0)
@@ -115,7 +118,7 @@ describe('onset-processor', () => {
     const sig = new Float32Array(N)
     let seed = 11
     const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return (seed / 0x7fffffff) * 2 - 1 }
-    for (let i = 0; i < N; i++) sig[i] = rnd() * Math.pow(10, -70 / 20)
+    for (let i = 0; i < N; i++) sig[i] = rnd() * 10 ** (-70 / 20)
     const start = Math.round(0.5 * SR)
     // Stessa forma di scheduleClick: 1000 Hz, gain 0.8, rampa 0.5 ms, dur 10 ms.
     for (let k = 0; k < Math.round(SR * 0.014); k++) {
@@ -125,13 +128,14 @@ describe('onset-processor', () => {
     }
     const onsets = run(sig)
     expect(onsets).toHaveLength(1)
+    // biome-ignore lint/style/noNonNullAssertion: an onset message always carries frame and peak, and if that stops being true the test must fail here.
     expect(((onsets[0].frame! - start) / SR) * 1000).toBeLessThan(0.1)
   })
 
   it('rispetta la soglia: a floor −25 dB il colpo a −30 non passa', () => {
     const { proc, out } = loadProcessor()
     const p = proc as unknown as { port: { onmessage: (e: { data: unknown }) => void } }
-    p.port.onmessage({ data: { floor: Math.pow(10, -25 / 20) } })
+    p.port.onmessage({ data: { floor: 10 ** (-25 / 20) } })
     const sig = synth([{ t: 0.5, db: -30 }, { t: 1.0, db: -12 }])
     const g = globalThis as Record<string, unknown>
     for (let f = 0; f < sig.length; f += 128) {

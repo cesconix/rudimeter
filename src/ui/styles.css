@@ -21,8 +21,8 @@ main.session { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 /* Il frame è grande esattamente quanto il viewport: è lui il contenitore posizionato di
    `.score-follow`, che ancorato a `main` galleggerebbe sotto la partitura, sopra il meter. */
 main.session .score-frame { position: relative; flex: 1; min-height: 160px; display: flex; }
-main.session .score-viewport { flex: 1; }
 .score-viewport { position: relative; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; background: #fff; border-radius: 8px; }
+main.session .score-viewport { flex: 1; }
 .score-host { position: relative; }
 /* L'<svg> è inline e siede sulla linea di base: quattro pixel di discendente sotto la partitura, che
    rendono il viewport scrollabile anche a musica esatta e falsano `maxScroll`. */

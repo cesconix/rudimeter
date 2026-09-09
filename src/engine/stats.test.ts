@@ -33,7 +33,9 @@ describe('computeStats', () => {
     expect(stats.extras).toBe(0)
   })
   it('separa le mani: sinistra in ritardo e più piano', () => {
+    // biome-ignore lint/style/noNonNullAssertion: the fixture plays both hands, so R and L are always present in stats.hands.
     const R = stats.hands.find((h) => h.hand === 'R')!
+    // biome-ignore lint/style/noNonNullAssertion: the fixture plays both hands, so R and L are always present in stats.hands.
     const L = stats.hands.find((h) => h.hand === 'L')!
     expect(R.slots).toBe(40)
     expect(R.hits).toBe(36)

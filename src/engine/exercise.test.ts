@@ -47,6 +47,7 @@ describe('esercizi built-in', () => {
   it('lo studio di lettura porta le figure che Stone non ha', () => {
     // Il punto dell'esercizio è la VARIETÀ: se un giorno qualcuno lo "semplifica" a suddivisione
     // costante non serve più a niente, e questo test lo dice invece di lasciarlo passare.
+    // biome-ignore lint/style/noNonNullAssertion: the exercise ships in EXERCISES, and if it is ever removed this test must fail here.
     const l = EXERCISES.find((e) => e.id === 'lettura-4-4')!
     expect(l.timeSignature).toEqual([4, 4])
     // Figure per movimento: quarto, ottavi, sedicesimi, ottavi | terzina, ottavi, sedicesimi, quarto.

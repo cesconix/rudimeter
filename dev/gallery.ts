@@ -109,7 +109,9 @@ function draw(ex: typeof SHOWCASE): number {
   // Le 40 battute ora escono su più righe invece che in striscia: la misura è la stessa, è il
   // tempo di disegnare tutto l'SVG.
   const r: RenderedScore = renderScore(host, bars, optionsFor(host, ex, bars.length))
-  r.notes.forEach((n) => allNotes.push(n.note))
+  r.notes.forEach((n) => {
+    allNotes.push(n.note)
+  })
   return performance.now() - t
 }
 
@@ -189,12 +191,16 @@ function log(s: string): void {
   pre.textContent += `${s}\n`
 }
 
+// biome-ignore lint/style/noNonNullAssertion: the id is hardcoded in gallery.html; a missing one must break the dev page loudly.
 document.getElementById('one')!.addEventListener('click', () => log(`1 battuta: ${draw(SHOWCASE).toFixed(1)} ms`))
+// biome-ignore lint/style/noNonNullAssertion: the id is hardcoded in gallery.html; a missing one must break the dev page loudly.
 document.getElementById('forty')!.addEventListener('click', () => {
   const ms = draw(PARADIDDLE)
   log(`40 battute: ${ms.toFixed(1)} ms, ${allNotes.length} note`)
 })
+// biome-ignore lint/style/noNonNullAssertion: the id is hardcoded in gallery.html; a missing one must break the dev page loudly.
 document.getElementById('paint')!.addEventListener('click', paintLoop)
+// biome-ignore lint/style/noNonNullAssertion: the id is hardcoded in gallery.html; a missing one must break the dev page loudly.
 document.getElementById('scroll')!.addEventListener('click', scrollLoop)
 
 // Il font musicale (Bravura) arriva async via @font-face: VexFlow misura i glifi nel DOM per

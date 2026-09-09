@@ -46,17 +46,23 @@ export class Capture {
         const d = e.data
         if (d.type === 'onset' && d.frame !== undefined && d.peak !== undefined) {
           const hit: Hit = { t: d.frame / this.ctx.sampleRate, peakDb: toDb(d.peak) }
-          this.hitListeners.forEach((l) => l(hit))
+          this.hitListeners.forEach((l) => {
+            l(hit)
+          })
         } else if (d.type === 'meter' && d.peak !== undefined && d.bg !== undefined) {
           const m: MeterReading = { peakDb: toDb(d.peak), bgDb: toDb(d.bg) }
-          this.meterListeners.forEach((l) => l(m))
+          this.meterListeners.forEach((l) => {
+            l(m)
+          })
         }
       }
       this.source = this.ctx.createMediaStreamSource(this.stream)
       this.source.connect(this.node)
       this.setThresholds(thresholds)
     } catch (err) {
-      this.stream?.getTracks().forEach((t) => t.stop())
+      this.stream?.getTracks().forEach((t) => {
+        t.stop()
+      })
       this.stream = null
       this.info = null
       this.node = null
@@ -65,7 +71,7 @@ export class Capture {
   }
 
   setThresholds(t: Thresholds): void {
-    this.node?.port.postMessage({ floor: Math.pow(10, t.floorDb / 20), ratio: t.ratio })
+    this.node?.port.postMessage({ floor: 10 ** (t.floorDb / 20), ratio: t.ratio })
   }
 
   onHit(l: (hit: Hit) => void): () => void {
@@ -86,7 +92,9 @@ export class Capture {
       this.node.disconnect()
       this.node = null
     }
-    this.stream?.getTracks().forEach((t) => t.stop())
+    this.stream?.getTracks().forEach((t) => {
+      t.stop()
+    })
     this.stream = null
   }
 }

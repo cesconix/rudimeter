@@ -13,7 +13,9 @@ describe('buildGrid', () => {
     expect(g.slots[15].t).toBeCloseTo(12 + 15 * 0.5, 6)
     expect(g.slots[9]).toMatchObject({ index: 9, repeat: 1, bar: 0, beat: 0, sub: 1 })
     expect(g.slots[5].bar).toBe(1)
-    g.slots.forEach((s) => expect(s.dur).toBeCloseTo(0.5, 6))
+    g.slots.forEach((s) => {
+      expect(s.dur).toBeCloseTo(0.5, 6)
+    })
     expect(g.minStepDur).toBeCloseTo(0.5, 6)
     expect(g.end).toBeCloseTo(20, 6)
     expect(g.repeats.map((r) => r.bpm)).toEqual([60, 60])
@@ -31,7 +33,9 @@ describe('buildGrid', () => {
     const ex = parseExercise({ id: 'm', name: 'm', timeSignature: [2, 4], steps: 'RLR LRLR', repeats: 1 })
     const g = buildGrid(ex, 60, 0, { countInBars: 0 })
     const expected = [0, 1 / 3, 2 / 3, 1, 1.25, 1.5, 1.75]
-    g.slots.forEach((s, i) => expect(s.t).toBeCloseTo(expected[i], 6))
+    g.slots.forEach((s, i) => {
+      expect(s.t).toBeCloseTo(expected[i], 6)
+    })
     expect(g.slots[0].dur).toBeCloseTo(1 / 3, 6)
     expect(g.slots[3].dur).toBeCloseTo(0.25, 6)
     expect(g.minStepDur).toBeCloseTo(0.25, 6)
@@ -63,14 +67,18 @@ describe('buildGrid', () => {
     const first6 = g.clicks.slice(0, 6)
     expect(first6.map((c) => c.kind)).toEqual(['bar', 'sub', 'sub', 'beat', 'sub', 'sub'])
     const expectedT = [0, 1 / 3, 2 / 3, 1, 4 / 3, 5 / 3]
-    first6.forEach((c, i) => expect(c.t).toBeCloseTo(expectedT[i], 6))
+    first6.forEach((c, i) => {
+      expect(c.t).toBeCloseTo(expectedT[i], 6)
+    })
   })
   it('click di suddivisione: 4 per movimento, kind sub sui tre intermedi', () => {
     const g = buildGrid(stone1, 60, 0, { countInBars: 0, metronome: { clickSubdivision: 4 } })
     const first4 = g.clicks.slice(0, 4)
     expect(first4.map((c) => c.kind)).toEqual(['bar', 'sub', 'sub', 'sub'])
     const expectedT = [0, 0.25, 0.5, 0.75]
-    first4.forEach((c, i) => expect(c.t).toBeCloseTo(expectedT[i], 6))
+    first4.forEach((c, i) => {
+      expect(c.t).toBeCloseTo(expectedT[i], 6)
+    })
   })
   it('gap training: 1 battuta con click e 1 senza, contando dalla prima dopo il count-in, anche fra ripetizioni', () => {
     const g = buildGrid(stone1, 60, 0, { countInBars: 1, metronome: { clickSubdivision: 1, gap: { on: 1, off: 1 } } })

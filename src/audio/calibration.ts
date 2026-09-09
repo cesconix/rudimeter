@@ -17,7 +17,9 @@ async function collectHits(ctx: AudioContext, capture: Capture, untilAudioTime: 
 export async function runLatencyCalibration(ctx: AudioContext, capture: Capture, n = 8, spacing = 0.5): Promise<{ latencyMs: number | null; offsetsMs: number[] }> {
   const t0 = ctx.currentTime + 0.3
   const clicks = Array.from({ length: n }, (_, i) => t0 + i * spacing)
-  clicks.forEach((t) => scheduleClick(ctx, t, { gain: 0.8, dur: 0.01 }))
+  clicks.forEach((t) => {
+    scheduleClick(ctx, t, { gain: 0.8, dur: 0.01 })
+  })
   const hits = await collectHits(ctx, capture, t0 + n * spacing + 0.4)
   const offsetsMs = matchOffsets(clicks, hits.map((h) => h.t))
   return { latencyMs: latencyFromOffsets(offsetsMs), offsetsMs }
@@ -29,7 +31,9 @@ export async function runRampCalibration(ctx: AudioContext, capture: Capture, th
   try {
     const t0 = ctx.currentTime + 0.3
     const clicks = rampGainsDb().map((db, i) => ({ t: t0 + i * 0.4, db }))
-    clicks.forEach((c) => scheduleClick(ctx, c.t, { gain: Math.pow(10, c.db / 20), dur: 0.01 }))
+    clicks.forEach((c) => {
+      scheduleClick(ctx, c.t, { gain: 10 ** (c.db / 20), dur: 0.01 })
+    })
     const hits = await collectHits(ctx, capture, t0 + clicks.length * 0.4 + 0.3)
     const points = matchRampPoints(clicks, hits)
     return { fit: fitRamp(points), points }

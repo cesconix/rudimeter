@@ -140,6 +140,8 @@ export class SessionRunner {
 
   private emit(): void {
     const s = this.snapshot()
-    this.listeners.forEach((l) => l(s))
+    this.listeners.forEach((l) => {
+      l(s)
+    })
   }
 }

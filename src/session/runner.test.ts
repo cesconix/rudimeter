@@ -71,10 +71,12 @@ describe('SessionRunner', () => {
     const r = new SessionRunner(f.deps, { exercise: ex, bpm: 60, latencyMs: 0, slope: null })
     r.start()
     f.advance(0.5 + 2.1)
+    // biome-ignore lint/style/noNonNullAssertion: the runner is playing at this point, so tick() always returns a snapshot.
     const live = r.tick()!
     expect(live.phase).toBe('playing')
     expect(live.result.judged[7].grade).toBe('pending')
     f.advance(10)
+    // biome-ignore lint/style/noNonNullAssertion: the runner is playing at this point, so tick() always returns a snapshot.
     expect(r.tick()!.phase).toBe('done')
     expect(r.stats().slots).toBe(8)
     expect(r.stats().miss).toBe(8)
@@ -137,6 +139,7 @@ describe('auto-increment', () => {
     const grid0 = r.snapshot().grid
     grid0.slots.filter((s) => s.repeat < 2).forEach((s) => { f.advance(s.t - f.deps.now()); f.hit({ t: s.t, peakDb: -20 }) })
     f.advance(grid0.repeats[2].start + 0.01 - f.deps.now())
+    // biome-ignore lint/style/noNonNullAssertion: the runner is playing at this point, so tick() always returns a snapshot.
     const s = r.tick()!
     expect(s.grid.repeats.map((x) => x.bpm)).toEqual([60, 60, 60, 70, 70, 70])
     expect(s.grid.repeats[3].start).toBeCloseTo(grid0.repeats[3].start, 6)
@@ -152,6 +155,7 @@ describe('auto-increment', () => {
     const grid0 = r.snapshot().grid
     grid0.slots.filter((s) => s.repeat < 2 && s.index !== 3).forEach((s) => { f.advance(s.t - f.deps.now()); f.hit({ t: s.t, peakDb: -20 }) })
     f.advance(grid0.repeats[2].start + 0.01 - f.deps.now())
+    // biome-ignore lint/style/noNonNullAssertion: the runner is playing at this point, so tick() always returns a snapshot.
     expect(r.tick()!.grid.repeats.every((x) => x.bpm === 60)).toBe(true)
     expect(f.scheduled[0].added).toEqual([])
   })
@@ -184,6 +188,7 @@ describe('auto-increment', () => {
     const grid0 = r.snapshot().grid
     grid0.slots.filter((s) => s.repeat < 2).forEach((s) => { f.advance(s.t - f.deps.now()); f.hit({ t: s.t, peakDb: -20 }) })
     f.advance(grid0.repeats[2].start + 0.01 - f.deps.now())
+    // biome-ignore lint/style/noNonNullAssertion: the runner is playing at this point, so tick() always returns a snapshot.
     const s = r.tick()!
     const requested = f.scheduled[0].droppedAfter[0]
     expect(requested).toBeCloseTo(s.grid.repeats[3].start, 6)
@@ -199,6 +204,7 @@ describe('auto-increment', () => {
     const inProgressBefore = grid0.repeats[2]
     grid0.slots.filter((s) => s.repeat < 2).forEach((s) => { f.advance(s.t - f.deps.now()); f.hit({ t: s.t, peakDb: -20 }) })
     f.advance(grid0.repeats[2].start + 0.01 - f.deps.now())
+    // biome-ignore lint/style/noNonNullAssertion: the runner is playing at this point, so tick() always returns a snapshot.
     const s = r.tick()!
     expect(s.grid.repeats[2]).toBe(inProgressBefore)
     expect(s.grid.repeats[2].slots.map((sl) => ({ t: sl.t, index: sl.index, dur: sl.dur }))).toEqual(
@@ -215,6 +221,7 @@ describe('auto-increment', () => {
     f.advance(grid0.repeats[2].start + 0.01 - f.deps.now())
     r.tick()
     r.tick()
+    // biome-ignore lint/style/noNonNullAssertion: the runner is playing at this point, so tick() always returns a snapshot.
     const s = r.tick()!
     expect(s.grid.repeats.map((x) => x.bpm)).toEqual([60, 60, 60, 70, 70, 70])
     expect(f.scheduled[0].added).toHaveLength(1)

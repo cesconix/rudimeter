@@ -82,6 +82,7 @@ describe('rampGainsDb', () => {
 describe('fitRamp', () => {
   it('pendenza 1 e R² 1 su una rampa perfetta traslata', () => {
     const points = rampGainsDb().map((db) => ({ expectedDb: db, measuredDb: db - 7 }))
+    // biome-ignore lint/style/noNonNullAssertion: the fixture feeds fitRamp enough points, so it cannot return null in this test.
     const fit = fitRamp(points)!
     expect(fit.slope).toBeCloseTo(1)
     expect(fit.r2).toBeCloseTo(1)
@@ -89,12 +90,14 @@ describe('fitRamp', () => {
   })
   it('pendenza 0.5 su una rampa compressa 2:1', () => {
     const points = rampGainsDb().map((db) => ({ expectedDb: db, measuredDb: db * 0.5 - 20 }))
+    // biome-ignore lint/style/noNonNullAssertion: the fixture feeds fitRamp enough points, so it cannot return null in this test.
     expect(fitRamp(points)!.slope).toBeCloseTo(0.5)
   })
   it('ignora i punti non rilevati e ritorna null sotto 4 punti', () => {
     const points = rampGainsDb().map((db, i) => ({ expectedDb: db, measuredDb: i < 9 ? null : db }))
     expect(fitRamp(points)).toBeNull()
     const four = rampGainsDb().map((db, i) => ({ expectedDb: db, measuredDb: i < 8 ? null : db }))
+    // biome-ignore lint/style/noNonNullAssertion: the fixture feeds fitRamp enough points, so it cannot return null in this test.
     expect(fitRamp(four)!.n).toBe(4)
   })
 })

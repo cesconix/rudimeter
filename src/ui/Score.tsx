@@ -243,7 +243,7 @@ export function Score({ exercise, grid, judged, now }: Props) {
       {/* Il tasto c'è finché comanda l'utente: se comparisse solo a cursore fuori schermo, chi
           scorre di poco resterebbe in manuale senza il modo di tornare a seguire. */}
       {!following && (
-        <button className="score-follow" onClick={() => setFollowing(true)}>
+        <button type="button" className="score-follow" onClick={() => setFollowing(true)}>
           ↓ Torna al cursore
         </button>
       )}

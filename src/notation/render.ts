@@ -286,16 +286,24 @@ export function renderScore(host: HTMLDivElement, bars: BarPlan[], opts: RenderO
     // inizio-note (chiave, tempo, stanghetta). Sarebbe un errore costante per battuta — misurato:
     // +66,1 sulla prima, +279 sulla seconda — cioè la griglia giusta nel posto sbagliato.
     voice.setStave(stave)
-    built.notes.forEach((n) => n.setStave(stave))
+    built.notes.forEach((n) => {
+      n.setStave(stave)
+    })
     new Formatter().joinVoices([voice]).formatToStave([voice], stave)
     placeOnTimeGrid(bar, built.notes, gridX0 + col * naturalBar)
     voice.draw(ctx, stave)
-    built.beams.forEach((b) => b.setContext(ctx).draw())
-    built.tuplets.forEach((t) => t.setContext(ctx).draw())
+    built.beams.forEach((b) => {
+      b.setContext(ctx).draw()
+    })
+    built.tuplets.forEach((t) => {
+      t.setContext(ctx).draw()
+    })
     // `getNoteHeadBeginX`, non `getAbsoluteX`: quest'ultima è l'ancora della nota nel formatter e
     // cade ~7px a destra del bordo sinistro della testa — irrilevante per una stanghetta da 2px,
     // visibile per la banda del cursore, che è larga quanto la testa e ci deve stare sopra esatta.
-    built.slotNotes.forEach((note, slotIndex) => notes.set(slotIndex, { note, x: note.getNoteHeadBeginX() * fit.scale, row }))
+    built.slotNotes.forEach((note, slotIndex) => {
+      notes.set(slotIndex, { note, x: note.getNoteHeadBeginX() * fit.scale, row })
+    })
     beams.push(...built.beams)
     tuplets.push(...built.tuplets)
   })

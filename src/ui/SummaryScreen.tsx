@@ -59,9 +59,9 @@ export function SummaryScreen({ stats, exercise, bpm, calibration, onRepeat, onP
         </tbody>
       </table>
       <div className="row">
-        <button onClick={onRepeat}>Ripeti</button>
-        <button className="secondary" onClick={onPick}>Altro esercizio</button>
-        <button className="secondary" onClick={copy}>Copia markdown</button>
+        <button type="button" onClick={onRepeat}>Ripeti</button>
+        <button type="button" className="secondary" onClick={onPick}>Altro esercizio</button>
+        <button type="button" className="secondary" onClick={copy}>Copia markdown</button>
         {copied && <span>{copied}</span>}
       </div>
       <pre>{md}</pre>

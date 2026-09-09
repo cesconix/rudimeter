@@ -26,11 +26,13 @@ export interface FlatStep {
 /** Gli step in ordine battuta → movimento → figura, pause incluse. */
 export function stepsFlat(ex: Exercise): FlatStep[] {
   const out: FlatStep[] = []
-  ex.bars.forEach((bar, b) =>
-    bar.beats.forEach((bt, k) =>
-      bt.steps.forEach((step, i) => out.push({ step, bar: b, beat: k, sub: i, n: bt.steps.length, ordinal: out.length })),
-    ),
-  )
+  ex.bars.forEach((bar, b) => {
+    bar.beats.forEach((bt, k) => {
+      bt.steps.forEach((step, i) => {
+        out.push({ step, bar: b, beat: k, sub: i, n: bt.steps.length, ordinal: out.length })
+      })
+    })
+  })
   return out
 }
 

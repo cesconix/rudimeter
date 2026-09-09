@@ -98,15 +98,16 @@ export function CalibrationScreen({ engine, existing, onDone }: Props) {
         <p>Calibrazione salvata: latenza {existing.latencyMs.toFixed(1)} ms{existing.slope !== null ? `, pendenza ${existing.slope.toFixed(2)}` : ''} ({existing.deviceLabel}).</p>
       )}
       <div className="row">
-        <button onClick={run} disabled={step === 'latency' || step === 'ramp'}>
+        <button type="button" onClick={run} disabled={step === 'latency' || step === 'ramp'}>
           {step === 'latency' ? 'Latenza…' : step === 'ramp' ? 'Rampa…' : existing ? 'Ricalibra' : 'Calibra'}
         </button>
-        {existing && (step === 'idle' || step === 'failed') && <button className="secondary" onClick={() => onDone(existing)}>Usa quella salvata</button>}
-        {step === 'done' && <button onClick={finish}>Continua</button>}
+        {existing && (step === 'idle' || step === 'failed') && <button type="button" className="secondary" onClick={() => onDone(existing)}>Usa quella salvata</button>}
+        {step === 'done' && <button type="button" onClick={finish}>Continua</button>}
       </div>
       {latencyMs !== null && <p className="big">Latenza {latencyMs.toFixed(1)} ms</p>}
       {incoherent ? (
         <p className="error">
+          {/* biome-ignore lint/style/noNonNullAssertion: incoherent is only true when slope is not null, which TypeScript cannot narrow from a boolean. */}
           Misura incoerente: il livello rilevato non sale col volume del click (pendenza {slope!.toFixed(2)}, r² {(r2 ?? 0).toFixed(2)}).
           Non è una dinamica compressa, è una misura da buttare. Controlla che non ci siano cuffie collegate e <b>rifai la calibrazione</b>.
         </p>

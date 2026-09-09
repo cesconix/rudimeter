@@ -34,7 +34,7 @@ export function ExercisePicker({ previousBpm, previousOptions, onPick, onRecalib
       </select>
       <p><code>{exercise.sticking}</code> · {exercise.timeSignature.join('/')} · {exercise.repeats} ripetizioni</p>
       <div className="row">
-        <button className="secondary" onClick={() => setBpm((b) => Math.max(30, b - 5))}>−5</button>
+        <button type="button" className="secondary" onClick={() => setBpm((b) => Math.max(30, b - 5))}>−5</button>
         <input
           type="number"
           value={bpm}
@@ -46,7 +46,7 @@ export function ExercisePicker({ previousBpm, previousOptions, onPick, onRecalib
           }}
         />
         <span>bpm</span>
-        <button className="secondary" onClick={() => setBpm((b) => Math.min(240, b + 5))}>+5</button>
+        <button type="button" className="secondary" onClick={() => setBpm((b) => Math.min(240, b + 5))}>+5</button>
       </div>
       <fieldset className="transport">
         <legend>Trasporto</legend>
@@ -69,8 +69,8 @@ export function ExercisePicker({ previousBpm, previousOptions, onPick, onRecalib
           : 'Metti le cuffie prima di partire: il click dallo speaker verrebbe contato come colpo.'}
       </p>
       <div className="row">
-        <button onClick={() => onPick(exercise, bpm, options)}>Parti</button>
-        <button className="secondary" onClick={onRecalibrate}>Ricalibra</button>
+        <button type="button" onClick={() => onPick(exercise, bpm, options)}>Parti</button>
+        <button type="button" className="secondary" onClick={onRecalibrate}>Ricalibra</button>
       </div>
     </main>
   )

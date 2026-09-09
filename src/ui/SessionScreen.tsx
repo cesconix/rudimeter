@@ -84,6 +84,7 @@ export function SessionScreen({ engine, exercise, bpm, options, calibration, onD
         <h1>{exercise.name} @ {state.bpm} bpm</h1>
         <p>Ripetizione {Math.min(repeat + 1, exercise.repeats)} / {exercise.repeats}</p>
         <button
+          type="button"
           className="secondary"
           onClick={() => {
             const r = runnerRef.current

@@ -74,7 +74,7 @@ export function App() {
   }, [])
 
   const banner = suspended && engine && (
-    <button onClick={() => engine.ctx.resume().then(() => setSuspended(false))}>Audio in pausa: tocca per riprendere</button>
+    <button type="button" onClick={() => engine.ctx.resume().then(() => setSuspended(false))}>Audio in pausa: tocca per riprendere</button>
   )
 
   if (screen === 'start' || !engine) return <StartScreen onStart={start} busy={busy} error={error} />
