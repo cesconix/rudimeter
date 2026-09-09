@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'bun:test'
 import { DEFAULT_AUTO_INCREMENT, nextBpm, repeatAccuracy } from './progression'
 import { buildGrid } from './grid'
 import { judge } from './judge'

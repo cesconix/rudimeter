@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'bun:test'
 import { clearCalibration, loadCalibration, saveCalibration, type KeyValueStore } from './storage'
 
 function fakeStore(): KeyValueStore {

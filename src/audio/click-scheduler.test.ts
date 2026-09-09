@@ -1,16 +1,22 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, mock } from 'bun:test'
 import type { Click } from '../engine/grid'
-import { ClickScheduler } from './click-scheduler'
 
-/** Cattura ciò che `scheduleClick` avrebbe suonato, senza toccare il Web Audio reale. */
-const sounded = vi.hoisted(() => [] as { t: number }[])
+/** Captures what `scheduleClick`/`scheduleGuide` would have played, without touching real Web Audio. */
+const sounded: { t: number }[] = []
 
-vi.mock('./click', () => ({
+// `mock.module` must run before the module under test is loaded, hence the dynamic import below:
+// a static `import { ClickScheduler }` would be hoisted above the mock.
+mock.module('./click', () => ({
   scheduleClick: (_ctx: unknown, time: number) => {
+    sounded.push({ t: time })
+  },
+  scheduleGuide: (_ctx: unknown, time: number) => {
     sounded.push({ t: time })
   },
   clickOptionsFor: () => ({}),
 }))
+
+const { ClickScheduler } = await import('./click-scheduler')
 
 /** AudioContext fittizio: solo `currentTime`, mutabile per simulare il passare del tempo. */
 function fakeCtx(currentTime: number): { ctx: AudioContext; set(t: number): void } {

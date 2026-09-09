@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'bun:test'
 import { buildGrid, isSilentBar, repeatAt, replanGrid, slotIndexAt } from './grid'
 import { parseExercise } from './exercise'
 

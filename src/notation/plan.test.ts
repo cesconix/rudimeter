@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'bun:test'
 import { durationFor, graceHands, planExercise, planRepeat, tupletFor } from './plan'
 import { parseExercise } from '../engine/exercise'
 import { buildGrid } from '../engine/grid'

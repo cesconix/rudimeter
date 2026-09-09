@@ -2,11 +2,13 @@
   "name": "stick-coach",
   "version": "0.0.1",
   "description": "Validatore timing/dinamica per practice pad via microfono (Stick Control)",
+  "packageManager": "bun@1.4.2",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "build:pages": "tsc --noEmit && vite build --mode pages",
     "preview": "vite preview",
-    "test": "vitest run",
+    "test": "bun test",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [],
@@ -18,14 +20,13 @@
     "vexflow": "^5.0.0"
   },
   "devDependencies": {
-    "@types/node": "^26.4.1",
+    "@types/bun": "^1.4.2",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-basic-ssl": "^2.3.0",
     "@vitejs/plugin-react": "^6.1.1",
     "typescript": "^7.0.2",
-    "vite": "^8.2.2",
-    "vitest": "^5.0.0"
+    "vite": "^8.2.2"
   },
   "private": true,
   "type": "module"

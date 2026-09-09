@@ -1,16 +1,12 @@
-import { defineConfig } from 'vitest/config'
+import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import basicSsl from '@vitejs/plugin-basic-ssl'
 
-// basicSsl: HTTPS con certificato self-signed. Serve perché getUserMedia
-// richiede un secure context e l'iPad raggiunge il Mac via IP LAN, non localhost.
-// `--mode pages` (CI): l'app vive sotto /stick-coach/. Niente `process.env`: la modalità arriva da Vite, non dall'ambiente.
+// basicSsl: HTTPS with a self-signed certificate. getUserMedia requires a secure context and the
+// iPad reaches the Mac over its LAN IP, not localhost.
+// `--mode pages` (CI): the app lives under /stick-coach/. No `process.env`: the mode comes from Vite.
 export default defineConfig(({ mode }) => ({
   base: mode === 'pages' ? '/stick-coach/' : '/',
   plugins: [react(), basicSsl()],
   server: { host: true, port: 5173 },
-  test: {
-    environment: 'node',
-    include: ['src/**/*.test.ts'],
-  },
 }))

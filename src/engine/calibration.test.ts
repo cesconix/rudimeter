@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'bun:test'
 import { dynamicsVerdict, fitRamp, latencyFromOffsets, matchOffsets, matchRampPoints, median, rampGainsDb } from './calibration'
 
 describe('matchOffsets', () => {

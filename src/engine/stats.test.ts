@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'bun:test'
 import { computeStats, mean, sd } from './stats'
 import { buildGrid } from './grid'
 import { judge } from './judge'

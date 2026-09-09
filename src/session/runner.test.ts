@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'bun:test'
 import { SessionRunner, type RunnerDeps } from './runner'
 import { parseExercise } from '../engine/exercise'
 import type { Click } from '../engine/grid'

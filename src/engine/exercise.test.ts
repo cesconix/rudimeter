@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'bun:test'
 import { barsOf, parseExercise, slotsPerRepeat, stepsFlat } from './exercise'
 import { EXERCISES } from '../data/exercises'
 

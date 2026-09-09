@@ -1,10 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'bun:test'
 import { GRADE_COLORS, paintColor, paintDiff, type PaintTarget } from './paint'
 import type { Grade, Judged, Slot } from '../engine/types'
 
 function fakeEl(children: { stroke?: string }[]) {
   const nodes = children.map((c) => {
-    const attrs: Record<string, string> = c.stroke ? { stroke: c.stroke } : {}
+    const attrs: Record<string, string | undefined> = c.stroke ? { stroke: c.stroke } : {}
     return { attrs, getAttribute: (n: string) => attrs[n] ?? null, setAttribute: (n: string, v: string) => { attrs[n] = v } }
   })
   const el: PaintTarget = { querySelectorAll: () => nodes }

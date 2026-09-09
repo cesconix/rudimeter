@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'bun:test'
 import { bpmRuns, toMarkdown } from './report'
 import { computeStats } from './stats'
 import type { SessionStats } from './stats'

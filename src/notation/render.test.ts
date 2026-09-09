@@ -1,20 +1,23 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'bun:test'
 import { MIN_NOTEHEAD_PX, NATURAL_NOTEHEAD_PX, fitLayout, notationFontsReady } from './render'
 
-// `document.fonts` non esiste nell'ambiente vitest `node` (vitest.config.ts usa `environment: 'node'`,
-// niente jsdom), quindi qui non si può verificare la vera race del font Bravura nel browser — quella
-// resta un controllo manuale (vedi docs/spike-notation.md). Questo test copre solo l'idraulica della
-// funzione con un `document.fonts.ready` finto: che deleghi a quella promise e che risolva a `undefined`
+// `document.fonts` non esiste (`bun test` gira senza DOM, niente jsdom), quindi qui non si può
+// verificare la vera race del font Bravura nel browser — quella resta un controllo manuale
+// (vedi `dev/gallery.html`). Questo test copre solo l'idraulica della funzione con un
+// `document.fonts.ready` finto: che deleghi a quella promise e che risolva a `undefined`
 // invece di restituire il `FontFaceSet` (per non far trapelare il tipo, come richiesto dal contratto).
 describe('notationFontsReady', () => {
   it('risolve a undefined, senza far trapelare il FontFaceSet di document.fonts.ready', async () => {
     const fakeFontFaceSet = { fake: true }
-    vi.stubGlobal('document', { fonts: { ready: Promise.resolve(fakeFontFaceSet) } })
+    const g = globalThis as { document?: unknown }
+    const previous = g.document
+    g.document = { fonts: { ready: Promise.resolve(fakeFontFaceSet) } }
     try {
       const result = await notationFontsReady()
       expect(result).toBeUndefined()
     } finally {
-      vi.unstubAllGlobals()
+      if (previous === undefined) delete g.document
+      else g.document = previous
     }
   })
 })
@@ -30,14 +33,14 @@ describe('fitLayout', () => {
   // Stick Control: 2/4, 2 battute per ripetizione, 20 ripetizioni = 40 battute. Larghezze misurate
   // sui dispositivi veri (iPhone in verticale e in orizzontale, iPad, desktop).
   it.each([
-    { availW: 375, barsPerRow: 2, head: 9.6 },
-    { availW: 390, barsPerRow: 2, head: 10.0 },
-    { availW: 834, barsPerRow: 4, head: 11.6 },
-    { availW: 844, barsPerRow: 4, head: 11.8 },
-    { availW: 847, barsPerRow: 4, head: 11.8 },
-    { availW: 1194, barsPerRow: 6, head: 11.5 },
-    { availW: 1600, barsPerRow: 8, head: 11.7 },
-  ])('a $availW px: $barsPerRow battute per riga, testa $head px', ({ availW, barsPerRow, head }) => {
+    [375, 2, 9.6],
+    [390, 2, 10.0],
+    [834, 4, 11.6],
+    [844, 4, 11.8],
+    [847, 4, 11.8],
+    [1194, 6, 11.5],
+    [1600, 8, 11.7],
+  ])('a %p px: %p battute per riga, testa %p px', (availW, barsPerRow, head) => {
     const fit = fitLayout(availW, 2, 2, 40)
     expect(fit.barsPerRow).toBe(barsPerRow)
     expect(notehead(fit.scale)).toBe(head)

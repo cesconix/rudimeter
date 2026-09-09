@@ -1,0 +1,7 @@
+# Every package.json script runs on Bun's runtime, not Node: `bun run dev` executes Vite under Bun.
+[run]
+bun = true
+
+# Only src/ holds tests; dev/ is a browser-only gallery.
+[test]
+root = "src"

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'bun:test'
 import { EXERCISES } from '../data/exercises'
 import { buildGrid } from '../engine/grid'
 import { planExercise } from '../notation/plan'
