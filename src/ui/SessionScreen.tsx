@@ -7,8 +7,8 @@ import { repeatAt } from '../engine/grid'
 import type { SessionStats } from '../engine/stats'
 import type { Exercise } from '../engine/types'
 import { type RunnerState, SessionRunner } from '../session/runner'
-import type { SessionOptions } from './App'
 import { Meter } from './Meter'
+import type { SessionOptions } from './options'
 import { Score } from './Score'
 
 interface Props {

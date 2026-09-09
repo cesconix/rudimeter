@@ -74,7 +74,7 @@ export function judge(slots: Slot[], hits: Hit[], opts: JudgeOptions = {}): Judg
 }
 
 /** Un extra fino a 60 ms prima di uno slot flam/drag è l'acciaccatura. */
-export const ABSORB_BEFORE_S = 0.06
+const ABSORB_BEFORE_S = 0.06
 
 /** Primo slot con t > x, o undefined. `slots` ordinati per t. */
 function firstAfter(slots: Slot[], x: number): Slot | undefined {

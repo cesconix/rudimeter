@@ -15,7 +15,7 @@ import { BuzzRoll } from './buzz-roll'
 import type { BarPlan, NotePlan } from './plan'
 
 /** Con `numLines: 1` la linea disegnata è la 0, cioè quella di f/5 nella mappa della chiave di percussioni. */
-export const KEY = 'f/5'
+const KEY = 'f/5'
 
 /**
  * Rullante — e quindi pad — sul rigo a cinque linee: TERZO SPAZIO dal basso, gambo in su. È la
@@ -33,7 +33,7 @@ export interface BuiltBar {
   slotNotes: Map<number, StaveNote>
 }
 
-export function buildNote(p: NotePlan, key: string = KEY): StaveNote {
+function buildNote(p: NotePlan, key: string = KEY): StaveNote {
   const n = new StaveNote({ keys: [key], duration: p.rest ? `${p.duration}r` : p.duration, stemDirection: Stem.UP })
   if (p.rest) return n
   if (p.sticking)

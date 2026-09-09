@@ -1,6 +1,6 @@
 import type { Bar, Beat, Hand, Ornament, Step } from './types'
 
-export const MAX_SUBDIVISION = 8
+const MAX_SUBDIVISION = 8
 
 const ORNAMENT: Record<string, Ornament> = { f: 'flam', d: 'drag', z: 'buzz', t: 'tremolo' }
 

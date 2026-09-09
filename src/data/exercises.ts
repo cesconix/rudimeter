@@ -1,7 +1,7 @@
 import { parseExercise } from '../engine/exercise'
 import type { ExerciseJson } from '../engine/types'
 
-export const EXERCISES_JSON: ExerciseJson[] = [
+const EXERCISES_JSON: ExerciseJson[] = [
   {
     id: 'stone-1',
     name: 'Stick Control #1',

@@ -1,23 +1,17 @@
 import { useCallback, useEffect, useState } from 'react'
 import { createEngine, describeMicError, type Engine } from '../audio/engine'
 import { type CalibrationData, loadCalibration, saveCalibration } from '../audio/storage'
-import { DEFAULT_METRONOME, type MetronomeOptions } from '../engine/grid'
-import type { AutoIncrement } from '../engine/progression'
 import type { SessionStats } from '../engine/stats'
 import type { Exercise } from '../engine/types'
 import { CalibrationScreen } from './CalibrationScreen'
 import { ExercisePicker } from './ExercisePicker'
+import { DEFAULT_SESSION_OPTIONS, type SessionOptions } from './options'
 import { SessionScreen } from './SessionScreen'
 import { StartScreen } from './StartScreen'
 import { SummaryScreen } from './SummaryScreen'
 
 type Screen = 'start' | 'calibration' | 'pick' | 'session' | 'summary'
 
-export interface SessionOptions {
-  metronome: MetronomeOptions
-  autoIncrement: AutoIncrement | null
-}
-export const DEFAULT_SESSION_OPTIONS: SessionOptions = { metronome: DEFAULT_METRONOME, autoIncrement: null }
 const DEFAULT_BPM = 60
 
 export function App() {

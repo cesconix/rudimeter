@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { EXERCISES } from '../data/exercises'
 import { DEFAULT_AUTO_INCREMENT } from '../engine/progression'
 import type { Exercise } from '../engine/types'
-import type { SessionOptions } from './App'
+import type { SessionOptions } from './options'
 
 interface Props {
   /** Ultimo bpm scelto (o il default): seed dello stato locale, non un valore controllato. */

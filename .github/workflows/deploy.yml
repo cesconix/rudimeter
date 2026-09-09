@@ -20,6 +20,7 @@ jobs:
           bun-version-file: package.json
       - run: bun install --frozen-lockfile
       - run: bun run lint
+      - run: bun run knip
       - run: bun test
       - run: bun run build:pages
       - uses: actions/upload-pages-artifact@v3
