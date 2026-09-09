@@ -216,7 +216,7 @@ export function fitLayout(
  * moves at constant pace, and rests end up in the right place on their own, with no need to anchor
  * them.
  *
- * The TickContext is moved, not the note: beams, tuplets, accents and sticking read the position at
+ * The TickContext is moved, not the note: beams, triplets, accents and sticking read the position at
  * draw time, so they follow without having to be touched. This holds as long as every note has its
  * own TickContext — one voice per bar, as it is here: two notes sharing one would move twice.
  */
