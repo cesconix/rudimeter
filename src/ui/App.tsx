@@ -146,6 +146,7 @@ export function App() {
         {banner}
         <SessionScreen
           engine={engine}
+          synth={synthRun}
           exercise={pick.exercise}
           bpm={pick.bpm}
           options={pick.options}

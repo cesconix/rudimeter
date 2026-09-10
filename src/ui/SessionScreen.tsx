@@ -7,12 +7,16 @@ import { repeatAt } from '../engine/grid'
 import type { SessionStats } from '../engine/stats'
 import type { Exercise } from '../engine/types'
 import { type RunnerState, SessionRunner } from '../session/runner'
+import { Drummer } from '../sim/drummer'
+import type { SynthRun } from '../sim/graph'
+import { PLAYER_PRESETS } from '../sim/player'
 import { Meter } from './Meter'
 import type { SessionOptions } from './options'
 import { Score } from './Score'
 
 interface Props {
   engine: Engine
+  synth: SynthRun | null
   exercise: Exercise
   bpm: number
   options: SessionOptions
@@ -21,7 +25,7 @@ interface Props {
   onAbort(): void
 }
 
-export function SessionScreen({ engine, exercise, bpm, options, calibration, onDone, onAbort }: Props) {
+export function SessionScreen({ engine, synth, exercise, bpm, options, calibration, onDone, onAbort }: Props) {
   const runnerRef = useRef<SessionRunner | null>(null)
   const [state, setState] = useState<RunnerState | null>(null)
 
@@ -53,7 +57,16 @@ export function SessionScreen({ engine, exercise, bpm, options, calibration, onD
       },
     )
     runnerRef.current = runner
-    const unsub = runner.subscribe(setState)
+    // Synthetic input: the drummer plays whatever grid the runner schedules, and the headphones go
+    // on (or stay off) for the session exactly as a person would do after the calibration.
+    const drummer = synth
+      ? new Drummer(synth.graph.strokes, PLAYER_PRESETS[synth.config.preset], synth.config.seed)
+      : null
+    synth?.graph.setHeadphones(synth.config.headphones)
+    const unsub = runner.subscribe((s) => {
+      drummer?.follow(s)
+      setState(s)
+    })
     runner.start()
     let raf = 0
     const loop = () => {
@@ -67,8 +80,11 @@ export function SessionScreen({ engine, exercise, bpm, options, calibration, onD
       cancelAnimationFrame(raf)
       unsub()
       runner.stop()
+      drummer?.stop()
+      // Headphones off again: the calibration screen expects the speaker path open.
+      synth?.graph.setHeadphones(false)
     }
-  }, [engine, exercise, bpm, calibration, options])
+  }, [engine, synth, exercise, bpm, calibration, options])
 
   useEffect(() => {
     if (state?.phase === 'done' && runnerRef.current) onDone(runnerRef.current.stats())
