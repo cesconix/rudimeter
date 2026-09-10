@@ -1,6 +1,6 @@
 {
-  "name": "stick-coach",
-  "short_name": "stick-coach",
+  "name": "Rudimeter",
+  "short_name": "Rudimeter",
   "description": "Practice-pad coach: metronome, score with a moving cursor, and per-stroke grading from the microphone.",
   "lang": "en",
   "start_url": "./",

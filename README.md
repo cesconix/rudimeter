@@ -1,10 +1,10 @@
-# stick-coach
+# Rudimeter
 
 Practice-pad coach for drummers. It plays a metronome, shows the exercise on a staff with a moving cursor, listens to your strokes through the microphone and grades every one of them for timing and dynamics.
 
 Runs in the browser as a PWA. Built for an iPad on a music stand (Safari); works on desktop Chrome too.
 
-Live: https://cesconix.github.io/stick-coach/
+Live: https://cesconix.github.io/rudimeter/
 
 ## How it works
 

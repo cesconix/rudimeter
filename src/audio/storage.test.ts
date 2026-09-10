@@ -11,9 +11,9 @@ describe('calibration storage', () => {
   it('null if absent, corrupted or without a numeric latency', () => {
     const s = memoryStore()
     expect(loadCalibration(s)).toBeNull()
-    s.setItem('stick-coach.calibration.v1', '{not json')
+    s.setItem('rudimeter.calibration.v1', '{not json')
     expect(loadCalibration(s)).toBeNull()
-    s.setItem('stick-coach.calibration.v1', JSON.stringify({ slope: 1 }))
+    s.setItem('rudimeter.calibration.v1', JSON.stringify({ slope: 1 }))
     expect(loadCalibration(s)).toBeNull()
   })
   it('clear removes', () => {

@@ -1,5 +1,5 @@
 {
-  "name": "stick-coach",
+  "name": "rudimeter",
   "version": "0.0.1",
   "description": "Practice-pad coach for drummers: metronome, score with a moving cursor, per-stroke timing and dynamics grading from the microphone.",
   "packageManager": "bun@1.4.2",
@@ -20,7 +20,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git@github.com:cesconix/stick-coach.git"
+    "url": "git@github.com:cesconix/rudimeter.git"
   },
   "dependencies": {
     "react": "^19.2.8",

@@ -12,7 +12,7 @@ export interface KeyValueStore {
   removeItem(key: string): void
 }
 
-const KEY = 'stick-coach.calibration.v1'
+const KEY = 'rudimeter.calibration.v1'
 
 export function loadCalibration(store: KeyValueStore): CalibrationData | null {
   try {
