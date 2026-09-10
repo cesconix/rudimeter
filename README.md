@@ -4,6 +4,8 @@ Practice-pad coach for drummers. It plays a metronome, shows the exercise on a s
 
 Runs in the browser as a PWA. Built for an iPad on a music stand (Safari); works on desktop Chrome too.
 
+Live: https://cesconix.github.io/stick-coach/
+
 ## How it works
 
 1. **Calibrate once.** The app plays clicks through the speaker and listens for them, measuring the speaker → microphone round trip.

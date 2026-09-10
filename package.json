@@ -17,6 +17,10 @@
   },
   "author": "Francesco Pasqua",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:cesconix/stick-coach.git"
+  },
   "dependencies": {
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
