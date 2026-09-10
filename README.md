@@ -72,7 +72,7 @@ Synthetic input (no microphone, no sound): open `/?synth=42&player=human` and ke
 
 ## Deploy
 
-Vercel builds and deploys every push: `main` goes to https://rudimeter.com, every other branch gets its own preview URL — the way to try a change on an iPad, where a real certificate is what lets the microphone work. `vercel.json` holds the build: the full `check` gate runs first, so a red test never ships.
+Vercel builds and deploys every push: `main` goes to https://rudimeter.com, every other branch gets its own preview URL — the way to try a change on an iPad, where a real certificate is what lets the microphone work. `vercel.json` holds the build: the full `check` gate runs first, so a red test never ships. Vercel's build image ships an older Bun that cannot read this lockfile and ignores `packageManager`, so both commands go through `bunx bun@<version>`; bump that pin together with `packageManager` and `mise.toml`.
 
 GitHub Actions runs the same gate on pull requests (`.github/workflows/ci.yml`).
 
