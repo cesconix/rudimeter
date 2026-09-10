@@ -19,6 +19,14 @@ const exerciseId = arg('exercise', 'stone-1')
 const bpm = Number(arg('bpm', '120'))
 const auto = process.argv.includes('--auto')
 
+// Without this, a typo'd --seed or --bpm turns into NaN, which makes the oracle's grid end at NaN
+// and its `while (phase !== 'done')` loop never terminates — a hang, not a crash.
+if (!Number.isInteger(seed) || seed < 0) {
+  throw new Error(`--seed must be a non-negative integer, got "${arg('seed', '42')}"`)
+}
+if (!Number.isFinite(bpm) || bpm <= 0) {
+  throw new Error(`--bpm must be a positive number, got "${arg('bpm', '120')}"`)
+}
 // `Object.hasOwn`, not `in`: `in` also matches inherited keys like `toString`, which would hand
 // a function to `PLAYER_PRESETS[preset]` for `--preset toString`.
 if (!Object.hasOwn(PLAYER_PRESETS, presetName)) {
