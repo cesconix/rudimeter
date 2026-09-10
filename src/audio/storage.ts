@@ -38,3 +38,17 @@ export function saveCalibration(store: KeyValueStore, data: CalibrationData): vo
 export function clearCalibration(store: KeyValueStore): void {
   store.removeItem(KEY)
 }
+
+/** A store that forgets on reload: a synthetic run must never leave its fake latency where the real one lives. */
+export function memoryStore(): KeyValueStore {
+  const m = new Map<string, string>()
+  return {
+    getItem: (k) => m.get(k) ?? null,
+    setItem: (k, v) => {
+      m.set(k, v)
+    },
+    removeItem: (k) => {
+      m.delete(k)
+    },
+  }
+}

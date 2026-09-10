@@ -18,12 +18,18 @@ export interface CaptureInfo {
   supported: MediaTrackSupportedConstraints
 }
 
+/** What the worklet listens to instead of the microphone. */
+export interface CaptureInput {
+  node: AudioNode
+  label: string
+}
+
 const toDb = (x: number): number => (x > 0 ? 20 * Math.log10(x) : -120)
 
-/** Microphone → AudioWorklet onset → Hit events (t in seconds of the audio clock, uncorrected) and meter. */
+/** Microphone (or an injected node) → AudioWorklet onset → Hit events (t in seconds of the audio clock, uncorrected) and meter. */
 export class Capture {
   private stream: MediaStream | null = null
-  private source: MediaStreamAudioSourceNode | null = null
+  private source: AudioNode | null = null
   private node: AudioWorkletNode | null = null
   private hitListeners = new Set<(hit: Hit) => void>()
   private meterListeners = new Set<(m: MeterReading) => void>()
@@ -34,19 +40,28 @@ export class Capture {
     private workletUrl: string,
   ) {}
 
-  async start(thresholds: Thresholds = DEFAULT_THRESHOLDS): Promise<void> {
+  /** With `input`, no microphone is opened: the node feeds the worklet in its place. */
+  async start(thresholds: Thresholds = DEFAULT_THRESHOLDS, input?: CaptureInput): Promise<void> {
     if (!this.ctx.audioWorklet) throw new Error('AudioWorklet is not supported by this browser')
-    this.stream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 },
-      video: false,
-    })
-    try {
-      const track = this.stream.getAudioTracks()[0]
+    let source: AudioNode
+    if (input) {
+      this.info = { deviceLabel: input.label, settings: {}, supported: {} }
+      source = input.node
+    } else {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 },
+        video: false,
+      })
+      this.stream = stream
+      const track = stream.getAudioTracks()[0]
       this.info = {
         deviceLabel: track.label,
         settings: track.getSettings(),
         supported: navigator.mediaDevices.getSupportedConstraints(),
       }
+      source = this.ctx.createMediaStreamSource(stream)
+    }
+    try {
       await this.ctx.audioWorklet.addModule(this.workletUrl)
       this.node = new AudioWorkletNode(this.ctx, 'onset-processor', { numberOfInputs: 1, numberOfOutputs: 0 })
       this.node.port.onmessage = (e: MessageEvent<{ type: string; frame?: number; peak?: number; bg?: number }>) => {
@@ -63,7 +78,7 @@ export class Capture {
           })
         }
       }
-      this.source = this.ctx.createMediaStreamSource(this.stream)
+      this.source = source
       this.source.connect(this.node)
       this.setThresholds(thresholds)
     } catch (err) {

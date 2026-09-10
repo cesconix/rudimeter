@@ -1,28 +1,15 @@
 import { describe, expect, it } from 'bun:test'
-import { clearCalibration, type KeyValueStore, loadCalibration, saveCalibration } from './storage'
-
-function fakeStore(): KeyValueStore {
-  const m = new Map<string, string>()
-  return {
-    getItem: (k) => m.get(k) ?? null,
-    setItem: (k, v) => {
-      m.set(k, v)
-    },
-    removeItem: (k) => {
-      m.delete(k)
-    },
-  }
-}
+import { clearCalibration, loadCalibration, memoryStore, saveCalibration } from './storage'
 
 describe('calibration storage', () => {
   it('saves and reads back', () => {
-    const s = fakeStore()
+    const s = memoryStore()
     const data = { latencyMs: 68, slope: 0.98, deviceLabel: 'iPad Microphone', savedAt: '2026-09-07T10:00:00.000Z' }
     saveCalibration(s, data)
     expect(loadCalibration(s)).toEqual(data)
   })
   it('null if absent, corrupted or without a numeric latency', () => {
-    const s = fakeStore()
+    const s = memoryStore()
     expect(loadCalibration(s)).toBeNull()
     s.setItem('stick-coach.calibration.v1', '{not json')
     expect(loadCalibration(s)).toBeNull()
@@ -30,9 +17,20 @@ describe('calibration storage', () => {
     expect(loadCalibration(s)).toBeNull()
   })
   it('clear removes', () => {
-    const s = fakeStore()
+    const s = memoryStore()
     saveCalibration(s, { latencyMs: 1, slope: null, deviceLabel: '', savedAt: '' })
     clearCalibration(s)
     expect(loadCalibration(s)).toBeNull()
+  })
+})
+
+describe('memoryStore', () => {
+  it('starts empty, keeps what it is given and forgets on removal', () => {
+    const s = memoryStore()
+    expect(s.getItem('k')).toBeNull()
+    s.setItem('k', 'v')
+    expect(s.getItem('k')).toBe('v')
+    s.removeItem('k')
+    expect(s.getItem('k')).toBeNull()
   })
 })
