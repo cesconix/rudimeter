@@ -43,25 +43,25 @@ export class Capture {
   /** With `input`, no microphone is opened: the node feeds the worklet in its place. */
   async start(thresholds: Thresholds = DEFAULT_THRESHOLDS, input?: CaptureInput): Promise<void> {
     if (!this.ctx.audioWorklet) throw new Error('AudioWorklet is not supported by this browser')
-    let source: AudioNode
-    if (input) {
-      this.info = { deviceLabel: input.label, settings: {}, supported: {} }
-      source = input.node
-    } else {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 },
-        video: false,
-      })
-      this.stream = stream
-      const track = stream.getAudioTracks()[0]
-      this.info = {
-        deviceLabel: track.label,
-        settings: track.getSettings(),
-        supported: navigator.mediaDevices.getSupportedConstraints(),
-      }
-      source = this.ctx.createMediaStreamSource(stream)
-    }
     try {
+      let source: AudioNode
+      if (input) {
+        this.info = { deviceLabel: input.label, settings: {}, supported: {} }
+        source = input.node
+      } else {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 },
+          video: false,
+        })
+        this.stream = stream
+        const track = stream.getAudioTracks()[0]
+        this.info = {
+          deviceLabel: track.label,
+          settings: track.getSettings(),
+          supported: navigator.mediaDevices.getSupportedConstraints(),
+        }
+        source = this.ctx.createMediaStreamSource(stream)
+      }
       await this.ctx.audioWorklet.addModule(this.workletUrl)
       this.node = new AudioWorkletNode(this.ctx, 'onset-processor', { numberOfInputs: 1, numberOfOutputs: 0 })
       this.node.port.onmessage = (e: MessageEvent<{ type: string; frame?: number; peak?: number; bg?: number }>) => {
