@@ -4,16 +4,18 @@ import { DEFAULT_THRESHOLDS } from '../audio/capture'
 import type { Engine } from '../audio/engine'
 import type { CalibrationData } from '../audio/storage'
 import { dynamicsVerdict } from '../engine/calibration'
+import type { SynthRun } from '../sim/graph'
 
 interface Props {
   engine: Engine
+  synth: SynthRun | null
   existing: CalibrationData | null
   onDone(data: CalibrationData): void
 }
 
 type Step = 'idle' | 'latency' | 'ramp' | 'done' | 'failed'
 
-export function CalibrationScreen({ engine, existing, onDone }: Props) {
+export function CalibrationScreen({ engine, synth, existing, onDone }: Props) {
   const [step, setStep] = useState<Step>('idle')
   const [latencyMs, setLatencyMs] = useState<number | null>(null)
   const [slope, setSlope] = useState<number | null>(null)
@@ -73,15 +75,17 @@ export function CalibrationScreen({ engine, existing, onDone }: Props) {
   const incoherent = slope !== null && (slope <= 0 || (r2 !== null && r2 < 0.9))
 
   const info = engine.capture.info
-  const mic = info
-    ? `Microphone: ${info.deviceLabel || 'unnamed'} · ${
-        info.supported.autoGainControl === true
-          ? info.settings.autoGainControl === true
-            ? 'auto gain control ON: it can alter the dynamics'
-            : 'auto gain control off'
-          : 'auto gain control not governable from this browser (the constraint is ignored)'
-      }`
-    : ''
+  const mic = synth
+    ? `Synthetic input: the speaker path is a ${synth.config.latencyMs} ms delay, no microphone is open.`
+    : info
+      ? `Microphone: ${info.deviceLabel || 'unnamed'} · ${
+          info.supported.autoGainControl === true
+            ? info.settings.autoGainControl === true
+              ? 'auto gain control ON: it can alter the dynamics'
+              : 'auto gain control off'
+            : 'auto gain control not governable from this browser (the constraint is ignored)'
+        }`
+      : ''
 
   return (
     <main>

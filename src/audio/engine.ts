@@ -1,4 +1,4 @@
-import { Capture, DEFAULT_THRESHOLDS } from './capture'
+import { Capture, type CaptureInput, DEFAULT_THRESHOLDS } from './capture'
 import { createAudioContext, ensureRunning } from './context'
 
 export interface Engine {
@@ -8,15 +8,26 @@ export interface Engine {
   out: AudioNode
 }
 
-/** To be called inside a user gesture. Opens the context and the microphone. */
-export async function createEngine(): Promise<Engine> {
+export interface EngineOptions {
+  /** Feeds the worklet instead of the microphone. Called once the context and the output bus exist. */
+  input?: (ctx: AudioContext, out: AudioNode) => CaptureInput
+  /** Nothing reaches the speakers: for machine runs, often at night. */
+  silent?: boolean
+}
+
+/** To be called inside a user gesture. Opens the context and the microphone (or the injected input). */
+export async function createEngine(opts: EngineOptions = {}): Promise<Engine> {
   const ctx = createAudioContext()
   await ensureRunning(ctx)
   const out = ctx.createGain()
-  out.connect(ctx.destination)
+  // `out` is tapped BEFORE the master: muting the speakers must not mute what the synthetic input hears.
+  const master = ctx.createGain()
+  if (opts.silent) master.gain.value = 0
+  out.connect(master)
+  master.connect(ctx.destination)
   const capture = new Capture(ctx, `${import.meta.env.BASE_URL}worklets/onset-processor.js`)
   try {
-    await capture.start(DEFAULT_THRESHOLDS)
+    await capture.start(DEFAULT_THRESHOLDS, opts.input?.(ctx, out))
   } catch (err) {
     try {
       await ctx.close()
