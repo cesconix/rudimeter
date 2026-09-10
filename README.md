@@ -68,6 +68,8 @@ HTTPS is mandatory: `getUserMedia` needs a secure context, and the iPad reaches 
 
 Notation gallery: with the dev server running, open `/dev/gallery.html`.
 
+Synthetic input (no microphone, no sound): open `/?synth=42&player=human`. A virtual drummer plays the exercise through a simulated 35 ms speaker → microphone path, seeded so the run is reproducible; `&player=steady|human|sloppy` picks the drummer, `&headphones=off` lets the click reach the input as it does with no headphones on. `bun run sim --seed 42 --preset human --exercise stone-1 --bpm 120` prints the report that run must produce: counts exact, ms and dB within ±0.5 (the `Calibration:` line differs by design).
+
 ## Deploy
 
 Push to `main` → GitHub Actions runs the checks, builds with `--mode pages` and publishes to GitHub Pages (`Settings → Pages → Source: GitHub Actions`, once).

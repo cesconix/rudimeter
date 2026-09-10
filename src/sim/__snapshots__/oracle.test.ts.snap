@@ -1,0 +1,21 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`runOracle report for seed 42 (regression: Task 7 compares the browser against this) 1`] = `
+"### 2026-01-01 — Stick Control #1 @ 120 bpm
+
+Slots 160: good 123 · ok 27 · off 4 · miss 6 · extra 0
+Mean offset 4.4 ms (σ 15.7)
+Evenness: σ dB 2.4 (R 2.4 · L 2.3)
+
+| Hand | Strokes | Mean offset | σ | Mean dB | σ dB |
+|---|---|---|---|---|---|
+| R | 76/80 | 5.5 | 13.1 | -17.5 | 2.4 |
+| L | 78/80 | 3.5 | 17.9 | -18.3 | 2.3 |
+
+| Repeats | Miss | σ offset | Mean dB |
+|---|---|---|---|
+| 1–5 | 2/40 | 14.5 | -18.4 |
+| 6–10 | 2/40 | 11.2 | -17.6 |
+| 11–15 | 0/40 | 17.8 | -18.2 |
+| 16–20 | 2/40 | 18.0 | -17.4 |"
+`;
