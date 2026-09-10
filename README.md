@@ -4,7 +4,7 @@ Practice-pad coach for drummers. It plays a metronome, shows the exercise on a s
 
 Runs in the browser as a PWA. Built for an iPad on a music stand (Safari); works on desktop Chrome too.
 
-Live: https://cesconix.github.io/rudimeter/
+Live: https://rudimeter.com
 
 ## How it works
 
@@ -72,7 +72,9 @@ Synthetic input (no microphone, no sound): open `/?synth=42&player=human`. A vir
 
 ## Deploy
 
-Push to `main` → GitHub Actions runs the checks, builds with `--mode pages` and publishes to GitHub Pages (`Settings → Pages → Source: GitHub Actions`, once).
+Vercel builds and deploys every push: `main` goes to https://rudimeter.com, every other branch gets its own preview URL — the way to try a change on an iPad, where a real certificate is what lets the microphone work. `vercel.json` holds the build: the full `check` gate runs first, so a red test never ships.
+
+GitHub Actions runs the same gate on pull requests (`.github/workflows/ci.yml`).
 
 ## License
 
