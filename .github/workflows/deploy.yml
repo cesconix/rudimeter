@@ -22,7 +22,7 @@ jobs:
       - run: bun run lint
       - run: bun run knip
       - run: bun test
-      - run: bun run build:pages
+      - run: bun run build
       - uses: actions/upload-pages-artifact@v5
         with: { path: dist }
   deploy:

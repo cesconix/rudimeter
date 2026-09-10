@@ -4,9 +4,9 @@ import { defineConfig } from 'vite'
 
 // basicSsl: HTTPS with a self-signed certificate. getUserMedia requires a secure context and the
 // iPad reaches the Mac over its LAN IP, not localhost.
-// `--mode pages` (CI): the app lives under /rudimeter/. No `process.env`: the mode comes from Vite.
-export default defineConfig(({ mode }) => ({
-  base: mode === 'pages' ? '/rudimeter/' : '/',
+// The site is served from the root of rudimeter.com, so the default base ('/') is correct
+// everywhere: dev, preview and Pages behind the custom domain.
+export default defineConfig({
   plugins: [react(), basicSsl()],
   server: { host: true, port: 5173 },
-}))
+})
