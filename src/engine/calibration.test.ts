@@ -6,6 +6,7 @@ import {
   matchOffsets,
   matchRampPoints,
   median,
+  rampCoherent,
   rampGainsDb,
 } from './calibration'
 
@@ -136,10 +137,26 @@ describe('fitRamp', () => {
 })
 
 describe('dynamicsVerdict', () => {
-  it('thresholds 0.85 and 0.5', () => {
-    expect(dynamicsVerdict(0.99)).toBe('intact')
-    expect(dynamicsVerdict(0.85)).toBe('intact')
-    expect(dynamicsVerdict(0.7)).toBe('compressed')
-    expect(dynamicsVerdict(0.3)).toBe('crushed')
+  it('thresholds 0.85 and 0.5 on a coherent ramp', () => {
+    expect(dynamicsVerdict({ slope: 0.99, r2: 1 })).toBe('intact')
+    expect(dynamicsVerdict({ slope: 0.85, r2: 0.95 })).toBe('intact')
+    expect(dynamicsVerdict({ slope: 0.7, r2: 0.9 })).toBe('compressed')
+    expect(dynamicsVerdict({ slope: 0.3, r2: 0.9 })).toBe('crushed')
+  })
+
+  it('inconclusive when the line does not explain the points or slopes down', () => {
+    // iPhone, Safari, 2026-09-10: the microphone's own processing scattered the levels.
+    expect(dynamicsVerdict({ slope: 0.64, r2: 0.147 })).toBe('inconclusive')
+    // Mac, first calibration after opening the microphone (spike, 2026-09-06).
+    expect(dynamicsVerdict({ slope: -0.44, r2: 0.99 })).toBe('inconclusive')
+    expect(dynamicsVerdict({ slope: 0, r2: 1 })).toBe('inconclusive')
+  })
+})
+
+describe('rampCoherent', () => {
+  it('needs a rising line with r² of at least 0.9', () => {
+    expect(rampCoherent({ slope: 1, r2: 0.9 })).toBe(true)
+    expect(rampCoherent({ slope: 1, r2: 0.89 })).toBe(false)
+    expect(rampCoherent({ slope: 0, r2: 1 })).toBe(false)
   })
 })

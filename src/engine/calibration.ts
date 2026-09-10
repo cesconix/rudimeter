@@ -91,10 +91,20 @@ export function fitRamp(points: RampPoint[], minPoints = 4): RampFit | null {
   return { slope: sxy / sxx, r2: syy > 0 ? (sxy * sxy) / (sxx * syy) : 1, n: ok.length }
 }
 
-export type DynamicsVerdict = 'intact' | 'compressed' | 'crushed'
+export type DynamicsVerdict = 'intact' | 'compressed' | 'crushed' | 'inconclusive'
 
-export function dynamicsVerdict(slope: number): DynamicsVerdict {
-  if (slope >= 0.85) return 'intact'
-  if (slope >= 0.5) return 'compressed'
+/**
+ * A line that slopes down, or one that does not explain the points (r² < 0.9), is not "little dynamics":
+ * it is a measurement worth nothing, one to repeat. Seen on an iPhone whose own microphone processing
+ * scattered the levels: slope 0.64, r² 0.15.
+ */
+export function rampCoherent(fit: Pick<RampFit, 'slope' | 'r2'>): boolean {
+  return fit.slope > 0 && fit.r2 >= 0.9
+}
+
+export function dynamicsVerdict(fit: Pick<RampFit, 'slope' | 'r2'>): DynamicsVerdict {
+  if (!rampCoherent(fit)) return 'inconclusive'
+  if (fit.slope >= 0.85) return 'intact'
+  if (fit.slope >= 0.5) return 'compressed'
   return 'crushed'
 }
