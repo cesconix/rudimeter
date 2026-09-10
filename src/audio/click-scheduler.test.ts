@@ -11,10 +11,10 @@ const real = { ...(await import('./click')) }
 // `mock.module` must run before the module under test is loaded, hence the dynamic import below:
 // a static `import { ClickScheduler }` would be hoisted above the mock.
 mock.module('./click', () => ({
-  scheduleClick: (_ctx: unknown, time: number) => {
+  scheduleClick: (_dest: unknown, time: number) => {
     sounded.push({ t: time })
   },
-  scheduleGuide: (_ctx: unknown, time: number) => {
+  scheduleGuide: (_dest: unknown, time: number) => {
     sounded.push({ t: time })
   },
   clickOptionsFor: () => ({}),
@@ -33,13 +33,13 @@ afterAll(() => {
   }))
 })
 
-/** Fake AudioContext: only `currentTime`, mutable to simulate time passing. */
-function fakeCtx(currentTime: number): { ctx: AudioContext; set(t: number): void } {
-  const obj = { currentTime }
+/** Fake output node: only `context.currentTime`, mutable to simulate time passing. */
+function fakeDest(currentTime: number): { dest: AudioNode; set(t: number): void } {
+  const context = { currentTime }
   return {
-    ctx: obj as unknown as AudioContext,
+    dest: { context } as unknown as AudioNode,
     set: (t: number) => {
-      obj.currentTime = t
+      context.currentTime = t
     },
   }
 }
@@ -52,8 +52,8 @@ describe('ClickScheduler', () => {
   })
 
   it('pulls a silent click out of the queue but does not play it', () => {
-    const { ctx } = fakeCtx(0)
-    const s = new ClickScheduler(ctx, { lookahead: 1, intervalMs: 1000 })
+    const { dest } = fakeDest(0)
+    const s = new ClickScheduler(dest, { lookahead: 1, intervalMs: 1000 })
     s.add([click(0.1, 'beat', false), click(0.2, 'beat', true)])
     s.start()
     expect(sounded.map((x) => x.t)).toEqual([0.1])
@@ -61,8 +61,8 @@ describe('ClickScheduler', () => {
   })
 
   it('a muted bar (a run of consecutive silent clicks) produces no audio; the audible clicks around it stay at their exact time', () => {
-    const { ctx } = fakeCtx(0)
-    const s = new ClickScheduler(ctx, { lookahead: 1, intervalMs: 1000 })
+    const { dest } = fakeDest(0)
+    const s = new ClickScheduler(dest, { lookahead: 1, intervalMs: 1000 })
     s.add([
       click(0.1, 'bar', false),
       click(0.2, 'beat', true),
@@ -76,8 +76,8 @@ describe('ClickScheduler', () => {
   })
 
   it('dropAfter never cuts below the margin already committed on the audio clock (now + lookahead + intervalMs), and returns the effective cut', () => {
-    const { ctx, set } = fakeCtx(10)
-    const s = new ClickScheduler(ctx, { lookahead: 0.1, intervalMs: 25 })
+    const { dest, set } = fakeDest(10)
+    const s = new ClickScheduler(dest, { lookahead: 0.1, intervalMs: 25 })
     s.add([click(10.05), click(10.1), click(10.2), click(20)])
     // safety margin = 10 + 0.1 + 0.025 = 10.125: the requested cut (10.06) falls below it,
     // so the effective cut moves to 10.125 (not 10.06) and 10.1 survives.
@@ -90,8 +90,8 @@ describe('ClickScheduler', () => {
   })
 
   it('dropAfter without clamp (cut already past the margin) returns exactly the requested cut', () => {
-    const { ctx, set } = fakeCtx(10)
-    const s = new ClickScheduler(ctx, { lookahead: 0.1, intervalMs: 25 })
+    const { dest, set } = fakeDest(10)
+    const s = new ClickScheduler(dest, { lookahead: 0.1, intervalMs: 25 })
     s.add([click(10.05), click(10.1), click(15), click(20)])
     // safety margin = 10.125: the requested cut (15) is already past it, no clamp.
     const actual = s.dropAfter(15)

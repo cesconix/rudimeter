@@ -26,7 +26,7 @@ export function CalibrationScreen({ engine, existing, onDone }: Props) {
     setR2(null)
     setDetail('')
     try {
-      const lat = await runLatencyCalibration(engine.ctx, engine.capture)
+      const lat = await runLatencyCalibration(engine)
       if (lat.latencyMs === null) {
         setStep('failed')
         setDetail(
@@ -36,7 +36,7 @@ export function CalibrationScreen({ engine, existing, onDone }: Props) {
       }
       setLatencyMs(lat.latencyMs)
       setStep('ramp')
-      const ramp = await runRampCalibration(engine.ctx, engine.capture, DEFAULT_THRESHOLDS)
+      const ramp = await runRampCalibration(engine, DEFAULT_THRESHOLDS)
       const s = ramp.fit?.slope ?? null
       setSlope(s)
       setR2(ramp.fit?.r2 ?? null)

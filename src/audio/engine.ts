@@ -4,12 +4,16 @@ import { createAudioContext, ensureRunning } from './context'
 export interface Engine {
   ctx: AudioContext
   capture: Capture
+  /** Every sound goes here, never to `ctx.destination`: one bus the synthetic input can tap. */
+  out: AudioNode
 }
 
 /** To be called inside a user gesture. Opens the context and the microphone. */
 export async function createEngine(): Promise<Engine> {
   const ctx = createAudioContext()
   await ensureRunning(ctx)
+  const out = ctx.createGain()
+  out.connect(ctx.destination)
   const capture = new Capture(ctx, `${import.meta.env.BASE_URL}worklets/onset-processor.js`)
   try {
     await capture.start(DEFAULT_THRESHOLDS)
@@ -21,7 +25,7 @@ export async function createEngine(): Promise<Engine> {
     }
     throw err
   }
-  return { ctx, capture }
+  return { ctx, capture, out }
 }
 
 export function describeMicError(err: unknown): string {

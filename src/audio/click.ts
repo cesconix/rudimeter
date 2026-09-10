@@ -1,4 +1,5 @@
 import type { MetronomeKind } from '../engine/grid'
+import { noiseBuffer } from './noise'
 
 export interface ClickOptions {
   freq?: number
@@ -13,9 +14,10 @@ export function clickOptionsFor(kind: MetronomeKind): ClickOptions {
   return { freq: 1000, gain: 0.5 }
 }
 
-/** Short sine with a short envelope, scheduled in the context clock. */
-export function scheduleClick(ctx: AudioContext, time: number, opts: ClickOptions = {}): void {
+/** Short sine with a short envelope, scheduled in the clock of the context `dest` belongs to. */
+export function scheduleClick(dest: AudioNode, time: number, opts: ClickOptions = {}): void {
   const { freq = 1000, gain = 0.5, dur = 0.005 } = opts
+  const ctx = dest.context
   const osc = ctx.createOscillator()
   const g = ctx.createGain()
   osc.frequency.value = freq
@@ -23,27 +25,9 @@ export function scheduleClick(ctx: AudioContext, time: number, opts: ClickOption
   g.gain.linearRampToValueAtTime(gain, time + 0.0005)
   g.gain.setValueAtTime(gain, time + dur)
   g.gain.linearRampToValueAtTime(0, time + dur + 0.003)
-  osc.connect(g).connect(ctx.destination)
+  osc.connect(g).connect(dest)
   osc.start(time)
   osc.stop(time + dur + 0.01)
-}
-
-/** Duration of the cached noise: longer than the longest stroke, so the envelope does not run out of material. */
-const NOISE_SEC = 0.08
-// One buffer per context, not one per stroke: at fast sixteenths that would be dozens of allocations
-// per second inside the lookahead window, that is jitter exactly where precision is needed. `WeakMap` and not
-// a variable: the context closes and reopens (microphone permission, iOS resume) and a buffer
-// tied to the old context would not sound.
-const noiseByCtx = new WeakMap<AudioContext, AudioBuffer>()
-
-function noiseBuffer(ctx: AudioContext): AudioBuffer {
-  const cached = noiseByCtx.get(ctx)
-  if (cached) return cached
-  const buf = ctx.createBuffer(1, Math.max(1, Math.ceil(NOISE_SEC * ctx.sampleRate)), ctx.sampleRate)
-  const data = buf.getChannelData(0)
-  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
-  noiseByCtx.set(ctx, buf)
-  return buf
 }
 
 /**
@@ -52,7 +36,8 @@ function noiseBuffer(ctx: AudioContext): AudioBuffer {
  * confused: the filtered noise reads as "stroke", the click as "time". The accent is
  * louder AND brighter — only louder, at practice volume, is not audible enough.
  */
-export function scheduleGuide(ctx: AudioContext, time: number, accent: boolean): void {
+export function scheduleGuide(dest: AudioNode, time: number, accent: boolean): void {
+  const ctx = dest.context
   const src = ctx.createBufferSource()
   src.buffer = noiseBuffer(ctx)
   const band = ctx.createBiquadFilter()
@@ -68,7 +53,7 @@ export function scheduleGuide(ctx: AudioContext, time: number, accent: boolean):
   // aim at zero — `exponentialRampToValueAtTime` with 0 is an error — so it goes down to an
   // inaudible value and the source is stopped right after.
   g.gain.exponentialRampToValueAtTime(0.0001, time + decay)
-  src.connect(band).connect(g).connect(ctx.destination)
+  src.connect(band).connect(g).connect(dest)
   src.start(time)
   src.stop(time + decay + 0.01)
 }

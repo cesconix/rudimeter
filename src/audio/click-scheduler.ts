@@ -7,14 +7,14 @@ export interface ClickSchedulerOptions {
   intervalMs?: number
 }
 
-/** Schedules the clicks with lookahead on the audio clock. Accepts additions and cuts while running (auto-increment). */
+/** Schedules the clicks with lookahead on the audio clock, playing them into `dest`. Accepts additions and cuts while running (auto-increment). */
 export class ClickScheduler {
   private timer: number | null = null
   private running = false
   private queue = new ClickQueue<Click>()
 
   constructor(
-    private ctx: AudioContext,
+    private dest: AudioNode,
     private opts: ClickSchedulerOptions = {},
   ) {}
 
@@ -38,7 +38,7 @@ export class ClickScheduler {
    */
   dropAfter(t: number): number {
     const { lookahead = 0.1, intervalMs = 25 } = this.opts
-    const safe = Math.max(t, this.ctx.currentTime + lookahead + intervalMs / 1000)
+    const safe = Math.max(t, this.dest.context.currentTime + lookahead + intervalMs / 1000)
     this.queue.dropAfter(safe)
     return safe
   }
@@ -52,11 +52,11 @@ export class ClickScheduler {
     if (this.timer !== null) return
     const { lookahead = 0.1, intervalMs = 25 } = this.opts
     const tick = () => {
-      for (const c of this.queue.due(this.ctx.currentTime, lookahead)) {
+      for (const c of this.queue.due(this.dest.context.currentTime, lookahead)) {
         if (c.silent) continue
         // Same queue, same lookahead, same cut at the auto-increment: only the timbre changes.
-        if (isGuide(c.kind)) scheduleGuide(this.ctx, c.t, c.kind === 'note-accent')
-        else scheduleClick(this.ctx, c.t, clickOptionsFor(c.kind))
+        if (isGuide(c.kind)) scheduleGuide(this.dest, c.t, c.kind === 'note-accent')
+        else scheduleClick(this.dest, c.t, clickOptionsFor(c.kind))
       }
       if (this.queue.pending === 0 && this.timer !== null) {
         clearInterval(this.timer)

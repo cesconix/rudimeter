@@ -36,7 +36,7 @@ export function SessionScreen({ engine, exercise, bpm, options, calibration, onD
       {
         now: () => engine.ctx.currentTime,
         scheduleClicks: (clicks) => {
-          const s = new ClickScheduler(engine.ctx)
+          const s = new ClickScheduler(engine.out)
           s.add(clicks)
           s.start()
           return s
