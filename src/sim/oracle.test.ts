@@ -43,4 +43,17 @@ describe('runOracle', () => {
     const s = runOracle({ exercise: stone1, bpm: 120, preset: 'human', seed: 42 })
     expect(toMarkdown(s, stone1, 120, new Date(2026, 0, 1), null)).toMatchSnapshot()
   })
+
+  it('sloppy drummer: the judge absorbs some extras into the slots they cover', () => {
+    const s = runOracle({ exercise: stone1, bpm: 120, preset: 'sloppy', seed: 3 })
+    // The planner draws 15 misses and 8 extras for this seed; two extras land close enough to a
+    // missed slot to be taken for it, so the report shows 13 and 6. This is the only test that walks
+    // an extra from the plan to the `extra` column.
+    expect(s.miss).toBe(13)
+    expect(s.extras).toBe(6)
+  })
+
+  it('rejects a non-positive or NaN bpm instead of hanging', () => {
+    expect(() => runOracle({ exercise: stone1, bpm: Number.NaN, preset: 'steady', seed: 1 })).toThrow('bpm')
+  })
 })

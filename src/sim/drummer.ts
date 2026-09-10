@@ -1,5 +1,5 @@
 import type { Grid } from '../engine/grid'
-import { ClickQueue } from '../engine/scheduler'
+import { ClickQueue, SCHEDULER_DEFAULTS } from '../engine/scheduler'
 import { type PlayerModel, planStrokes, type Stroke } from './player'
 import { scheduleStroke } from './stroke'
 
@@ -20,13 +20,18 @@ export class Drummer {
   // Global timer, not window.setInterval: the drummer also runs under bun test, where there is no window.
   private timer: ReturnType<typeof setInterval> | null = null
   private grid: Grid | null = null
+  private readonly lookahead: number
+  private readonly intervalMs: number
 
   constructor(
     private dest: AudioNode,
     private model: PlayerModel,
     private seed: number,
-    private opts: DrummerOptions = {},
-  ) {}
+    opts: DrummerOptions = {},
+  ) {
+    this.lookahead = opts.lookahead ?? SCHEDULER_DEFAULTS.lookahead
+    this.intervalMs = opts.intervalMs ?? SCHEDULER_DEFAULTS.intervalMs
+  }
 
   follow(state: { grid: Grid }): void {
     if (state.grid === this.grid) return
@@ -34,8 +39,7 @@ export class Drummer {
     this.grid = state.grid
     let strokes = planStrokes(state.grid.slots, this.model, this.seed)
     if (replan) {
-      const { lookahead = 0.1, intervalMs = 25 } = this.opts
-      const cut = this.dest.context.currentTime + lookahead + intervalMs / 1000
+      const cut = this.dest.context.currentTime + this.lookahead + this.intervalMs / 1000
       this.queue.dropAfter(cut)
       strokes = strokes.filter((s) => s.t >= cut)
     }
@@ -45,9 +49,8 @@ export class Drummer {
 
   private arm(): void {
     if (this.timer !== null) return
-    const { lookahead = 0.1, intervalMs = 25 } = this.opts
     const tick = () => {
-      for (const s of this.queue.due(this.dest.context.currentTime, lookahead)) {
+      for (const s of this.queue.due(this.dest.context.currentTime, this.lookahead)) {
         scheduleStroke(this.dest, s.t, s.peakDb)
       }
       if (this.queue.pending === 0 && this.timer !== null) {
@@ -56,7 +59,7 @@ export class Drummer {
       }
     }
     tick()
-    if (this.queue.pending > 0) this.timer = setInterval(tick, intervalMs)
+    if (this.queue.pending > 0) this.timer = setInterval(tick, this.intervalMs)
   }
 
   stop(): void {

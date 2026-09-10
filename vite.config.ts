@@ -5,7 +5,7 @@ import { defineConfig } from 'vite'
 // basicSsl: HTTPS with a self-signed certificate. getUserMedia requires a secure context and the
 // iPad reaches the Mac over its LAN IP, not localhost.
 // The site is served from the root of rudimeter.com, so the default base ('/') is correct
-// everywhere: dev, preview and Pages behind the custom domain.
+// everywhere: dev, preview and the Vercel deployment all serve from '/'.
 export default defineConfig({
   plugins: [react(), basicSsl()],
   server: { host: true, port: 5173 },

@@ -1,5 +1,5 @@
 import { type Click, isGuide } from '../engine/grid'
-import { ClickQueue } from '../engine/scheduler'
+import { ClickQueue, SCHEDULER_DEFAULTS } from '../engine/scheduler'
 import { clickOptionsFor, scheduleClick, scheduleGuide } from './click'
 
 export interface ClickSchedulerOptions {
@@ -37,7 +37,7 @@ export class ClickScheduler {
    * removed — an audible double click at the same instant.
    */
   dropAfter(t: number): number {
-    const { lookahead = 0.1, intervalMs = 25 } = this.opts
+    const { lookahead = SCHEDULER_DEFAULTS.lookahead, intervalMs = SCHEDULER_DEFAULTS.intervalMs } = this.opts
     const safe = Math.max(t, this.dest.context.currentTime + lookahead + intervalMs / 1000)
     this.queue.dropAfter(safe)
     return safe
@@ -50,7 +50,7 @@ export class ClickScheduler {
 
   private arm(): void {
     if (this.timer !== null) return
-    const { lookahead = 0.1, intervalMs = 25 } = this.opts
+    const { lookahead = SCHEDULER_DEFAULTS.lookahead, intervalMs = SCHEDULER_DEFAULTS.intervalMs } = this.opts
     const tick = () => {
       for (const c of this.queue.due(this.dest.context.currentTime, lookahead)) {
         if (c.silent) continue

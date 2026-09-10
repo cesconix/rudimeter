@@ -25,6 +25,9 @@ const STEP = 0.01
  * put them. The drummer is mirrored inline: a new grid object cuts the future and plans it again.
  */
 export function runOracle(cfg: OracleConfig): SessionStats {
+  // A NaN or non-positive bpm gives the grid a NaN end and the loop below never reaches `done`.
+  if (!Number.isFinite(cfg.bpm) || cfg.bpm <= 0)
+    throw new Error(`runOracle: bpm must be a positive number, got ${cfg.bpm}`)
   let now = 0
   let listener: ((h: Hit) => void) | null = null
   const deps: RunnerDeps = {
@@ -63,6 +66,9 @@ export function runOracle(cfg: OracleConfig): SessionStats {
   runner.subscribe((s) => {
     if (s.grid === grid) return
     grid = s.grid
+    // Cut at `now`, where the browser's Drummer cuts at `now + lookahead + intervalMs`: they agree because
+    // a replan only moves repeats that start a full repeat (≥ 0.4 s at any reachable tempo) past the
+    // browser's 125 ms horizon, and the repeats it keeps yield the same strokes in both plans.
     queue.dropAfter(now)
     queue.add(planStrokes(s.grid.slots, model, cfg.seed).filter((st) => st.t >= now))
   })

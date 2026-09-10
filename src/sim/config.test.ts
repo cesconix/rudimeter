@@ -27,5 +27,7 @@ describe('parseSynthConfig', () => {
       headphones: false,
     })
     expect(parseSynthConfig('?synth=1&player=nope')?.preset).toBe('human')
+    // `in` would match a prototype key and hand a function to PLAYER_PRESETS[preset]; Object.hasOwn does not.
+    expect(parseSynthConfig('?synth=1&player=toString')?.preset).toBe('human')
   })
 })

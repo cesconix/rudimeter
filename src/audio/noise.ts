@@ -7,7 +7,7 @@ const NOISE_SEC = 0.08
 // tied to the old context would not sound.
 const noiseByCtx = new WeakMap<BaseAudioContext, AudioBuffer>()
 
-/** White noise, cached per context. Shared by the guide sound and the synthetic strokes. */
+/** White noise for the guide sound; the synthetic strokes use their own seeded waveform, see `src/sim/stroke.ts`. */
 export function noiseBuffer(ctx: BaseAudioContext): AudioBuffer {
   const cached = noiseByCtx.get(ctx)
   if (cached) return cached

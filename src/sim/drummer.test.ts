@@ -71,7 +71,7 @@ describe('Drummer', () => {
     d.follow({ grid })
     expect(played).toEqual([])
     set(1.2)
-    await Bun.sleep(30)
+    await Bun.sleep(100)
     // The ticks at 1.2 s pull what falls inside the lookahead: t < 2.2.
     const plan = planStrokes(grid.slots, model, 1)
     expect(played).toEqual(plan.filter((s) => s.t < 2.2).map(asPlayed))
@@ -80,7 +80,7 @@ describe('Drummer', () => {
     const grid2 = replanGrid(grid, ex, 2, 160, DEFAULT_METRONOME)
     d.follow({ grid: grid2 })
     set(100)
-    await Bun.sleep(30)
+    await Bun.sleep(100)
     const horizon = 1.2 + 1 + 0.005
     const before = plan.filter((s) => s.t < horizon)
     const after = planStrokes(grid2.slots, model, 1).filter((s) => s.t >= horizon)

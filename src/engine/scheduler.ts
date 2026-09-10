@@ -1,3 +1,8 @@
+/** Lookahead (s) and tick interval (ms) the audio-clock schedulers share. The replan cut in the Drummer and in
+ * the ClickScheduler must be computed from the same numbers, or a stroke can survive at the old tempo while
+ * its click moves. */
+export const SCHEDULER_DEFAULTS = { lookahead: 0.1, intervalMs: 25 } as const
+
 /** Indices of `times` to schedule now: those in [from, …) with time < now + lookahead. */
 export function dueIndices(
   times: number[],
