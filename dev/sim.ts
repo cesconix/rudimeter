@@ -1,7 +1,9 @@
 // Prints the report the browser must produce for the same seed:
 //   bun run sim --seed 42 --preset human --exercise stone-1 --bpm 120 [--auto]
 // Compare with the summary of https://localhost:5173/?synth=42&player=human after the same exercise at the
-// same tempo: counts must match exactly, ms and dB within ±0.5. The `Calibration:` line differs by design.
+// same tempo: miss and extra counts exact, ms and dB within ±0.5; a stroke on a judge boundary may land one
+// class away, and the first session after a page load may lose a stroke to the first render — compare a
+// repeat. The `Calibration:` line differs by design.
 import { EXERCISES } from '../src/data/exercises'
 import { DEFAULT_AUTO_INCREMENT } from '../src/engine/progression'
 import { toMarkdown } from '../src/engine/report'

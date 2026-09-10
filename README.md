@@ -68,7 +68,7 @@ HTTPS is mandatory: `getUserMedia` needs a secure context, and the iPad reaches 
 
 Notation gallery: with the dev server running, open `/dev/gallery.html`.
 
-Synthetic input (no microphone, no sound): open `/?synth=42&player=human`. A virtual drummer plays the exercise through a simulated 35 ms speaker → microphone path, seeded so the run is reproducible; `&player=steady|human|sloppy` picks the drummer, `&headphones=off` lets the click reach the input as it does with no headphones on. `bun run sim --seed 42 --preset human --exercise stone-1 --bpm 120` prints the report that run must produce: counts exact, ms and dB within ±0.5 (the `Calibration:` line differs by design).
+Synthetic input (no microphone, no sound): open `/?synth=42&player=human`. A virtual drummer plays the exercise through a simulated 35 ms speaker → microphone path, seeded so the run is reproducible; `&player=steady|human|sloppy` picks the drummer. `&headphones=off` feeds the app's own click and guide back into the input at full level: a stress case for the detector, not a room — with the guide on it drowns the strokes. `bun run sim --seed 42 --preset human --exercise stone-1 --bpm 120` prints the report that run must produce: miss and extra counts exact, ms and dB within ±0.5. A stroke sitting on a judge boundary may still land one class away (the detector sees it a few hundredths of a millisecond off the oracle), and the first session after a page load may lose a stroke or two to the first render of the score: compare a repeat. The `Calibration:` line differs by design.
 
 ## Deploy
 

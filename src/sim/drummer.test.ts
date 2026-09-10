@@ -17,9 +17,9 @@ mock.module('./stroke', () => ({
 
 const { Drummer } = await import('./drummer')
 
-// Module mocks are process-global: hand the real function back for whoever loads `./stroke` next.
+// Module mocks are process-global: hand the whole real namespace back for whoever loads `./stroke` next.
 afterAll(() => {
-  mock.module('./stroke', () => ({ scheduleStroke: real.scheduleStroke }))
+  mock.module('./stroke', () => ({ ...real }))
 })
 
 /** Fake output node: only `context.currentTime`, mutable to simulate time passing. */

@@ -13,7 +13,7 @@
 - Everything in the repo is English. UI copy lives in the component that shows it.
 - Timing lives on the `AudioContext` clock. The cursor uses the audible clock (`src/audio/clock.ts`). Never mix `Date.now()` in.
 - Anything visible is verified in a real browser before it is called done. The target is iPad Safari.
-- `src/sim` stands in for the microphone and the drummer, never for the judge: it feeds the worklet like a microphone would and reads the runner like the screen does. A synthetic run must produce the numbers `bun run sim` predicts for the same seed.
+- `src/sim` stands in for the microphone and the drummer, never for the judge: it feeds the worklet like a microphone would and reads the runner like the screen does. A synthetic run must produce the numbers `bun run sim` predicts for the same seed, within the tolerances the README states.
 
 ## Commits
 
