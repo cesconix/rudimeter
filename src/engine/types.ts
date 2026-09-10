@@ -1,6 +1,6 @@
 export type Hand = 'R' | 'L'
 
-/** flam = 1 grace note, drag = 2, buzz = unmeasured roll, tremolo = measured roll (one beam = doubles) */
+/** flam = 1 grace note, drag = 2, buzz = unmeasured roll, tremolo = measured roll (one slash = doubles) */
 export type Ornament = 'flam' | 'drag' | 'buzz' | 'tremolo'
 
 /** One sticking step. hand null = rest. */

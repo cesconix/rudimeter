@@ -59,7 +59,7 @@ const GALLERY_RESTS = parseExercise({
   repeats: 1,
 })
 
-/** flam (1 grace note, slash), drag (2 beamed grace notes), buzz (glyph on the stem), tremolo (1 bar on the stem). */
+/** flam (1 grace note, slash), drag (2 beamed grace notes), buzz (glyph on the stem), tremolo (1 slash on the stem). */
 const GALLERY_ORNAMENTS = parseExercise({
   id: 'gallery-ornaments',
   name: 'ornaments',

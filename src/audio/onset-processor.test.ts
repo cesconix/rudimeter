@@ -10,7 +10,7 @@ interface Msg {
   bg?: number
 }
 
-/** Instantiates the worklet in Node with the stubs of the AudioWorklet global scope. */
+/** Instantiates the worklet under bun test with the stubs of the AudioWorklet global scope. */
 function loadProcessor(): { proc: { process(inputs: Float32Array[][]): boolean }; out: Msg[] } {
   const out: Msg[] = []
   const g = globalThis as Record<string, unknown>

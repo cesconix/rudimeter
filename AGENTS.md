@@ -7,7 +7,7 @@
 ## Invariants
 
 - `src/engine` never imports the DOM, React, VexFlow or Web Audio. It must keep running under `bun test` with no DOM.
-- Imports flow one way: `engine` ← `audio` | `notation` | `session` ← `ui`. Nothing outside `src/ui` imports from it.
+- Imports flow one way: `engine` ← `audio` | `notation` | `session` ← `ui`. Nothing outside `src/ui` imports from it (the entry point `src/main.tsx` excepted).
 - Every value export has an importer; knip enforces it. Tests count as importers.
 - Comments explain *why*, not *what*, and keep measured numbers with their units. Do not delete a comment you did not understand.
 - Everything in the repo is English. UI copy lives in the component that shows it.
