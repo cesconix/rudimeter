@@ -5,6 +5,17 @@ class RecorderProcessor extends AudioWorkletProcessor {
     super()
     this.buf = new Float32Array(4096)
     this.n = 0
+    // `record()` posts 'flush' once its capture window elapses. Without this, the up-to-4096 samples
+    // (85 ms at 48 kHz) sitting in `buf` since the last full batch would never be posted and the tail
+    // of every recording would be silently dropped.
+    this.port.onmessage = (e) => {
+      if (e.data !== 'flush') return
+      if (this.n > 0) {
+        this.port.postMessage(this.buf.slice(0, this.n))
+        this.n = 0
+      }
+      this.port.postMessage('end')
+    }
   }
 
   process(inputs) {
