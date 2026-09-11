@@ -1,12 +1,14 @@
 import basicSsl from '@vitejs/plugin-basic-ssl'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
+import { remotePlugin } from './dev/remote/plugin'
 
 // basicSsl: HTTPS with a self-signed certificate. getUserMedia requires a secure context and the
 // iPad reaches the Mac over its LAN IP, not localhost.
 // The site is served from the root of rudimeter.com, so the default base ('/') is correct
 // everywhere: dev, preview and the Vercel deployment all serve from '/'.
+// remotePlugin: `/__remote/*`, dev server only (see dev/remote/plugin.ts).
 export default defineConfig({
-  plugins: [react(), basicSsl()],
+  plugins: [react(), basicSsl(), remotePlugin()],
   server: { host: true, port: 5173 },
 })

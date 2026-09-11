@@ -2,6 +2,6 @@
 [run]
 bun = true
 
-# Only src/ holds tests; dev/ is a browser-only gallery.
+# src/ and dev/remote/ hold tests; the rest of dev/ is a browser-only gallery with none.
 [test]
-root = "src"
+root = "."

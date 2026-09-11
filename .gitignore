@@ -4,3 +4,4 @@ dist
 *.local
 docs/plans/
 .superpowers/
+.remote/
