@@ -35,7 +35,15 @@ export async function runScenario(scenario: Scenario, to: string | null): Promis
   if (!device) throw new Error(`pass --to: ${devices.map((d) => d.name).join(', ') || 'no device connected'}`)
   await mkdir('.remote', { recursive: true })
   const file = `.remote/scenario-${scenario.name}-${new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '')}.md`
-  const write = (s: string) => appendFile(file, `${s}\n`)
+  // appendFile calls from one process are not ordered by the fs: two in-flight appends to the same path
+  // can land in either order. The report is read by a human, so call order is the content — chain every
+  // write through one pending promise instead of firing them independently, so `void write(s)` stays
+  // fire-and-forget for callers while the appends still land in call order.
+  let chain: Promise<unknown> = Promise.resolve()
+  const write = (s: string) => {
+    chain = chain.then(() => appendFile(file, `${s}\n`))
+    return chain
+  }
   await write(`# ${scenario.name} · ${device.name} · ${new Date().toISOString()}\n`)
   const report: Report = {
     line: (s) => {
@@ -73,7 +81,16 @@ export async function runScenario(scenario: Scenario, to: string | null): Promis
     },
     sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
   }
-  await scenario.run(api, report)
-  report.line(`\nDone: ${file}`)
+  try {
+    await scenario.run(api, report)
+    report.line(`\nDone: ${file}`)
+  } catch (err) {
+    // A mid-run failure (a `cmd:error` line, a timeout, a dropped connection) must not leave the report
+    // silently truncated: say why, wait for that line to land, then rethrow so the exit code stays non-zero.
+    report.line(`\nError: ${(err as Error).message}`)
+    await chain
+    throw err
+  }
+  await chain
   return file
 }
