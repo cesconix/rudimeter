@@ -119,15 +119,31 @@ export function remotePlugin(): Plugin {
             return
           }
           if (req.method === 'POST' && url.pathname === '/log') {
-            const text = (await readBody(req)).toString('utf8')
-            const out: string[] = []
-            for (const raw of text.split('\n')) {
-              if (!raw.trim()) continue
-              const parsed = JSON.parse(raw) as Record<string, unknown>
-              const event = typeof parsed.event === 'string' ? parsed.event : 'unknown'
-              out.push(remember(device, event, parsed).raw)
-              if (event !== 'hit' && event !== 'output') info(`${device} ${event}`)
+            const rawLines = (await readBody(req))
+              .toString('utf8')
+              .split('\n')
+              .filter((raw) => raw.trim())
+            // Parse the whole batch before remembering any line: `remember()` advances `seq` and can
+            // wake a `/wait` waiter, but the batch is only written to disk once, at the end. A line
+            // that fails to parse must abort before any earlier line in the same batch gets a `seq`
+            // or a waiter that the on-disk file will never actually contain.
+            const parsed: { event: string; fields: Record<string, unknown> }[] = []
+            for (const [i, raw] of rawLines.entries()) {
+              let fields: Record<string, unknown>
+              try {
+                fields = JSON.parse(raw) as Record<string, unknown>
+              } catch (err) {
+                json(res, 400, { error: `malformed JSON on line ${i + 1}: ${(err as Error).message}` })
+                return
+              }
+              const event = typeof fields.event === 'string' ? fields.event : 'unknown'
+              parsed.push({ event, fields })
             }
+            const out = parsed.map(({ event, fields }) => {
+              const line = remember(device, event, fields)
+              if (event !== 'hit' && event !== 'output') info(`${device} ${event}`)
+              return line.raw
+            })
             await appendFile(join(root, `${device}.ndjson`), `${out.join('\n')}\n`)
             json(res, 200, { ok: true, seq: seqs.get(device) ?? 0 })
             return
