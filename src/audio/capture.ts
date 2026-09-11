@@ -96,6 +96,17 @@ export class Capture {
     this.node?.port.postMessage({ floor: 10 ** (t.floorDb / 20), ratio: t.ratio })
   }
 
+  /**
+   * Feeds `node` with the same signal the worklet gets: the raw microphone, or the injected input.
+   * For recordings that must show what the detector sees, before any analysis filter. Returns the disconnect.
+   */
+  tap(node: AudioNode): () => void {
+    this.source?.connect(node)
+    return () => {
+      this.source?.disconnect(node)
+    }
+  }
+
   onHit(l: (hit: Hit) => void): () => void {
     this.hitListeners.add(l)
     return () => {
