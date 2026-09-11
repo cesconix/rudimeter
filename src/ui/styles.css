@@ -191,3 +191,15 @@ select {
   color: #000;
   z-index: 10;
 }
+/* The remote `say` command: an instruction shouted at whoever is holding the device, over whatever
+   screen is up. Centred in the upper fifth, clear of the hands and of the pad below. */
+.notice {
+  position: fixed;
+  inset: 20% 1rem auto;
+  text-align: center;
+  font-size: 2.5rem;
+  background: #ffe;
+  border: 2px solid #cc0;
+  padding: 1rem;
+  z-index: 10;
+}

@@ -1,27 +1,40 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { runLatencyCalibration, runRampCalibration } from '../audio/calibration'
 import { DEFAULT_THRESHOLDS } from '../audio/capture'
 import type { Engine } from '../audio/engine'
 import type { CalibrationData } from '../audio/storage'
-import { dynamicsVerdict, type RampFit, rampCoherent } from '../engine/calibration'
+import { dynamicsVerdict, type RampFit, type RampPoint, rampCoherent } from '../engine/calibration'
 import type { SynthRun } from '../sim/graph'
+
+export interface CalibrationMeasure {
+  latencyMs: number | null
+  offsetsMs: number[]
+  points?: RampPoint[]
+  fit?: RampFit | null
+}
 
 interface Props {
   engine: Engine
   synth: SynthRun | null
   existing: CalibrationData | null
   onDone(data: CalibrationData): void
+  /** Bumped by the remote `calibrate` command: runs the calibration as if Calibrate had been pressed. */
+  runSignal?: number
+  /** Every measurement, good or bad, for the remote log. */
+  onMeasured?(m: CalibrationMeasure): void
 }
 
 type Step = 'idle' | 'latency' | 'ramp' | 'done' | 'failed'
 
-export function CalibrationScreen({ engine, synth, existing, onDone }: Props) {
+export function CalibrationScreen({ engine, synth, existing, onDone, runSignal, onMeasured }: Props) {
   const [step, setStep] = useState<Step>('idle')
   const [latencyMs, setLatencyMs] = useState<number | null>(null)
   const [fit, setFit] = useState<RampFit | null>(null)
   const [detail, setDetail] = useState('')
 
-  async function run() {
+  // Returns what `finish()` would save, or null when there is nothing to save: the remote signal
+  // below needs the data right away, because it continues on its own instead of waiting for Continue.
+  async function run(): Promise<CalibrationData | null> {
     setStep('latency')
     setFit(null)
     setDetail('')
@@ -32,7 +45,8 @@ export function CalibrationScreen({ engine, synth, existing, onDone }: Props) {
         setDetail(
           `The microphone heard ${lat.offsetsMs.length} clicks out of 8. Almost always this means headphones are connected: with headphones on, the speaker is silent. Take them off, turn the volume up and try again.`,
         )
-        return
+        onMeasured?.({ latencyMs: null, offsetsMs: lat.offsetsMs })
+        return null
       }
       setLatencyMs(lat.latencyMs)
       setStep('ramp')
@@ -46,12 +60,43 @@ export function CalibrationScreen({ engine, synth, existing, onDone }: Props) {
           : `Ramp: ${n}/12 clicks, slope ${f.slope.toFixed(2)}, r² ${f.r2.toFixed(3)} → dynamics ${dynamicsVerdict(f)}.`,
       )
       setStep('done')
+      onMeasured?.({ latencyMs: lat.latencyMs, offsetsMs: lat.offsetsMs, points: ramp.points, fit: f })
+      // The same rule as `finish()`: a ramp that does not hold together saves no slope.
+      return {
+        latencyMs: lat.latencyMs,
+        slope: f !== null && rampCoherent(f) ? f.slope : null,
+        deviceLabel: engine.capture.info?.deviceLabel ?? '',
+        savedAt: new Date().toISOString(),
+      }
     } catch (err) {
       const msg = (err as { message?: string })?.message
       setStep('failed')
       setDetail(msg ? `Error during calibration: ${msg}. Try again.` : 'Error during calibration. Try again.')
+      return null
     }
   }
+
+  // The remote command arrives outside React's event flow: the latest `run` and `onDone` are read through
+  // refs, so the effect depends on the signal alone and never re-runs a calibration because a render
+  // changed a closure. The operator asked for a calibration, not for a screen to look at: on success it
+  // continues by itself, exactly what Continue would do.
+  const runRef = useRef(run)
+  runRef.current = run
+  const onDoneRef = useRef(onDone)
+  onDoneRef.current = onDone
+  // The signal already served. StrictMode runs a mount effect twice in dev, and dev is the only place
+  // the remote channel exists: when `calibrate` arrives while another screen is up, this one mounts
+  // with the signal already bumped and both passes fire. Measured: two overlapping runs, 16 clicks on
+  // the same 8 instants, so the microphone hears them at double level and the ramp slope is measured
+  // on a signal nobody played.
+  const ranSignal = useRef(0)
+  useEffect(() => {
+    if (!runSignal || ranSignal.current === runSignal) return
+    ranSignal.current = runSignal
+    runRef.current().then((data) => {
+      if (data) onDoneRef.current(data)
+    })
+  }, [runSignal])
 
   // A ramp that does not hold together leaves the timing alone: the latency comes from 8 clicks at one
   // level, so the session can still run, only without the dynamics correction.

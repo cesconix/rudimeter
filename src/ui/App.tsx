@@ -1,4 +1,6 @@
-import { type ReactElement, useCallback, useEffect, useMemo, useState } from 'react'
+import { type ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { DEFAULT_THRESHOLDS } from '../audio/capture'
+import { audibleTime } from '../audio/clock'
 import { createEngine, describeMicError, type Engine } from '../audio/engine'
 import {
   type CalibrationData,
@@ -7,6 +9,10 @@ import {
   memoryStore,
   saveCalibration,
 } from '../audio/storage'
+import { EXERCISES } from '../data/exercises'
+import type { Remote } from '../dev/remote'
+import { remoteNameFrom } from '../dev/remote-name'
+import { DEFAULT_AUTO_INCREMENT } from '../engine/progression'
 import type { SessionStats } from '../engine/stats'
 import type { Exercise } from '../engine/types'
 import { parseSynthConfig } from '../sim/config'
@@ -38,6 +44,38 @@ export function App() {
   const [stats, setStats] = useState<SessionStats | null>(null)
   const [suspended, setSuspended] = useState(false)
 
+  // `?remote[=name]`, dev server only: the page logs what it does and takes commands from `bun run remote`
+  // (see dev/remote/plugin.ts). The client is loaded on demand so that none of it is in the production bundle.
+  const remoteName = useMemo(
+    () =>
+      import.meta.env.DEV
+        ? remoteNameFrom(window.location.search, navigator.userAgent, 'ontouchend' in document)
+        : null,
+    [],
+  )
+  const [remote, setRemote] = useState<Remote | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [calibrateSignal, setCalibrateSignal] = useState(0)
+  const sessionControls = useRef<{ stop(): void } | null>(null)
+  useEffect(() => {
+    if (!remoteName) return
+    let r: Remote | null = null
+    let cancelled = false
+    import('../dev/remote').then((m) => {
+      if (cancelled) return
+      r = m.connectRemote(remoteName, navigator.userAgent)
+      m.registerBasics(r, (text, seconds) => {
+        setNotice(text)
+        window.setTimeout(() => setNotice((n) => (n === text ? null : n)), seconds * 1000)
+      })
+      setRemote(r)
+    })
+    return () => {
+      cancelled = true
+      r?.close()
+    }
+  }, [remoteName])
+
   // iOS suspends the context after lock/background: show the banner and resume on tap.
   useEffect(() => {
     if (!engine) return
@@ -50,7 +88,51 @@ export function App() {
     }
   }, [engine])
 
-  async function start() {
+  // What the remote operator cannot see from the Mac: which input the page really opened, how far the
+  // audible clock trails the scheduling one, and every onset the detector fires.
+  useEffect(() => {
+    if (!remote || !engine) return
+    const ctx = engine.ctx
+    remote.log('engine', {
+      deviceLabel: engine.capture.info?.deviceLabel ?? '',
+      settings: engine.capture.info?.settings ?? {},
+      sampleRate: ctx.sampleRate,
+      baseLatencyMs: typeof ctx.baseLatency === 'number' ? ctx.baseLatency * 1000 : null,
+      outputLatencyMs: typeof ctx.outputLatency === 'number' ? ctx.outputLatency * 1000 : null,
+      floorDb: DEFAULT_THRESHOLDS.floorDb,
+      synth: synth ?? null,
+    })
+    let bgDb = -120
+    const offMeter = engine.capture.onMeter((m) => {
+      bgDb = m.bgDb
+    })
+    const offHit = engine.capture.onHit((h) => remote.log('hit', { t: h.t, peakDb: h.peakDb }))
+    // One line a second: enough to see the output latency drift or the context fall asleep, few enough
+    // that a 10-minute session stays readable.
+    const timer = window.setInterval(
+      () =>
+        remote.log('output', {
+          ctxTime: ctx.currentTime,
+          outputMs: (ctx.currentTime - audibleTime(ctx)) * 1000,
+          bgDb,
+          state: ctx.state,
+        }),
+      1000,
+    )
+    return () => {
+      offMeter()
+      offHit()
+      clearInterval(timer)
+    }
+  }, [remote, engine, synth])
+
+  useEffect(() => {
+    remote?.log('screen', { screen })
+  }, [remote, screen])
+
+  // `useCallback`: the commands effect below keeps `start` among its dependencies, and a new function
+  // on every render would unregister and re-register every handler each time.
+  const start = useCallback(async () => {
     setBusy(true)
     setError(null)
     try {
@@ -76,7 +158,7 @@ export function App() {
     } finally {
       setBusy(false)
     }
-  }
+  }, [synth, calibration])
 
   function onCalibrated(data: CalibrationData) {
     // In private Safari setItem throws: the calibration stays valid for this session,
@@ -86,6 +168,7 @@ export function App() {
     } catch {
       // Ignore: storing it is an optimization, not a requirement.
     }
+    remote?.log('calibration:done', { ...data })
     setCalibration(data)
     setScreen('pick')
   }
@@ -94,6 +177,78 @@ export function App() {
     setStats(s)
     setScreen('summary')
   }, [])
+
+  // Stable identities: SessionScreen keeps both among the dependencies of the effect that owns the
+  // runner, and a new function on every render would restart the session from the top.
+  const logEvent = useCallback((event: string, data: Record<string, unknown>) => remote?.log(event, data), [remote])
+  const registerSession = useCallback((c: { stop(): void } | null) => {
+    sessionControls.current = c
+  }, [])
+
+  useEffect(() => {
+    if (!remote) return
+    const offs = [
+      remote.on('screen', () => ({ screen, engine: engine !== null, calibration })),
+      remote.on('arm', async () => {
+        if (engine) return 'already armed'
+        await start()
+        return 'armed'
+      }),
+      remote.on('calibrate', () => {
+        if (!engine) throw new Error('not armed: tap Start on the device first')
+        setScreen('calibration')
+        setCalibrateSignal((n) => n + 1)
+      }),
+      remote.on('use-saved', () => {
+        if (!engine) throw new Error('not armed')
+        if (!calibration) throw new Error('no saved calibration')
+        setScreen('pick')
+      }),
+      remote.on('start', (args) => {
+        if (!engine) throw new Error('not armed')
+        if (!calibration) throw new Error('not calibrated')
+        const exercise = EXERCISES.find((e) => e.id === args.exercise)
+        if (!exercise)
+          throw new Error(`unknown exercise "${String(args.exercise)}"; ids: ${EXERCISES.map((e) => e.id).join(', ')}`)
+        const bpm = Number(args.bpm ?? DEFAULT_BPM)
+        if (!Number.isFinite(bpm) || bpm < 30 || bpm > 240) throw new Error(`bpm out of range: ${String(args.bpm)}`)
+        const clicks = Number(args.clicks ?? 1)
+        const options: SessionOptions = {
+          metronome: {
+            clickSubdivision: (clicks === 2 || clicks === 3 || clicks === 4 ? clicks : 1) as 1 | 2 | 3 | 4,
+            gap: args.gap === true ? { on: 2, off: 2 } : undefined,
+            guide: args.guide === true,
+          },
+          autoIncrement: args.auto === true ? DEFAULT_AUTO_INCREMENT : null,
+        }
+        setPick({ exercise, bpm, options })
+        setScreen('session')
+        return { exercise: exercise.id, bpm, options }
+      }),
+      remote.on('stop', () => {
+        if (!sessionControls.current) throw new Error('no session running')
+        sessionControls.current.stop()
+      }),
+      remote.on('record', async (args) => {
+        if (!engine) throw new Error('not armed')
+        const seconds = Math.min(60, Math.max(1, Number(args.seconds ?? 10)))
+        const tap = engine.ctx.createGain()
+        const untap = engine.capture.tap(tap)
+        try {
+          return await remote.record(engine.ctx, tap, seconds, String(args.label ?? 'mic'))
+        } finally {
+          untap()
+        }
+      }),
+      remote.on('reload', () => {
+        // 300 ms: long enough for the `cmd:done` flush to leave before the page tears the channel down.
+        window.setTimeout(() => window.location.reload(), 300)
+      }),
+    ]
+    return () => {
+      for (const off of offs) off()
+    }
+  }, [remote, engine, calibration, screen, start])
 
   const banner = suspended && engine && (
     <button type="button" onClick={() => engine.ctx.resume().then(() => setSuspended(false))}>
@@ -108,6 +263,10 @@ export function App() {
     </p>
   )
 
+  // Which name the server settled on: the operator needs it to aim `--to`, and it proves the channel is up.
+  const remoteBadge = remote && <p className="synth-badge">Remote · {remote.name}</p>
+  const overlay = notice && <p className="big notice">{notice}</p>
+
   let content: ReactElement
   if (screen === 'start' || !engine) {
     content = <StartScreen onStart={start} busy={busy} error={error} />
@@ -115,7 +274,16 @@ export function App() {
     content = (
       <>
         {banner}
-        <CalibrationScreen engine={engine} synth={synthRun} existing={calibration} onDone={onCalibrated} />
+        <CalibrationScreen
+          engine={engine}
+          synth={synthRun}
+          existing={calibration}
+          onDone={onCalibrated}
+          runSignal={calibrateSignal}
+          onMeasured={(m) =>
+            remote?.log(m.latencyMs === null ? 'calibration:failed' : 'calibration:measured', { ...m })
+          }
+        />
       </>
     )
   } else if (screen === 'pick' || !pick || !calibration) {
@@ -153,6 +321,8 @@ export function App() {
           calibration={calibration}
           onDone={onSessionDone}
           onAbort={() => setScreen('pick')}
+          onEvent={logEvent}
+          register={registerSession}
         />
       </>
     )
@@ -174,6 +344,8 @@ export function App() {
   return (
     <>
       {badge}
+      {remoteBadge}
+      {overlay}
       {content}
     </>
   )

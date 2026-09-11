@@ -1,6 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@latest/schema.json",
-  "entry": ["src/**/*.test.ts", "dev/**/*.test.ts", "dev/gallery.ts", "src/dev/remote.ts"],
+  "entry": ["src/**/*.test.ts", "dev/**/*.test.ts", "dev/gallery.ts"],
   "project": ["src/**/*.{ts,tsx}", "dev/**/*.ts"],
   "rules": { "types": "off" }
 }
