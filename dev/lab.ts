@@ -289,6 +289,11 @@ function stop(): void {
 async function record(seconds: number, name: string): Promise<string> {
   const { ctx: c, source: src } = enabled()
   if (!remote) throw new Error('no remote channel: open the page with ?remote')
+  // The same 1..60 s window App allows: every sample is held in memory until the window ends, and
+  // `/audio` refuses a body over 12 MB (60 s of mono float32 at 48 kHz). Throw rather than clamp, so a
+  // typo like `{"seconds":600}` comes back as `cmd:error` instead of quietly recording something else.
+  if (!Number.isFinite(seconds) || seconds < 1 || seconds > 60)
+    throw new Error(`seconds out of range (1..60): ${seconds}`)
   // The tap sits on the raw source, before the filter chain: a recording must show what the
   // microphone heard, not what the analysis band left of it.
   const tap = c.createGain()
@@ -328,7 +333,14 @@ onClick('live', () => {
 const remoteName = remoteNameFrom(location.search, navigator.userAgent, 'ontouchend' in document)
 if (remoteName) {
   const m = await import('../src/dev/remote')
-  remote = m.connectRemote(remoteName, navigator.userAgent)
+  remote = m.connectRemote(remoteName, navigator.userAgent, {
+    // The server may hand out `mac-2` when a first page still holds `mac`, and that is the name `--to`
+    // and the .ndjson file use. Only while the page is still waiting for its tap: after `enable()` the
+    // status line belongs to the run.
+    onName: (name) => {
+      if (ctx === null) setStatus(`remote: ${name} · tap Enable`)
+    },
+  })
   m.registerBasics(remote, say)
   remote.on('matrix', (a) => runMatrix(a.preset === 'lp' ? 'lp' : 'hp'))
   remote.on('live', (a) =>
@@ -341,5 +353,7 @@ if (remoteName) {
   remote.on('stop', () => stop())
   remote.on('record', (a) => record(Number(a.seconds ?? 10), String(a.label ?? 'mic')))
   remote.on('enable', () => enable()) // works only where audio needs no gesture (loop mode in Chrome)
-  setStatus(`remote: ${remote.name} · tap Enable`)
+  // Trailing `…` until `hello` lands: `remote.name` is still only the wanted name here, and the operator
+  // must not copy it into `--to` before the server has settled it.
+  setStatus(`remote: ${remoteName}… · tap Enable`)
 }

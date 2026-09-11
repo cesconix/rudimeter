@@ -54,6 +54,10 @@ export function App() {
     [],
   )
   const [remote, setRemote] = useState<Remote | null>(null)
+  // The name the server settled on, which is not always the one asked for: a second page from the same
+  // phone is named `iphone-2` and writes `iphone-2.ndjson`. `Remote.name` is a getter and the `hello`
+  // that sets it re-renders nothing, so the badge would keep showing the wanted name. Null until `hello`.
+  const [settledName, setSettledName] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [calibrateSignal, setCalibrateSignal] = useState(0)
   const sessionControls = useRef<{ stop(): void } | null>(null)
@@ -70,7 +74,7 @@ export function App() {
     if (import.meta.env.DEV) {
       import('../dev/remote').then((m) => {
         if (cancelled) return
-        r = m.connectRemote(remoteName, navigator.userAgent)
+        r = m.connectRemote(remoteName, navigator.userAgent, { onName: setSettledName })
         m.registerBasics(r, (text, seconds) => {
           setNotice(text)
           window.setTimeout(() => setNotice((n) => (n === text ? null : n)), seconds * 1000)
@@ -138,11 +142,19 @@ export function App() {
     remote?.log('screen', { screen })
   }, [remote, screen])
 
+  // `start` reports a failure through the `error` state, which the remote `arm` handler cannot read
+  // back: that closure captured `error` on the render that registered it. Keep the last message here so
+  // `arm` can answer with the real reason instead of a bare "the engine did not come up".
+  const startError = useRef<string | null>(null)
+
   // `useCallback`: the commands effect below keeps `start` among its dependencies, and a new function
-  // on every render would unregister and re-register every handler each time.
-  const start = useCallback(async () => {
+  // on every render would unregister and re-register every handler each time. It resolves with the
+  // engine, or null when it failed: the `arm` command needs to tell the two apart (the human in front
+  // of the page reads the `error` state instead).
+  const start = useCallback(async (): Promise<Engine | null> => {
     setBusy(true)
     setError(null)
+    startError.current = null
     try {
       // The graph needs the context and the bus, which only exist inside createEngine: it is built in
       // the callback and kept here for the screens that steer it (headphones, drummer).
@@ -161,8 +173,12 @@ export function App() {
       setEngine(e)
       setSynthRun(synth && built.graph ? { config: synth, graph: built.graph } : null)
       setScreen(calibration ? 'pick' : 'calibration')
+      return e
     } catch (err) {
-      setError(describeMicError(err))
+      const message = describeMicError(err)
+      startError.current = message
+      setError(message)
+      return null
     } finally {
       setBusy(false)
     }
@@ -199,7 +215,10 @@ export function App() {
       remote.on('screen', () => ({ screen, engine: engine !== null, calibration })),
       remote.on('arm', async () => {
         if (engine) return 'already armed'
-        await start()
+        // A denied microphone or a missing input leaves `start` with nothing: answering `armed` would
+        // send the operator on the Mac into a session with a dead engine, every later command failing
+        // with "not armed" and no reason. Throw, so the channel answers `cmd:error` with the reason.
+        if ((await start()) === null) throw new Error(startError.current ?? 'the engine did not come up')
         return 'armed'
       }),
       remote.on('calibrate', () => {
@@ -272,7 +291,9 @@ export function App() {
   )
 
   // Which name the server settled on: the operator needs it to aim `--to`, and it proves the channel is up.
-  const remoteBadge = remote && <p className="synth-badge">Remote · {remote.name}</p>
+  // Before `hello` lands there is nothing settled yet, so show the wanted name with a `…` rather than a
+  // figure the operator could copy into `--to` and miss.
+  const remoteBadge = remote && <p className="synth-badge">Remote · {settledName ?? `${remoteName}…`}</p>
   const overlay = notice && <p className="big notice">{notice}</p>
 
   let content: ReactElement

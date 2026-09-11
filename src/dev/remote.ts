@@ -15,7 +15,16 @@ export interface Remote {
 
 const FLUSH_MS = 250
 
-export function connectRemote(wanted: string, ua: string): Remote {
+export function connectRemote(
+  wanted: string,
+  ua: string,
+  /**
+   * `onName` fires when the server's `hello` settles the name, which may not be `wanted` (`mac-2` when a
+   * first page holds `mac`). `name` below is a getter and nothing re-renders on its own: a caller that
+   * shows the name on screen needs this to show the settled one. Optional, so existing callers stand.
+   */
+  opts: { onName?: (name: string) => void } = {},
+): Remote {
   const base = `${location.origin}/__remote`
   const handlers = new Map<string, CommandHandler>()
   const queue: string[] = []
@@ -59,6 +68,7 @@ export function connectRemote(wanted: string, ua: string): Remote {
     name = (JSON.parse((e as MessageEvent<string>).data) as { name: string }).name
     ready = true
     log('hello', { ua, url: location.href })
+    opts.onName?.(name)
   })
   es.addEventListener('cmd', async (e) => {
     const { id, cmd, args } = JSON.parse((e as MessageEvent<string>).data) as {
@@ -118,6 +128,13 @@ export function connectRemote(wanted: string, ua: string): Remote {
       `${base}/audio?device=${encodeURIComponent(name)}&label=${encodeURIComponent(label)}&sampleRate=${ctx.sampleRate}`,
       { method: 'POST', body: all },
     )
+    // A 400 or 500 from `/audio` leaves no `file` in the body: resolving with `undefined` would log
+    // `cmd:done { result: null }` and the CLI waiting for the `audio` line would sit out its whole
+    // timeout instead of failing. Throwing turns it into the `cmd:error` the handler already reports.
+    if (!res.ok) {
+      const { error } = (await res.json().catch(() => ({}))) as { error?: string }
+      throw new Error(error ?? `${res.status} ${res.statusText}`)
+    }
     const { file } = (await res.json()) as { file: string }
     return file
   }

@@ -10,9 +10,25 @@ import { resolveTarget, safeName, uniqueName } from './registry'
 import { encodeWav } from './wav'
 
 const DIR = '.remote'
+/**
+ * The ring only has to cover the gap between one `/wait` poll answering 204 and the next poll arriving —
+ * sub-millisecond, since a waiter is registered while the poll is open. 500 lines is ~45 s at the
+ * busiest rate seen (~10 `hit`/s plus 1 `output`/s), orders of magnitude more than that gap needs.
+ */
 const KEEP = 500
+/**
+ * How long one `/wait` poll may hang. 20 s sits under the 30 s where iOS Safari and most proxies drop an
+ * idle request; a longer CLI timeout is honoured by chaining polls (see `waitFor` in client.ts).
+ */
 const WAIT_CAP_MS = 20000
+/** The three commands that do not change app state, so firing them at every device at once is safe. */
 const BROADCAST_OK = new Set(['ping', 'say', 'record'])
+/**
+ * 12 MB is 60 s of mono float32 at 48 kHz (11.0 MiB), the longest recording either page asks for. Past
+ * that, or on a body that is not a whole number of float32 samples, the POST is a bug or a stray client,
+ * not a recording: refuse it instead of writing a junk WAV and buffering the whole thing in memory first.
+ */
+const MAX_AUDIO_BYTES = 12 * 1024 * 1024
 
 interface Client {
   name: string
@@ -101,6 +117,10 @@ export function remotePlugin(): Plugin {
 
       server.middlewares.use('/__remote', async (req, res) => {
         await ready
+        // Every request, not only `/events`: a page that is closed rather than reloaded leaves a corpse
+        // that `/devices` lists and `/cmd` "delivers" to, so `remote ls` lies and one live phone reads as
+        // two and demands `--to`. The sweep is a walk over a handful of clients, cheap at any rate.
+        reapDeadClients()
         // Connect strips the mount path: `req.url` starts at `/events`, `/log`, …
         const url = new URL(req.url ?? '/', 'http://localhost')
         const q = url.searchParams
@@ -175,6 +195,12 @@ export function remotePlugin(): Plugin {
           }
           if (req.method === 'POST' && url.pathname === '/audio') {
             const buf = await readBody(req)
+            if (buf.byteLength > MAX_AUDIO_BYTES || buf.byteLength % 4 !== 0) {
+              json(res, 400, {
+                error: `audio body rejected: ${buf.byteLength} bytes (max ${MAX_AUDIO_BYTES}, must be a multiple of 4)`,
+              })
+              return
+            }
             // Buffer.concat does not promise 4-byte alignment: copy into a fresh Float32Array.
             const samples = new Float32Array(buf.byteLength / 4)
             new Uint8Array(samples.buffer).set(buf)

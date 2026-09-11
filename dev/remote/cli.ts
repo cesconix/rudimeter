@@ -25,6 +25,10 @@ if (args.cmd === 'ls') {
   console.log(JSON.stringify(await client.waitFor(name, String(args.args.event), seq, args.timeoutMs), null, 2))
 } else {
   const sent = await client.send(args.cmd, args.args, args.all ? { all: true } : args.to ? { to: args.to } : {})
+  // `--all` broadcasts to whoever is connected, so the server answers 200 with an empty `delivered` when
+  // nobody is: the loop below would then print nothing and exit 0, which reads as "sent". Without
+  // `--all`, `resolveTarget` has already turned the same situation into a 409.
+  if (sent.delivered.length === 0) throw new Error(`nothing to send "${args.cmd}" to: no device connected`)
   const until = args.until ?? defaultUntil(args.cmd)
   for (const device of sent.delivered) {
     const line = await client.waitFor(device, until, sent.seq[device], args.timeoutMs)
