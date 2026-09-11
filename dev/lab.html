@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>audio lab</title>
+    <style>
+      body { font: 16px/1.4 system-ui, sans-serif; margin: 1rem; max-width: 44rem; background: #fff; color: #000; }
+      .row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 1rem 0; }
+      button, select { font-size: 1rem; padding: 0.4rem 0.6rem; }
+      table { border-collapse: collapse; margin-top: 1rem; font-variant-numeric: tabular-nums; font-size: 0.9rem; }
+      td, th { border: 1px solid #ccc; padding: 0.2rem 0.5rem; text-align: right; white-space: nowrap; }
+      th:first-child, td:first-child { text-align: left; }
+      pre { background: #f4f4f4; padding: 0.5rem; max-height: 16rem; overflow: auto; font-size: 0.9rem; }
+      #status { color: #555; }
+      /* `say` from the remote channel: readable from across the room, on a device held at arm's length. */
+      #status.say { color: #000; font-size: 2rem; line-height: 1.2; }
+    </style>
+  </head>
+  <body>
+    <h1>Audio lab</h1>
+    <p>
+      Headphones off, volume at max. Matrix: 8 clicks per sound through the speaker, heard/8 · median echo
+      latency · mean peak, with the analysis filtered before the detector. Live: every onset, with or without
+      a 120 bpm metronome. <code>?remote</code> puts the page on the remote channel.
+    </p>
+
+    <div class="row">
+      <button type="button" id="enable">1. Enable microphone</button>
+      <label
+        >preset
+        <select id="preset">
+          <option value="hp" selected>highpass: keep today's beeps</option>
+          <option value="lp">lowpass: high clicks</option>
+        </select></label
+      >
+      <button type="button" id="matrix" disabled>2. Run matrix (~105 s)</button>
+      <button type="button" id="record" disabled>Record 10 s</button>
+    </div>
+
+    <p id="status"></p>
+    <table id="out" hidden></table>
+
+    <h2>Live</h2>
+    <div class="row">
+      <label
+        >filter
+        <select id="filter">
+          <option value="off">off</option>
+          <option value="lp:2500">lp 2500</option>
+          <option value="hp:3000">hp 3000</option>
+          <option value="hp:3500" selected>hp 3500</option>
+          <option value="hp:4000">hp 4000</option>
+        </select></label
+      >
+      <label
+        >metronome
+        <select id="metro">
+          <option value="">off</option>
+          <option value="sine1000">beep 1 kHz (current beat)</option>
+          <option value="soft1000">soft beep 1 kHz</option>
+          <option value="hann8k">hann 8 kHz</option>
+          <option value="beephigh">beep 6 kHz (high beat)</option>
+        </select></label
+      >
+      <button type="button" id="live" disabled>Start live</button>
+    </div>
+
+    <pre id="log"></pre>
+
+    <script type="module" src="./lab.ts"></script>
+  </body>
+</html>
