@@ -304,7 +304,13 @@ export function App() {
             setPick({ exercise, bpm, options })
             setScreen('session')
           }}
-          onRecalibrate={() => setScreen('calibration')}
+          onRecalibrate={() => {
+            // Spend the signal before showing the screen: it outlives the remote `calibrate` that set
+            // it, and a freshly mounted CalibrationScreen would read it as an order — 8 clicks with no
+            // warning, then saved and gone — while the human is still reading the instructions.
+            setCalibrateSignal(0)
+            setScreen('calibration')
+          }}
         />
       </>
     )

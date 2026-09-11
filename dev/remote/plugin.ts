@@ -19,6 +19,8 @@ interface Client {
   ua: string
   connectedAt: string
   res: ServerResponse
+  /** The 15 s keep-alive, kept here so whoever drops the client can stop it too. */
+  keepAlive: ReturnType<typeof setInterval>
 }
 
 interface Line {
@@ -82,6 +84,21 @@ export function remotePlugin(): Plugin {
       const ready = mkdir(root, { recursive: true })
       const info = (msg: string) => server.config.logger.info(`[remote] ${msg}`)
 
+      /**
+       * A reload on the phone must come back as `iphone`, not `iphone-2`: `uniqueName` dedupes against
+       * this map, and a stream whose 'close' never arrived would keep the name occupied for the rest of
+       * the dev session (seen over HTTP/2, where a navigated-away page can die silently). Sweep the
+       * corpses before handing out a name.
+       */
+      const reapDeadClients = (): void => {
+        for (const [name, c] of clients) {
+          if (!c.res.destroyed && !c.res.writableEnded) continue
+          clearInterval(c.keepAlive)
+          clients.delete(name)
+          info(`${name} dropped: the stream was already gone`)
+        }
+      }
+
       server.middlewares.use('/__remote', async (req, res) => {
         await ready
         // Connect strips the mount path: `req.url` starts at `/events`, `/log`, …
@@ -90,19 +107,27 @@ export function remotePlugin(): Plugin {
         const device = safeName(q.get('device') ?? 'device')
         try {
           if (req.method === 'GET' && url.pathname === '/events') {
+            reapDeadClients()
             const name = uniqueName(device, clients.keys())
             // No `connection` header: Vite may serve this over HTTP/2, where it is illegal.
             res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' })
             res.write(`event: hello\ndata: ${JSON.stringify({ name })}\n\n`)
-            clients.set(name, { name, ua: q.get('ua') ?? '', connectedAt: new Date().toISOString(), res })
-            info(`${name} connected`)
             // A comment every 15 s keeps iOS from dropping an idle stream.
-            const ping = setInterval(() => res.write(': ping\n\n'), 15000)
-            req.on('close', () => {
-              clearInterval(ping)
+            const keepAlive = setInterval(() => res.write(': ping\n\n'), 15000)
+            clients.set(name, { name, ua: q.get('ua') ?? '', connectedAt: new Date().toISOString(), res, keepAlive })
+            info(`${name} connected`)
+            const gone = () => {
+              clearInterval(keepAlive)
+              // Only if this stream still holds the name: a reap may already have given it to a newer
+              // page, and a late 'close' from the corpse must not disconnect the live one.
+              if (clients.get(name)?.res !== res) return
               clients.delete(name)
               info(`${name} disconnected`)
-            })
+            }
+            req.on('close', gone)
+            // 'close' does not always arrive. When it does not, the failing keep-alive write is the only
+            // sign the stream is dead: same cleanup, so the name is freed either way.
+            res.on('error', gone)
             return
           }
           if (req.method === 'GET' && url.pathname === '/devices') {

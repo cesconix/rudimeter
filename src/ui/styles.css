@@ -191,8 +191,15 @@ select {
   color: #000;
   z-index: 10;
 }
+/* The remote badge is a second one of these: a synthetic run driven from the terminal shows both, and
+   stacked at the same corner the remote one would hide exactly the badge that says "not a practice". */
+.synth-badge + .synth-badge {
+  top: 1.6rem;
+}
 /* The remote `say` command: an instruction shouted at whoever is holding the device, over whatever
-   screen is up. Centred in the upper fifth, clear of the hands and of the pad below. */
+   screen is up. Centred in the upper fifth, clear of the hands and of the pad below.
+   `pointer-events: none`: it is a shout, not a control. A `say` lasts as many seconds as it was asked
+   for, and a fixed band that eats taps would take the session's Stop button with it for all of them. */
 .notice {
   position: fixed;
   inset: 20% 1rem auto;
@@ -202,4 +209,5 @@ select {
   border: 2px solid #cc0;
   padding: 1rem;
   z-index: 10;
+  pointer-events: none;
 }

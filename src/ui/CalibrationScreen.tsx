@@ -11,6 +11,8 @@ export interface CalibrationMeasure {
   offsetsMs: number[]
   points?: RampPoint[]
   fit?: RampFit | null
+  /** Set only when the calibration threw: what went wrong, so the remote log says more than "failed". */
+  error?: string
 }
 
 interface Props {
@@ -72,6 +74,10 @@ export function CalibrationScreen({ engine, synth, existing, onDone, runSignal, 
       const msg = (err as { message?: string })?.message
       setStep('failed')
       setDetail(msg ? `Error during calibration: ${msg}. Try again.` : 'Error during calibration. Try again.')
+      // The remote side waits for `calibration:done` or `calibration:failed` (see dev/remote/client.ts):
+      // without this line a thrown calibration says nothing and `bun run remote calibrate` sits there
+      // until its timeout instead of reporting the error.
+      onMeasured?.({ latencyMs: null, offsetsMs: [], error: msg ?? 'unknown error' })
       return null
     }
   }
