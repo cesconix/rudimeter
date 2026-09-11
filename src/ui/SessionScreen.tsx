@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ClickScheduler } from '../audio/click-scheduler'
 import { audibleTime } from '../audio/clock'
 import type { Engine } from '../audio/engine'
@@ -45,8 +45,48 @@ export function SessionScreen({
   const runnerRef = useRef<SessionRunner | null>(null)
   const [state, setState] = useState<RunnerState | null>(null)
   // Stopping from the button ends the session AND flips the phase to `done`: without this the effect
-  // below would log a second `session:done` for the same run.
+  // below would log a second `session:done` for the same run. Same for the remote `stop`, which now
+  // goes through the very same `stopEarly`.
   const doneRef = useRef(false)
+
+  // One way out for a session cut short, whoever asks: the Stop button on the device and the remote
+  // `stop` command must leave the same trace. Before this, `register` only stopped the runner and let
+  // the phase effect below report — a `session:done` with no `stopped: true`, so a log could not tell
+  // an interrupted session from one that ran to the end.
+  const stopEarly = useCallback(() => {
+    const r = runnerRef.current
+    r?.stop()
+    if (!r) {
+      onAbort()
+      return
+    }
+    const hits = r.snapshot().hits.length
+    const stats = r.stats()
+    if (!doneRef.current) {
+      doneRef.current = true
+      onEvent?.('session:done', {
+        exerciseId: exercise.id,
+        bpm,
+        stats,
+        markdown: toMarkdown(stats, exercise, bpm, new Date(), calibration),
+        stopped: true,
+        // Nothing played: the screen goes back to the picker instead of the summary, and the stats
+        // describe an empty run. The line goes out all the same — `bun run remote stop` waits for
+        // `session:done` and used to hang its full 60 s timeout on a session stopped before the
+        // first hit — and `aborted` is what tells the operator there is nothing to read.
+        ...(hits === 0 ? { aborted: true } : {}),
+      })
+    }
+    if (hits > 0) onDone(stats)
+    else onAbort()
+  }, [onDone, onAbort, onEvent, exercise, bpm, calibration])
+
+  // `stopEarly` is rebuilt whenever App hands down a new `onAbort` (an inline arrow, so every render),
+  // while `register` runs once with the runner. The ref keeps them apart: the effect below depends on
+  // `register` and never on `stopEarly`, so the runner is not remounted — and restarted from the top —
+  // on every render, and the remote still calls the latest closure.
+  const stopEarlyRef = useRef(stopEarly)
+  stopEarlyRef.current = stopEarly
 
   // `options` is a dependency down below and must stay reference-stable for the whole session: App
   // fixes it once and for all in `pick.options` at pick time (see App.tsx) and never recreates it
@@ -78,7 +118,7 @@ export function SessionScreen({
     runnerRef.current = runner
     register?.({
       stop: () => {
-        runner.stop()
+        stopEarlyRef.current()
       },
     })
     // Synthetic input: the drummer plays whatever grid the runner schedules, and the headphones go
@@ -172,28 +212,7 @@ export function SessionScreen({
         <p>
           Repeat {Math.min(repeat + 1, exercise.repeats)} / {exercise.repeats}
         </p>
-        <button
-          type="button"
-          className="secondary"
-          onClick={() => {
-            const r = runnerRef.current
-            r?.stop()
-            if (r && r.snapshot().hits.length > 0) {
-              const stats = r.stats()
-              if (!doneRef.current) {
-                doneRef.current = true
-                onEvent?.('session:done', {
-                  exerciseId: exercise.id,
-                  bpm,
-                  stats,
-                  markdown: toMarkdown(stats, exercise, bpm, new Date(), calibration),
-                  stopped: true,
-                })
-              }
-              onDone(stats)
-            } else onAbort()
-          }}
-        >
+        <button type="button" className="secondary" onClick={stopEarly}>
           Stop
         </button>
       </div>

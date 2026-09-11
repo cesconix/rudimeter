@@ -61,15 +61,23 @@ export function App() {
     if (!remoteName) return
     let r: Remote | null = null
     let cancelled = false
-    import('../dev/remote').then((m) => {
-      if (cancelled) return
-      r = m.connectRemote(remoteName, navigator.userAgent)
-      m.registerBasics(r, (text, seconds) => {
-        setNotice(text)
-        window.setTimeout(() => setNotice((n) => (n === text ? null : n)), seconds * 1000)
+    // The `import()` sits inside a bare `import.meta.env.DEV` block and not behind `remoteName`
+    // alone: Vite rewrites the flag to `false` when building and the bundler drops a statically
+    // false branch whole, dynamic import included. `remoteName` is a runtime value, so guarding on
+    // it proves nothing to the bundler and the client shipped anyway as its own production chunk
+    // (dist/assets/remote-*.js, 2.2 kB of `__remote`). knip reads the source, where the import is
+    // always there, so it still follows it.
+    if (import.meta.env.DEV) {
+      import('../dev/remote').then((m) => {
+        if (cancelled) return
+        r = m.connectRemote(remoteName, navigator.userAgent)
+        m.registerBasics(r, (text, seconds) => {
+          setNotice(text)
+          window.setTimeout(() => setNotice((n) => (n === text ? null : n)), seconds * 1000)
+        })
+        setRemote(r)
       })
-      setRemote(r)
-    })
+    }
     return () => {
       cancelled = true
       r?.close()
