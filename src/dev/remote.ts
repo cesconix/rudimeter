@@ -45,6 +45,15 @@ export function connectRemote(wanted: string, ua: string): Remote {
   }
   document.addEventListener('visibilitychange', onHide)
 
+  // A document that survives a navigation (bfcache-style) keeps this EventSource OPEN and goes on
+  // holding its name on the server, so the next page connects as `mac-2` instead of `mac`. The
+  // server-side reap cannot help: it drops streams that are dead, and this one is alive. Hang up here
+  // instead — `close()` does its final synchronous flush and is inert afterwards, so nothing is lost.
+  const onPageHide = () => {
+    close()
+  }
+  window.addEventListener('pagehide', onPageHide)
+
   const es = new EventSource(`${base}/events?device=${encodeURIComponent(wanted)}&ua=${encodeURIComponent(ua)}`)
   es.addEventListener('hello', (e) => {
     name = (JSON.parse((e as MessageEvent<string>).data) as { name: string }).name
@@ -113,6 +122,20 @@ export function connectRemote(wanted: string, ua: string): Remote {
     return file
   }
 
+  function close(): void {
+    // Cancel the debounce timer by its real id before `flush()` (which unconditionally nulls the
+    // `timer` variable itself) would lose it: an uncancelled native timeout still fires later.
+    if (timer !== null) {
+      window.clearTimeout(timer)
+      timer = null
+    }
+    flush() // final synchronous drain, while `closed` is still false so it actually sends
+    closed = true
+    es.close()
+    document.removeEventListener('visibilitychange', onHide)
+    window.removeEventListener('pagehide', onPageHide)
+  }
+
   return {
     get name() {
       return name
@@ -125,18 +148,7 @@ export function connectRemote(wanted: string, ua: string): Remote {
       }
     },
     record,
-    close() {
-      // Cancel the debounce timer by its real id before `flush()` (which unconditionally nulls the
-      // `timer` variable itself) would lose it: an uncancelled native timeout still fires later.
-      if (timer !== null) {
-        window.clearTimeout(timer)
-        timer = null
-      }
-      flush() // final synchronous drain, while `closed` is still false so it actually sends
-      closed = true
-      es.close()
-      document.removeEventListener('visibilitychange', onHide)
-    },
+    close,
   }
 }
 
