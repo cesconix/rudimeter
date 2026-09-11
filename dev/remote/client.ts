@@ -22,7 +22,9 @@ export interface RemoteClient {
 
 export const DEFAULT_URL = 'https://localhost:5173'
 
-export function createClient(baseUrl: string): RemoteClient {
+// `fetchImpl` defaults to the global `fetch` so `cli.ts` and the Task 6 scenarios keep calling
+// `createClient(baseUrl)`; tests inject a fake to script responses without a real dev server.
+export function createClient(baseUrl: string, fetchImpl: typeof fetch = fetch): RemoteClient {
   const base = `${baseUrl}/__remote`
   async function check(res: Response): Promise<unknown> {
     const data = (await res.json().catch(() => ({}))) as { error?: string }
@@ -30,10 +32,10 @@ export function createClient(baseUrl: string): RemoteClient {
     return data
   }
   return {
-    devices: async () => (await check(await fetch(`${base}/devices`))) as Device[],
+    devices: async () => (await check(await fetchImpl(`${base}/devices`))) as Device[],
     send: async (cmd, args, target) =>
       (await check(
-        await fetch(`${base}/cmd`, {
+        await fetchImpl(`${base}/cmd`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ cmd, args, ...target }),
@@ -45,7 +47,7 @@ export function createClient(baseUrl: string): RemoteClient {
         // Each poll is capped at 20 s server-side, so a 60 s CLI timeout takes several round-trips.
         const slice = Math.min(20000, deadline - Date.now())
         const url = `${base}/wait?device=${encodeURIComponent(device)}&event=${encodeURIComponent(event)}&after=${after}&timeoutMs=${slice}`
-        const res = await fetch(url)
+        const res = await fetchImpl(url)
         if (res.status === 204) continue
         const line = (await check(res)) as Record<string, unknown>
         if (line.event === 'cmd:error') throw new Error(`${device}: ${String(line.error)}`)
