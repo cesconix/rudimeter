@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import type { CalibrationAnalysis, SessionAnalysis } from './analysis'
-import { formatCalibrations, formatTable, formatVerdict } from './report-text'
+import type { FeedbackEntry } from './feedback'
+import { formatCalibrations, formatFeedback, formatFeedbackMarkdown, formatTable, formatVerdict } from './report-text'
 
 const session = (over: Partial<SessionAnalysis> = {}): SessionAnalysis => ({
   id: 'iphone@2026-09-12T06:23:00.000Z',
@@ -43,6 +44,7 @@ const session = (over: Partial<SessionAnalysis> = {}): SessionAnalysis => ({
   },
   synthetic: null,
   markdown: null,
+  feedback: [],
   ...over,
 })
 
@@ -114,5 +116,60 @@ describe('report-text', () => {
     expect(text).toContain('worklet block')
     expect(text).toContain('±1.3 ms')
     expect(text).toContain('good ±20')
+  })
+  it('formatTable flags a session with feedback; formatVerdict lists the comments last', () => {
+    const a = session({
+      feedback: [
+        { at: '2026-09-12T06:24:30.000Z', text: 'left hand late\nsecond line', source: 'app' },
+        { at: '2026-09-13T10:00:00.000Z', text: 'echo, in hindsight', source: 'dashboard' },
+      ],
+    })
+    expect(formatTable([a]).split('\n')[1]).toContain('feedback')
+    expect(formatTable([session()]).split('\n')[1]).not.toContain('feedback')
+    const text = formatVerdict(a)
+    expect(text).toContain(
+      '\nfeedback:\n[app 2026-09-12 06:24] left hand late\n  second line\n[dashboard 2026-09-13 10:00] echo, in hindsight\n',
+    )
+    expect(formatVerdict(session())).not.toContain('feedback:')
+  })
+  it('formatFeedback: a summary line per comment, text indented, "session not found" for strays', () => {
+    const entries: FeedbackEntry[] = [
+      { at: '2026-09-13T10:00:00.000Z', text: 'lost', source: 'dashboard', device: 'iphone', session: null },
+      {
+        at: '2026-09-12T06:24:30.000Z',
+        text: 'left hand late\nsecond line',
+        source: 'app',
+        device: 'iphone',
+        session: session(),
+      },
+    ]
+    const text = formatFeedback(entries)
+    expect(text).toContain('2026-09-13 10:00:00 · iphone · session not found\n  [dashboard 2026-09-13 10:00] lost\n')
+    expect(text).toContain(
+      '2026-09-12 06:23:00 · iphone · stone-1 @ 60 · 80/0/0/80+0 · bad · echo\n  [app 2026-09-12 06:24] left hand late\n    second line\n',
+    )
+    expect(formatFeedback([])).toBe('no feedback yet\n')
+  })
+  it('formatFeedbackMarkdown: a heading per comment, the summary as a table, the text as a quote', () => {
+    const md = formatFeedbackMarkdown(
+      [
+        {
+          at: '2026-09-12T06:24:30.000Z',
+          text: 'left hand late\nsecond line',
+          source: 'app',
+          device: 'iphone',
+          session: session(),
+        },
+        { at: '2026-09-13T10:00:00.000Z', text: 'lost', source: 'dashboard', device: 'iphone', session: null },
+      ],
+      '2026-09-14T08:00:00.000Z',
+    )
+    expect(md.startsWith('# Session feedback\n\nExported 2026-09-14T08:00:00.000Z · newest first · 2 comments\n')).toBe(
+      true,
+    )
+    expect(md).toContain('## 2026-09-12 06:23 · iphone · stone-1 @ 60\n')
+    expect(md).toContain('| 80/0/0/80+0 | bad | echo | 73.3 ms · slope 1.02 · r² 0.9999 | 100% | 0.01 |')
+    expect(md).toContain('**app · 2026-09-12 06:24**\n\n> left hand late\n> second line\n')
+    expect(md).toContain('## 2026-09-13 10:00 · iphone · session not found\n')
   })
 })

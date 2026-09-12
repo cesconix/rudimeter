@@ -1,5 +1,6 @@
 // Plain-text views of the analysis for the terminal. Numbers only; the dashboard draws.
 import type { Budget, CalibrationAnalysis, SessionAnalysis, Verdict } from './analysis'
+import type { FeedbackEntry } from './feedback'
 
 const ms = (x: number | null, d = 1): string => (x === null ? '—' : x.toFixed(d))
 const pct = (n: number, of: number): string => (of ? `${Math.round((100 * n) / of)}%` : '—')
@@ -7,6 +8,19 @@ const worst = (vs: Verdict[]): string =>
   vs.some((v) => v.level === 'bad') ? 'bad' : vs.some((v) => v.level === 'warn') ? 'warn' : 'ok'
 const counts = (a: SessionAnalysis): string =>
   `${a.regrade.good}/${a.regrade.ok}/${a.regrade.off}/${a.regrade.miss}+${a.regrade.extras}`
+const when = (iso: string): string => iso.replace('T', ' ').slice(0, 19)
+/** minutes are enough for a comment's time: `2026-09-12 06:24` */
+const stamp = (iso: string): string => iso.replace('T', ' ').slice(0, 16)
+const nonOk = (vs: Verdict[]): string =>
+  vs
+    .filter((v) => v.level !== 'ok')
+    .map((v) => v.key)
+    .join(', ') || '—'
+/** The session in one line for a comment to sit under: when · device · exercise @ bpm · counts · worst · non-ok keys. */
+const summaryLine = (a: SessionAnalysis): string =>
+  `${when(a.startedAt)} · ${a.device} · ${a.exerciseId} @ ${a.bpm} · ${counts(a)} · ${worst(a.trust.verdicts)} · ${nonOk(a.trust.verdicts)}`
+/** Continuation lines of a multi-line comment indented under the first, by `pad`. */
+const indent = (text: string, pad: string): string => text.split('\n').join(`\n${pad}`)
 
 export function formatTable(sessions: SessionAnalysis[]): string {
   const rows = [
@@ -18,11 +32,12 @@ export function formatTable(sessions: SessionAnalysis[]): string {
       a.orphan ? 'orphan' : '',
       a.stopped ? 'stopped' : '',
       a.synthetic ? 'synthetic' : '',
+      a.feedback.length ? 'feedback' : '',
     ]
       .filter(Boolean)
       .join(' ')
     rows.push([
-      a.startedAt.replace('T', ' ').slice(0, 19),
+      when(a.startedAt),
       a.device,
       a.exerciseId,
       String(a.bpm),
@@ -77,6 +92,11 @@ export function formatVerdict(a: SessionAnalysis): string {
         `app vs oracle: Δmiss ${s.oracle.miss} · Δextra ${s.oracle.extras} · Δoffset ${s.oracle.meanOffsetMs.toFixed(2)} ms`,
       )
   }
+  if (a.feedback.length) {
+    out.push('')
+    out.push('feedback:')
+    for (const f of a.feedback) out.push(`[${f.source} ${stamp(f.at)}] ${indent(f.text, '  ')}`)
+  }
   return `${out.join('\n')}\n`
 }
 
@@ -101,5 +121,34 @@ export function formatCalibrations(cal: CalibrationAnalysis, budget: Budget): st
   out.push(
     `  total (quadrature): ${budget.totalMs === null ? '—' : `±${budget.totalMs.toFixed(1)} ms`} · windows good ±${budget.goodMs} · ok ±${budget.okMs}`,
   )
+  return `${out.join('\n')}\n`
+}
+
+export function formatFeedback(entries: FeedbackEntry[]): string {
+  if (!entries.length) return 'no feedback yet\n'
+  const out: string[] = []
+  for (const e of entries) {
+    out.push(e.session ? summaryLine(e.session) : `${when(e.at)} · ${e.device} · session not found`)
+    out.push(`  [${e.source} ${stamp(e.at)}] ${indent(e.text, '    ')}`)
+    out.push('')
+  }
+  return `${out.join('\n')}\n`
+}
+
+/** The same list as Markdown, for the archive outside `.remote/` (`bun run remote feedback --export`). */
+export function formatFeedbackMarkdown(entries: FeedbackEntry[], exportedAt: string): string {
+  const out = ['# Session feedback', '', `Exported ${exportedAt} · newest first · ${entries.length} comments`, '']
+  for (const e of entries) {
+    const s = e.session
+    if (s) {
+      out.push(`## ${stamp(s.startedAt)} · ${s.device} · ${s.exerciseId} @ ${s.bpm}`, '')
+      out.push('| notes | verdict | flags | calibration | echo | σ ms |', '|---|---|---|---|---|---|')
+      out.push(
+        `| ${counts(s)} | ${worst(s.trust.verdicts)} | ${nonOk(s.trust.verdicts)} | ${ms(s.calibration.latencyMs)} ms · slope ${ms(s.calibration.slope, 2)} · r² ${ms(s.calibration.r2, 4)} | ${pct(s.trust.echo, s.trust.hits)} | ${ms(s.trust.sigmaMs, 2)} |`,
+        '',
+      )
+    } else out.push(`## ${stamp(e.at)} · ${e.device} · session not found`, '')
+    out.push(`**${e.source} · ${stamp(e.at)}**`, '', `> ${indent(e.text, '> ')}`, '')
+  }
   return `${out.join('\n')}\n`
 }

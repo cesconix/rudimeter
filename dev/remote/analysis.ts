@@ -49,6 +49,13 @@ export interface TruthStroke {
   slot: number | null
 }
 
+/** A comment on a session, from the box at the end of it (`app`) or from the dashboard after the fact. */
+export interface Feedback {
+  at: string
+  text: string
+  source: 'app' | 'dashboard'
+}
+
 export interface SessionRecord {
   device: string
   start: LogLine
@@ -62,6 +69,7 @@ export interface SessionRecord {
   measured: LogLine | null
   truth: LogLine | null
   errors: LogLine[]
+  feedback: LogLine[]
 }
 
 export type Level = 'ok' | 'warn' | 'bad'
@@ -171,6 +179,8 @@ export interface SessionAnalysis {
   }
   synthetic: SyntheticBlock | null
   markdown: string | null
+  /** in file order; text for whoever reads the numbers, never a signal */
+  feedback: Feedback[]
 }
 export interface AnalyzeDeps {
   exerciseById(id: string): Exercise | undefined
@@ -230,6 +240,12 @@ const gridOf = (l: LogLine): SessionRecord['grid'] => ({
   clicks: (l.clicks as LoggedClick[] | undefined) ?? [],
 })
 
+export const feedbackOf = (l: LogLine): Feedback => ({
+  at: l.at,
+  text: String(l.text ?? ''),
+  source: l.source === 'dashboard' ? 'dashboard' : 'app',
+})
+
 export function splitSessions(lines: LogLine[], device: string): SessionRecord[] {
   const out: SessionRecord[] = []
   let engine: LogLine | null = null
@@ -241,6 +257,11 @@ export function splitSessions(lines: LogLine[], device: string): SessionRecord[]
   // (the batch carrying it was lost, see `flush:retry`), they are that session's hits.
   let stray: RawHit[] = []
   let strayFrom: LogLine | null = null
+  // `session:feedback` lines in file order, each with the record it belongs to. The app sends one from
+  // the summary, after the `session:done`, with no id: it is the last record closed at that point. The
+  // dashboard sends one for a session picked from its table, by id, days later if need be: resolved once
+  // every record exists, at the end. Attaching both afterwards keeps the file order inside a session.
+  const feedback: { line: LogLine; target: SessionRecord | null }[] = []
   const close = (): void => {
     if (open) out.push(open)
     open = null
@@ -280,6 +301,7 @@ export function splitSessions(lines: LogLine[], device: string): SessionRecord[]
           measured,
           truth: null,
           errors: [],
+          feedback: [],
         }
         break
       }
@@ -316,6 +338,9 @@ export function splitSessions(lines: LogLine[], device: string): SessionRecord[]
       case 'flush:retry':
         open?.errors.push(l)
         break
+      case 'session:feedback':
+        feedback.push({ line: l, target: typeof l.sessionId === 'string' ? null : (out[out.length - 1] ?? null) })
+        break
       case 'session:done': {
         if (open) {
           open.done = l
@@ -346,6 +371,7 @@ export function splitSessions(lines: LogLine[], device: string): SessionRecord[]
           measured,
           truth: null,
           errors: [],
+          feedback: [],
         })
         stray = []
         strayFrom = null
@@ -356,7 +382,22 @@ export function splitSessions(lines: LogLine[], device: string): SessionRecord[]
     }
   }
   close()
+  for (const f of feedback) {
+    const id = f.line.sessionId
+    const target = typeof id === 'string' ? (out.find((r) => `${device}@${r.start.at}` === id) ?? null) : f.target
+    target?.feedback.push(f.line)
+  }
   return out
+}
+
+/**
+ * The `session:feedback` lines `splitSessions` attached to nothing: an unknown id, or a comment before
+ * any session had closed. Out of the analysis, since there is nothing to hang them on; the CLI lists
+ * them all the same, so a comment typed in earnest does not vanish.
+ */
+export function strayFeedback(lines: LogLine[], records: SessionRecord[]): LogLine[] {
+  const attached = new Set(records.flatMap((r) => r.feedback))
+  return lines.filter((l) => l.event === 'session:feedback' && !attached.has(l))
 }
 
 /** Slots as `judge` wants them. Without a logged `dur` (older logs) the gap to the next slot stands in. */
@@ -748,6 +789,7 @@ export function analyzeSession(rec: SessionRecord, deps: AnalyzeDeps): SessionAn
     },
     synthetic,
     markdown: typeof done?.markdown === 'string' ? done.markdown : null,
+    feedback: rec.feedback.map(feedbackOf),
   }
 }
 

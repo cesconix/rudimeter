@@ -12,6 +12,7 @@ import {
   type LogLine,
   parseLines,
   splitSessions,
+  strayFeedback,
 } from './analysis'
 
 const at = (s: number): string => new Date(Date.UTC(2026, 8, 12, 6, 0, 0, Math.round(s * 1000))).toISOString()
@@ -125,6 +126,37 @@ describe('parseLines / splitSessions', () => {
     expect(recs[1].done).toBeNull()
     expect(recs[1].hits).toHaveLength(1)
     expect(recs[2].start.exerciseId).toBe('y')
+  })
+
+  it('attaches feedback to its session: by position from the app, by id from the dashboard, in file order', () => {
+    const start = (s: number, id: string) =>
+      line('session:start', s, { exerciseId: id, bpm: 60, latencyMs: 73, slope: 1, slots: slots(2), clicks: [] })
+    const done = (s: number, id: string) =>
+      line('session:done', s, { exerciseId: id, bpm: 60, stats: stats({ good: 2 }), markdown: '' })
+    const lines = [
+      line('session:feedback', 0.5, { text: 'before any session', source: 'app' }),
+      engine(0.6),
+      start(2, 'x'),
+      done(5, 'x'),
+      line('session:feedback', 6, { text: 'left hand late', source: 'app' }),
+      start(10, 'y'),
+      done(12, 'y'),
+      line('session:feedback', 13, { sessionId: `dev@${at(2)}`, text: 'echo, in hindsight', source: 'dashboard' }),
+      line('session:feedback', 14, { sessionId: 'dev@2020-01-01T00:00:00.000Z', text: 'nobody', source: 'dashboard' }),
+      line('session:feedback', 15, { text: 'second one', source: 'app' }),
+    ]
+    const recs = splitSessions(lines, 'dev')
+    expect(recs).toHaveLength(2)
+    expect(recs[0].feedback.map((f) => f.text)).toEqual(['left hand late', 'echo, in hindsight'])
+    expect(recs[1].feedback.map((f) => f.text)).toEqual(['second one'])
+    expect(strayFeedback(lines, recs).map((f) => f.text)).toEqual(['before any session', 'nobody'])
+    const a = analyzeSession(recs[0], deps)
+    expect(a.feedback).toEqual([
+      { at: at(6), text: 'left hand late', source: 'app' },
+      { at: at(13), text: 'echo, in hindsight', source: 'dashboard' },
+    ])
+    // A comment is text for the reader, not a signal: no verdict mentions it.
+    expect(a.trust.verdicts.some((v) => v.key === 'feedback')).toBe(false)
   })
 })
 
