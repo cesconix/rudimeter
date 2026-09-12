@@ -70,20 +70,14 @@ export function remotePlugin(): Plugin {
   const clients = new Map<string, Client>()
   const lines = new Map<string, Line[]>()
   const seqs = new Map<string, number>()
+  // One in-flight `.ndjson` read per device, shared by `ensureSeq` below: see the comment there.
+  const seqReads = new Map<string, Promise<void>>()
   const waiters: Waiter[] = []
   let nextId = 1
 
   // `event` may be a comma list (`calibration:done,calibration:failed`): a wait ends on any of them, or on a command error.
   const matches = (w: Waiter, l: Line) =>
     l.seq > w.after && (w.event.split(',').includes(l.event) || l.event === 'cmd:error')
-
-  // `seq` is per device and per file, not per server run: the numbering resumes from the last line on
-  // disk, once per device after a start. A device that never logged has no file: 0.
-  const ensureSeq = async (device: string): Promise<void> => {
-    if (seqs.has(device)) return
-    const text = await readFile(join(DIR, `${device}.ndjson`), 'utf8').catch(() => '')
-    seqs.set(device, lastSeqOf(text))
-  }
 
   /** Numbers the line, stores it for `/wait`, wakes the waiters. Returns the line with `seq` and `receivedAt` inside. */
   function remember(device: string, event: string, fields: Record<string, unknown>): Line {
@@ -107,6 +101,31 @@ export function remotePlugin(): Plugin {
       const root = join(server.config.root, DIR)
       const ready = mkdir(root, { recursive: true })
       const info = (msg: string) => server.config.logger.info(`[remote] ${msg}`)
+
+      /**
+       * `seq` is per device and per file, not per server run: the numbering resumes from the last line
+       * on disk, once per device after a start. A device that never logged has no file: 0. Reads from
+       * `root` — the same directory `appendFile`/`writeFile` below use, not a bare `.remote/`, which
+       * would silently read nothing (and reset to 0) if the dev server's cwd ever differed from
+       * `server.config.root`.
+       */
+      const ensureSeq = async (device: string): Promise<void> => {
+        if (seqs.has(device)) return
+        // Two first-touch requests for one device (a `/log` batch racing an `/audio` upload right after
+        // a restart) share this one read instead of racing separate reads that could each resolve after
+        // `remember()` already advanced `seqs` and clobber it back down.
+        let pending = seqReads.get(device)
+        if (!pending) {
+          pending = readFile(join(root, `${device}.ndjson`), 'utf8')
+            .catch(() => '')
+            .then((text) => {
+              seqs.set(device, lastSeqOf(text))
+            })
+          seqReads.set(device, pending)
+          void pending.finally(() => seqReads.delete(device))
+        }
+        await pending
+      }
 
       /**
        * A reload on the phone must come back as `iphone`, not `iphone-2`: `uniqueName` dedupes against
