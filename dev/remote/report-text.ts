@@ -86,12 +86,14 @@ export function formatCalibrations(cal: CalibrationAnalysis, budget: Budget): st
   for (const v of cal.verdicts) out.push(`[${v.level}] ${v.key}: ${v.text}`)
   out.push('')
   out.push('when                 latency  σ/min/max of offsets   slope  r²      Δ context  mic')
-  for (const r of cal.rows)
+  for (const r of cal.rows) {
+    // The left half is padded as a whole to column 51, so the columns line up whatever the widths of
+    // the three offset numbers add up to.
+    const left = `${r.at.replace('T', ' ').slice(0, 19)}  ${ms(r.latencyMs).padStart(7)}  ${ms(r.offsetSdMs, 2)}/${ms(r.offsetMinMs)}/${ms(r.offsetMaxMs)}`
     out.push(
-      `${r.at.replace('T', ' ').slice(0, 19)}  ${ms(r.latencyMs).padStart(7)}  ${ms(r.offsetSdMs, 2)}/${ms(r.offsetMinMs)}/${ms(r.offsetMaxMs)}`.padEnd(
-        51,
-      ) + `${ms(r.slope, 2).padStart(5)}  ${ms(r.r2, 4).padStart(6)}  ${ms(r.deltaMs).padStart(9)}  ${r.deviceLabel}`,
+      `${left.padEnd(51)}${ms(r.slope, 2).padStart(5)}  ${ms(r.r2, 4).padStart(6)}  ${ms(r.deltaMs).padStart(9)}  ${r.deviceLabel}`,
     )
+  }
   out.push('')
   out.push('error budget:')
   for (const t of budget.terms)
