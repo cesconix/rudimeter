@@ -92,7 +92,12 @@ describe('report-text', () => {
           deviceLabel: 'iPhone Microphone',
           contextMs: 15.27,
           deltaMs: 58.06,
-          processing: {},
+          processing: {
+            echoCancellation: 'off',
+            noiseSuppression: 'not reported',
+            autoGainControl: 'not reported',
+            voiceIsolation: 'not reported',
+          },
         },
       ],
       driftSdMs: null,

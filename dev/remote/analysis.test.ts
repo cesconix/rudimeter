@@ -474,9 +474,20 @@ describe('analyzeCalibrations / errorBudget', () => {
     expect(cal.rows[1].offsetSdMs).toBeGreaterThan(0.5)
     expect(cal.rows[1].contextMs).toBeCloseTo(15.27, 2)
     expect(cal.rows[1].deltaMs).toBeCloseTo(59.73, 2)
-    expect(cal.rows[1].processing).toEqual({ echoCancellation: false, noiseSuppression: true })
+    // The engine line reported two of the four: the other two are "not reported", which is not "off".
+    expect(cal.rows[1].processing).toEqual({
+      echoCancellation: 'off',
+      noiseSuppression: 'on',
+      autoGainControl: 'not reported',
+      voiceIsolation: 'not reported',
+    })
     expect(cal.driftSdMs).toBeCloseTo(1.2, 1)
-    expect(cal.verdicts.some((v) => v.key === 'processing')).toBe(true)
+    const processing = cal.verdicts.find((v) => v.key === 'processing')
+    expect(processing?.level).toBe('warn')
+    expect(processing?.text).toContain('echoCancellation=off noiseSuppression=on autoGainControl=not reported')
+    // `noiseSuppression` is on and `autoGainControl` was never reported; `voiceIsolation` is shown but
+    // does not warn, since desktop Chrome never reports it either.
+    expect(processing?.text).toContain('noiseSuppression, autoGainControl not known to be off')
     const budget = errorBudget(cal, [], 48000)
     expect(budget.terms.map((t) => t.key)).toEqual(['block', 'hold', 'repeat', 'drift', 'output'])
     expect(budget.terms[0].ms).toBeCloseTo(1.333, 3)

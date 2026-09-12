@@ -698,6 +698,9 @@ export function analyzeSession(rec: SessionRecord, deps: AnalyzeDeps): SessionAn
   }
 }
 
+export type ProcessingKey = (typeof PROCESSING_KEYS)[number]
+export type ProcessingState = 'on' | 'off' | 'not reported'
+
 export interface CalibrationRow {
   at: string
   latencyMs: number
@@ -712,7 +715,8 @@ export interface CalibrationRow {
   contextMs: number | null
   /** measured minus declared: the acoustic and unknown part of the path */
   deltaMs: number | null
-  processing: Record<string, unknown>
+  /** always the four keys: a browser that never reported one is not the same as one that reported false */
+  processing: Record<ProcessingKey, ProcessingState>
 }
 export interface CalibrationAnalysis {
   device: string
@@ -723,6 +727,12 @@ export interface CalibrationAnalysis {
 }
 
 const PROCESSING_KEYS = ['echoCancellation', 'noiseSuppression', 'autoGainControl', 'voiceIsolation'] as const
+/**
+ * Desktop Chrome never reports `voiceIsolation` at all, so a missing one says nothing about the input:
+ * it is shown with the rest but is not itself a reason to warn. The other three are reported by every
+ * browser that applies them, so a missing one there means nobody checked — as bad as an unknown `on`.
+ */
+const PROCESSING_MUST_REPORT = ['echoCancellation', 'noiseSuppression', 'autoGainControl'] as const
 
 export function analyzeCalibrations(lines: LogLine[], device: string): CalibrationAnalysis {
   const rows: CalibrationRow[] = []
@@ -741,8 +751,9 @@ export function analyzeCalibrations(lines: LogLine[], device: string): Calibrati
       const out = num(engine?.outputLatencyMs)
       const contextMs = base !== null && out !== null ? base + out : null
       const settings = (engine?.settings as Record<string, unknown> | undefined) ?? {}
-      const processing: Record<string, unknown> = {}
-      for (const k of PROCESSING_KEYS) if (k in settings) processing[k] = settings[k]
+      const processing = Object.fromEntries(
+        PROCESSING_KEYS.map((k) => [k, settings[k] === true ? 'on' : settings[k] === false ? 'off' : 'not reported']),
+      ) as Record<ProcessingKey, ProcessingState>
       rows.push({
         at: l.at,
         latencyMs,
@@ -789,9 +800,17 @@ export function analyzeCalibrations(lines: LogLine[], device: string): Calibrati
         level: 'warn',
         text: `measured minus declared latency = ${last.deltaMs.toFixed(1)} ms: the context does not know its own output path (Bluetooth? iOS reports 0).`,
       })
-    const on = PROCESSING_KEYS.filter((k) => last.processing[k] === true)
-    if (on.length)
-      verdicts.push({ key: 'processing', level: 'warn', text: `microphone processing on: ${on.join(', ')}.` })
+    const suspect = PROCESSING_KEYS.filter(
+      (k) =>
+        last.processing[k] === 'on' ||
+        (last.processing[k] === 'not reported' && PROCESSING_MUST_REPORT.some((m) => m === k)),
+    )
+    if (suspect.length)
+      verdicts.push({
+        key: 'processing',
+        level: 'warn',
+        text: `microphone processing ${PROCESSING_KEYS.map((k) => `${k}=${last.processing[k]}`).join(' ')}: ${suspect.join(', ')} not known to be off, and anything the browser does to the input moves the onsets.`,
+      })
   } else verdicts.push({ key: 'none', level: 'warn', text: 'no calibration logged for this device.' })
   if (!verdicts.length) verdicts.push({ key: 'clean', level: 'ok', text: 'calibration stable.' })
   return { device, rows, driftSdMs, verdicts }

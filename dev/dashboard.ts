@@ -171,7 +171,7 @@ function calibrationPanel(cal: CalibrationAnalysis, budget: Budget): string {
       (r) =>
         `<tr><td class="left">${when(r.at)}</td><td>${fmt(r.latencyMs)}</td><td>${fmt(r.offsetSdMs, 2)} / ${fmt(r.offsetMinMs)} / ${fmt(r.offsetMaxMs)}</td><td>${r.n}</td><td>${fmt(r.slope, 2)}</td><td>${fmt(r.r2, 4)}</td><td>${fmt(r.contextMs)}</td><td>${fmt(r.deltaMs)}</td><td class="left">${esc(r.deviceLabel)}</td><td class="left">${esc(
           Object.entries(r.processing)
-            .map(([k, v]) => `${k}=${String(v)}`)
+            .map(([k, state]) => `${k}=${state}`)
             .join(' '),
         )}</td></tr>`,
     )
