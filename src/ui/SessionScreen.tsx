@@ -10,7 +10,7 @@ import type { Exercise } from '../engine/types'
 import { type RunnerState, SessionRunner } from '../session/runner'
 import { Drummer } from '../sim/drummer'
 import type { SynthRun } from '../sim/graph'
-import { PLAYER_PRESETS } from '../sim/player'
+import { PLAYER_PRESETS, planStrokes } from '../sim/player'
 import { Meter } from './Meter'
 import type { SessionOptions } from './options'
 import { Score } from './Score'
@@ -138,9 +138,14 @@ export function SessionScreen({
       slots: s.grid.slots.map((sl) => ({
         i: sl.index,
         t: sl.t,
+        dur: sl.dur,
         hand: sl.step.hand,
         accent: sl.step.accent,
+        ornament: sl.step.ornament ?? null,
         repeat: sl.repeat,
+        bar: sl.bar,
+        beat: sl.beat,
+        sub: sl.sub,
       })),
       clicks: s.grid.clicks.map((c) => ({ t: c.t, kind: c.kind, silent: c.silent === true })),
     })
@@ -149,6 +154,16 @@ export function SessionScreen({
       drummer?.follow(s)
       if (s.grid !== lastGrid) {
         onEvent?.(lastGrid === null ? 'session:start' : 'session:replan', describe(s))
+        // The drummer's plan is deterministic per (seed, slot.index): the same call gives the ground
+        // truth the dashboard grades the detector against. Logged on every grid, like the grid itself.
+        if (synth)
+          onEvent?.('session:truth', {
+            preset: synth.config.preset,
+            seed: synth.config.seed,
+            latencyMs: synth.config.latencyMs,
+            headphones: synth.config.headphones,
+            strokes: planStrokes(s.grid.slots, PLAYER_PRESETS[synth.config.preset], synth.config.seed),
+          })
         lastGrid = s.grid
       }
       setState(s)

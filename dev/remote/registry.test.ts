@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { resolveTarget, safeName, uniqueName } from './registry'
+import { lastSeqOf, resolveTarget, safeName, uniqueName } from './registry'
 
 describe('uniqueName', () => {
   it('keeps a free name and numbers a taken one from 2', () => {
@@ -32,5 +32,16 @@ describe('safeName', () => {
     expect(safeName('iPhone di Francesco')).toBe('iphone-di-francesco')
     expect(safeName('../..')).toBe('device')
     expect(safeName('a'.repeat(60))).toHaveLength(40)
+  })
+})
+
+describe('lastSeqOf', () => {
+  it('reads the seq of the last complete line, ignoring a torn tail', () => {
+    const text = '{"event":"a","seq":7}\n{"event":"b","seq":8}\n{"event":"c","se'
+    expect(lastSeqOf(text)).toBe(8)
+  })
+  it('is 0 for an empty or absent file', () => {
+    expect(lastSeqOf('')).toBe(0)
+    expect(lastSeqOf('\n\n')).toBe(0)
   })
 })

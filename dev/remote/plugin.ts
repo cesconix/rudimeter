@@ -2,11 +2,11 @@
 // and land in `.remote/<device>.ndjson`; raw microphone audio lands next to them as WAV. It exists so
 // that an iPhone on the desk can be driven from the terminal and its numbers read from a file, instead
 // of screenshots of a log.
-import { appendFile, mkdir, writeFile } from 'node:fs/promises'
+import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { join } from 'node:path'
 import type { Plugin } from 'vite'
-import { resolveTarget, safeName, uniqueName } from './registry'
+import { lastSeqOf, resolveTarget, safeName, uniqueName } from './registry'
 import { encodeWav } from './wav'
 
 const DIR = '.remote'
@@ -76,6 +76,14 @@ export function remotePlugin(): Plugin {
   // `event` may be a comma list (`calibration:done,calibration:failed`): a wait ends on any of them, or on a command error.
   const matches = (w: Waiter, l: Line) =>
     l.seq > w.after && (w.event.split(',').includes(l.event) || l.event === 'cmd:error')
+
+  // `seq` is per device and per file, not per server run: the numbering resumes from the last line on
+  // disk, once per device after a start. A device that never logged has no file: 0.
+  const ensureSeq = async (device: string): Promise<void> => {
+    if (seqs.has(device)) return
+    const text = await readFile(join(DIR, `${device}.ndjson`), 'utf8').catch(() => '')
+    seqs.set(device, lastSeqOf(text))
+  }
 
   /** Numbers the line, stores it for `/wait`, wakes the waiters. Returns the line with `seq` and `receivedAt` inside. */
   function remember(device: string, event: string, fields: Record<string, unknown>): Line {
@@ -164,6 +172,7 @@ export function remotePlugin(): Plugin {
             return
           }
           if (req.method === 'POST' && url.pathname === '/log') {
+            await ensureSeq(device)
             const rawLines = (await readBody(req))
               .toString('utf8')
               .split('\n')
@@ -194,6 +203,7 @@ export function remotePlugin(): Plugin {
             return
           }
           if (req.method === 'POST' && url.pathname === '/audio') {
+            await ensureSeq(device)
             const buf = await readBody(req)
             if (buf.byteLength > MAX_AUDIO_BYTES || buf.byteLength % 4 !== 0) {
               json(res, 400, {
