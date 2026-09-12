@@ -196,6 +196,40 @@ describe('analyzeSession', () => {
     expect(a.extras.some((e) => e.flags.includes('double'))).toBe(true)
   })
 
+  it('keeps the output samples as a series and says which of them a gap precedes', () => {
+    // ctxTime 10, 11, 14.5, 15: only 14.5 − 11 = 3.5 s is past the 2.5 s threshold, so index 2 and
+    // nothing else. `gaps` is the length of that list by construction.
+    const lines = [
+      engine(0),
+      line('session:start', 2, {
+        exerciseId: 'x',
+        bpm: 60,
+        latencyMs: 0,
+        slope: null,
+        options: {},
+        slots: slots(1),
+        clicks: [],
+      }),
+      ...[
+        [10, 12],
+        [11, 12.5],
+        [14.5, 40],
+        [15, 12.4],
+      ].map(([ctxTime, outputMs], i) => line('output', 3 + i, { ctxTime, outputMs, bgDb: -70, state: 'running' })),
+      line('hit', 8, { t: 1.0, peakDb: -20 }),
+      line('session:done', 9, { exerciseId: 'x', bpm: 60, stats: stats({ good: 1 }), markdown: '' }),
+    ]
+    const a = analyzeSession(splitSessions(lines, 'dev')[0], deps)
+    expect(a.outputSeries).toEqual([
+      { t: 10, ms: 12 },
+      { t: 11, ms: 12.5 },
+      { t: 14.5, ms: 40 },
+      { t: 15, ms: 12.4 },
+    ])
+    expect(a.trust.outputGapIndices).toEqual([2])
+    expect(a.trust.gaps).toBe(1)
+  })
+
   it('grades the detector against the synthetic truth', () => {
     const lines = [
       engine(0, { synth: { seed: 42, preset: 'steady', latencyMs: 35, headphones: true } }),

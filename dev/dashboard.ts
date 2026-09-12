@@ -137,7 +137,12 @@ function detail(a: SessionAnalysis): string {
         { bands: [-40, -20, 20, 40] },
       )}</div>
       <div><h3>Level (dB, 3 dB bins)</h3>${histogramSvg([{ label: 'all', values: levels }], -45, 0, 3, { bands: [-40] })}</div>
-      <div><h3>Output latency (ms: mean − σ, mean, mean + σ, max)</h3>${sparklineSvg(outputSeries(a))}</div>
+      <div><h3>Output latency (ms, one sample per second; dashed = gap > 2.5 s)</h3>${sparklineSvg(
+        a.outputSeries.map((o) => o.ms),
+        600,
+        60,
+        a.trust.outputGapIndices,
+      )}</div>
     </div>
     ${synth}
     ${errors ? `<h3>Errors</h3><p>${esc(errors.text)}</p>` : ''}
@@ -146,13 +151,6 @@ function detail(a: SessionAnalysis): string {
     </details>
     ${a.markdown ? `<details><summary>App report</summary><pre>${esc(a.markdown)}</pre></details>` : ''}
   `
-}
-
-// The output samples are not in the analysis (they would double its size): the sparkline draws the
-// summary the analysis keeps — mean, σ, max — as three points until a later task ships the series.
-function outputSeries(a: SessionAnalysis): number[] {
-  const o = a.trust.output
-  return o.mean === null ? [] : [o.mean - (o.sd ?? 0), o.mean, o.mean + (o.sd ?? 0), o.max ?? o.mean]
 }
 
 function wireDetail(a: SessionAnalysis): void {

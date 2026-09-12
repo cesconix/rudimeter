@@ -135,16 +135,26 @@ export function histogramSvg(
   return parts.join('')
 }
 
-export function sparklineSvg(values: number[], width = 600, height = 60): string {
+/**
+ * `gaps` are indices into `values`: a dashed vertical line goes in front of sample `k`, where the
+ * clock jumped (the tab was hidden, the context suspended) and the polyline between k−1 and k joins
+ * two samples that are not a step apart.
+ */
+export function sparklineSvg(values: number[], width = 600, height = 60, gaps: number[] = []): string {
   const parts = [`<svg class="sparkline" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`]
   if (values.length) {
     const lo = Math.min(...values)
     const hi = Math.max(...values)
     const span = Math.max(hi - lo, 0.001)
+    const at = (k: number): number => 4 + (k / Math.max(values.length - 1, 1)) * (width - 8)
     const pts = values.map(
-      (v, k) =>
-        `${(4 + (k / Math.max(values.length - 1, 1)) * (width - 8)).toFixed(1)},${(height - 4 - ((v - lo) / span) * (height - 8)).toFixed(1)}`,
+      (v, k) => `${at(k).toFixed(1)},${(height - 4 - ((v - lo) / span) * (height - 8)).toFixed(1)}`,
     )
+    for (const k of gaps) {
+      if (k < 0 || k >= values.length) continue
+      const x = at(k).toFixed(1)
+      parts.push(`<line class="gap" x1="${x}" x2="${x}" y1="4" y2="${height - 4}"/>`)
+    }
     parts.push(`<polyline points="${pts.join(' ')}"/>`)
     parts.push(
       `<text x="4" y="12" class="axis">${hi.toFixed(1)}</text><text x="4" y="${height - 6}" class="axis">${lo.toFixed(1)}</text>`,

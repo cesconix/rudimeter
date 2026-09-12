@@ -23,6 +23,7 @@ const session = (over: Partial<SessionAnalysis> = {}): SessionAnalysis => ({
   notes: [],
   extras: [],
   clicks: [],
+  outputSeries: [],
   trust: {
     hits: 82,
     echo: 82,
@@ -35,6 +36,7 @@ const session = (over: Partial<SessionAnalysis> = {}): SessionAnalysis => ({
     sigmaMs: 0.01,
     output: { mean: 12.6, sd: 0.1, max: 12.8 },
     gaps: 0,
+    outputGapIndices: [],
     notRunning: 0,
     verdicts: [{ key: 'echo', level: 'bad', text: '82/82 hits sit at click + 73.3 ms' }],
   },

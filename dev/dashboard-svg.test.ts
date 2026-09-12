@@ -78,6 +78,14 @@ describe('dashboard-svg', () => {
     expect(sparklineSvg([])).toContain('<svg')
     expect(sparklineSvg([1, 2, 3])).toContain('<polyline')
   })
+  it('sparklineSvg ticks a dashed line in front of every gap index and ignores the ones out of range', () => {
+    // 5 values over width 600: x(k) = 4 + k/4 * 592, so x(0) = 4.0, x(2) = 300.0, x(4) = 596.0.
+    const svg = sparklineSvg([10, 11, 12, 11, 10], 600, 60, [2, 4, 5, -1])
+    expect(svg.match(/class="gap"/g)).toHaveLength(2)
+    expect(svg).toContain('<line class="gap" x1="300.0" x2="300.0" y1="4" y2="56"/>')
+    expect(svg).toContain('<line class="gap" x1="596.0" x2="596.0" y1="4" y2="56"/>')
+    expect(sparklineSvg([10, 11, 12], 600, 60)).not.toContain('class="gap"')
+  })
   it('offsetsSvg draws the ok/good bands, clamps an out-of-range offset, and ticks a miss', () => {
     const a = {
       t0: 0,

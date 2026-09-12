@@ -144,6 +144,8 @@ export interface SessionAnalysis {
   notes: NoteRow[]
   extras: ExtraRow[]
   clicks: LoggedClick[]
+  /** the `output` samples as they were logged, ~1 a second: a few KB per session, drawn as a line */
+  outputSeries: { t: number; ms: number }[]
   trust: {
     hits: number
     /** hits the echo check stands behind: `echoCandidates` when corroborated, 0 otherwise */
@@ -160,6 +162,8 @@ export interface SessionAnalysis {
     sigmaMs: number | null
     output: Spread
     gaps: number
+    /** indices into `outputSeries` a gap precedes, so the sparkline can mark where the clock jumped */
+    outputGapIndices: number[]
     notRunning: number
     verdicts: Verdict[]
   }
@@ -459,7 +463,13 @@ export function analyzeSession(rec: SessionRecord, deps: AnalyzeDeps): SessionAn
   const offsets = notes.map((n) => n.offsetMs).filter((x): x is number => x !== null)
   const sigmaMs = offsets.length >= SIGMA_MIN_NOTES ? sd(offsets) : null
   const output = spread(rec.outputs.map((o) => o.outputMs))
-  const gaps = rec.outputs.filter((o, k) => k > 0 && o.ctxTime - rec.outputs[k - 1].ctxTime > OUTPUT_GAP_S).length
+  const outputSeries = rec.outputs.map((o) => ({ t: o.ctxTime, ms: o.outputMs }))
+  // The index the gap precedes, not the count alone: the page draws it on the series, and `gaps` stays
+  // the length of this list so the two can never disagree.
+  const outputGapIndices = rec.outputs.flatMap((o, k) =>
+    k > 0 && o.ctxTime - rec.outputs[k - 1].ctxTime > OUTPUT_GAP_S ? [k] : [],
+  )
+  const gaps = outputGapIndices.length
   const notRunning = rec.outputs.filter((o) => o.state !== 'running').length
   const r2 = num((rec.measured?.fit as { r2?: unknown } | null | undefined)?.r2)
   const hits = rec.hits.length
@@ -666,6 +676,7 @@ export function analyzeSession(rec: SessionRecord, deps: AnalyzeDeps): SessionAn
     notes,
     extras,
     clicks,
+    outputSeries,
     trust: {
       hits,
       echo,
@@ -678,6 +689,7 @@ export function analyzeSession(rec: SessionRecord, deps: AnalyzeDeps): SessionAn
       sigmaMs,
       output,
       gaps,
+      outputGapIndices,
       notRunning,
       verdicts,
     },
