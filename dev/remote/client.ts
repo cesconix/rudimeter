@@ -75,17 +75,29 @@ export interface ParsedArgs {
   args: Record<string, unknown>
   until: string | null
   timeoutMs: number
-  n: number
+  /** null: the command's own default (50 lines for tail/report, everything for feedback) */
+  n: number | null
+  export: string | null
 }
 
-const FLAGS = ['to', 'all', 'until', 'timeout', 'n']
+const FLAGS = ['to', 'all', 'until', 'timeout', 'n', 'export']
 
 /**
  * `[--to name | --all] <cmd> [<json>] [--until event] [--timeout ms]`; `ls`, `tail [name] [--n N]`,
- * `wait <event>`, `report [name] [--n N]`, `verdict [name]`, `calibrations [name]`.
+ * `wait <event>`, `report [name] [--n N]`, `verdict [name]`, `calibrations [name]`,
+ * `feedback [name] [--n N] [--export path]`.
  */
 export function parseArgs(argv: string[]): ParsedArgs {
-  const out: ParsedArgs = { to: null, all: false, cmd: '', args: {}, until: null, timeoutMs: 60000, n: 50 }
+  const out: ParsedArgs = {
+    to: null,
+    all: false,
+    cmd: '',
+    args: {},
+    until: null,
+    timeoutMs: 60000,
+    n: null,
+    export: null,
+  }
   const positional: string[] = []
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
@@ -104,12 +116,13 @@ export function parseArgs(argv: string[]): ParsedArgs {
     if (flag === 'to') out.to = value
     else if (flag === 'until') out.until = value
     else if (flag === 'timeout') out.timeoutMs = Number(value)
+    else if (flag === 'export') out.export = value
     else out.n = Number(value)
   }
   const [cmd, raw] = positional
   if (!cmd) throw new Error('usage: remote [--to name | --all] <cmd> [<json>] | ls | tail [name] | wait <event>')
   out.cmd = cmd
-  if (cmd === 'tail' || cmd === 'report' || cmd === 'verdict' || cmd === 'calibrations')
+  if (cmd === 'tail' || cmd === 'report' || cmd === 'verdict' || cmd === 'calibrations' || cmd === 'feedback')
     out.args = raw ? { name: raw } : {}
   else if (cmd === 'wait') {
     if (!raw) throw new Error('wait needs an event name')

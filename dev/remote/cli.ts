@@ -5,15 +5,19 @@
 // bun run remote report [name] [--n 50]
 // bun run remote verdict [name]
 // bun run remote calibrations [name]
+// bun run remote feedback [name] [--n N] [--export path]
 // The dev server must be running (`bun run dev`); `RUDIMETER_REMOTE_URL` overrides https://localhost:5173.
-import { readFile } from 'node:fs/promises'
+import { readdir, readFile, writeFile } from 'node:fs/promises'
+import { resolve, sep } from 'node:path'
 import { EXERCISES } from '../../src/data/exercises'
 import { createClient, DEFAULT_URL, defaultUntil, parseArgs } from './client'
 import { deviceReport } from './device-report'
-import { formatCalibrations, formatTable, formatVerdict } from './report-text'
+import { collectFeedback } from './feedback'
+import { formatCalibrations, formatFeedback, formatFeedbackMarkdown, formatTable, formatVerdict } from './report-text'
 
 const args = parseArgs(process.argv.slice(2))
 const client = createClient(process.env.RUDIMETER_REMOTE_URL ?? DEFAULT_URL)
+const deps = { exerciseById: (id: string) => EXERCISES.find((e) => e.id === id) }
 
 if (args.cmd === 'ls') {
   const devices = await client.devices()
@@ -23,7 +27,7 @@ if (args.cmd === 'ls') {
   const name = String(args.args.name ?? (await oneDevice()))
   const text = await readFile(`.remote/${name}.ndjson`, 'utf8')
   const lines = text.trimEnd().split('\n')
-  console.log(lines.slice(-args.n).join('\n'))
+  console.log(lines.slice(-(args.n ?? 50)).join('\n'))
 } else if (args.cmd === 'wait') {
   const name = args.to ?? (await oneDevice())
   const devices = await client.devices()
@@ -33,13 +37,34 @@ if (args.cmd === 'ls') {
   // Reads the file, not the server: works with the dev server down, on yesterday's logs.
   const name = String(args.args.name ?? (await oneDevice()))
   const text = await readFile(`.remote/${name}.ndjson`, 'utf8')
-  const report = deviceReport(name, text, { exerciseById: (id) => EXERCISES.find((e) => e.id === id) }, args.n)
+  const report = deviceReport(name, text, deps, args.n ?? 50)
   if (args.cmd === 'report') console.log(formatTable([...report.sessions].reverse()))
   else if (args.cmd === 'verdict') {
     const a = report.sessions[0]
     if (!a) throw new Error(`no session in .remote/${name}.ndjson`)
     console.log(formatVerdict(a))
   } else console.log(formatCalibrations(report.calibrations, report.budget))
+} else if (args.cmd === 'feedback') {
+  // Every comment on disk with the session it belongs to, newest first: one device when named, else all.
+  // Reads the files, like report: a review happens with the server down, on any day's logs.
+  const names = args.args.name
+    ? [String(args.args.name)]
+    : (await readdir('.remote'))
+        .filter((f) => f.endsWith('.ndjson'))
+        .map((f) => f.slice(0, -'.ndjson'.length))
+        .sort()
+  const files: { device: string; text: string }[] = []
+  for (const device of names) files.push({ device, text: await readFile(`.remote/${device}.ndjson`, 'utf8') })
+  const all = collectFeedback(files, deps)
+  const entries = args.n === null ? all : all.slice(0, args.n)
+  console.log(formatFeedback(entries))
+  if (args.export !== null) {
+    // The export is the archive that outlives a hand-emptied `.remote/`: writing it in there defeats it.
+    if (resolve(args.export).startsWith(`${resolve('.remote')}${sep}`))
+      throw new Error(`--export must point outside .remote/: ${args.export}`)
+    await writeFile(args.export, formatFeedbackMarkdown(entries, new Date().toISOString()))
+    console.log(`exported ${entries.length} comments to ${args.export}`)
+  }
 } else {
   const sent = await client.send(args.cmd, args.args, args.all ? { all: true } : args.to ? { to: args.to } : {})
   // `--all` broadcasts to whoever is connected, so the server answers 200 with an empty `delivered` when

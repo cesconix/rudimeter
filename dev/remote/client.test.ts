@@ -12,7 +12,8 @@ describe('parseArgs', () => {
       args: { exercise: 'stone-1', bpm: 60 },
       until: 'session:done',
       timeoutMs: 60000,
-      n: 50,
+      n: null,
+      export: null,
     })
   })
   it('rejects unknown flags and bad json', () => {
@@ -31,6 +32,16 @@ describe('parseArgs', () => {
   it('report/verdict/calibrations take a device name, not JSON', () => {
     expect(parseArgs(['report', 'iphone', '--n', '3'])).toMatchObject({ cmd: 'report', args: { name: 'iphone' }, n: 3 })
     expect(parseArgs(['verdict'])).toMatchObject({ cmd: 'verdict', args: {} })
+  })
+  it('feedback takes a device name, --n and --export; --n is null unless given', () => {
+    expect(parseArgs(['feedback'])).toMatchObject({ cmd: 'feedback', args: {}, n: null, export: null })
+    expect(parseArgs(['feedback', 'iphone', '--n', '3', '--export', 'docs/plans/feedback.md'])).toMatchObject({
+      cmd: 'feedback',
+      args: { name: 'iphone' },
+      n: 3,
+      export: 'docs/plans/feedback.md',
+    })
+    expect(() => parseArgs(['feedback', '--export'])).toThrow('--export needs a value')
   })
 })
 
