@@ -269,6 +269,9 @@ export function splitSessions(lines: LogLine[], device: string): SessionRecord[]
         break
       case 'cmd:error':
       case 'calibration:failed':
+      // A log batch the page had to send again (src/dev/remote.ts): the lines around it reached the
+      // file out of their original order, and whatever the bound dropped never reached it at all.
+      case 'flush:retry':
         open?.errors.push(l)
         break
       case 'session:done':

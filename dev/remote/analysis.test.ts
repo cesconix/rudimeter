@@ -93,6 +93,7 @@ describe('parseLines / splitSessions', () => {
         }),
       ),
       JSON.stringify(line('hit', 3, { t: 1.08, peakDb: -20 })),
+      JSON.stringify(line('flush:retry', 3.2, { lines: 4, dropped: 0, error: 'Failed to fetch' })),
       JSON.stringify(line('output', 3.5, { ctxTime: 10, outputMs: 12, bgDb: -70, state: 'running' })),
       JSON.stringify(line('hit', 4, { t: 1.6, peakDb: -22 })),
       JSON.stringify(line('session:done', 5, { exerciseId: 'x', bpm: 60, stats: stats({ good: 2 }), markdown: '# r' })),
@@ -107,11 +108,13 @@ describe('parseLines / splitSessions', () => {
       '{"event":"hit","at":"2026-09-12T06:00:30.000Z","se',
     ].join('\n')
     const lines = parseLines(text)
-    expect(lines).toHaveLength(13)
+    expect(lines).toHaveLength(14)
     const recs = splitSessions(lines, 'dev')
     expect(recs).toHaveLength(3)
     expect(recs[0].hits).toHaveLength(2)
     expect(recs[0].outputs).toHaveLength(1)
+    // A batch the page had to send again lands in the session's errors, like a `cmd:error`.
+    expect(recs[0].errors.map((e) => e.event)).toEqual(['flush:retry'])
     expect(recs[0].done?.event).toBe('session:done')
     expect(recs[0].calibration?.latencyMs).toBe(73)
     expect(recs[0].engine?.deviceLabel).toBe('mic')

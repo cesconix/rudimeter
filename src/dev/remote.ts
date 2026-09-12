@@ -14,6 +14,11 @@ export interface Remote {
 }
 
 const FLUSH_MS = 250
+/**
+ * A dead server must not grow the queue without bound: 5000 lines is ~8 minutes of the busiest traffic
+ * seen (~10 `hit`/s plus 1 `output`/s) and a few hundred KB of strings. Past it the oldest go, counted.
+ */
+const MAX_QUEUE_LINES = 5000
 
 export function connectRemote(
   wanted: string,
@@ -34,23 +39,91 @@ export function connectRemote(
   // Set once `close()` has run its final flush: `log`/`flush` become no-ops so a call arriving after
   // close (e.g. a late `cmd:done`) cannot resurrect the queue or schedule a stray `fetch` to `/log`.
   let closed = false
+  /** The batch the timer path has on the wire, so it never puts a second one next to it. */
+  let inflight: Promise<void> | null = null
+  /** Why the last batch failed, until a batch gets through and reports it as `flush:retry`. */
+  let failure: string | null = null
+  let requeued = 0
+  let dropped = 0
 
-  function flush(): void {
+  function arm(): void {
+    if (!closed && timer === null) timer = window.setTimeout(() => flush(), FLUSH_MS)
+  }
+
+  function trim(): void {
+    if (queue.length > MAX_QUEUE_LINES) dropped += queue.splice(0, queue.length - MAX_QUEUE_LINES).length
+  }
+
+  function requeue(batch: string[], reason: string): void {
+    queue.unshift(...batch)
+    requeued += batch.length
+    failure = reason
+    trim()
+    console.error(`[remote] log batch failed, requeued: ${reason}`)
+    arm()
+  }
+
+  function post(batch: string[], keepalive: boolean): Promise<void> {
+    // The gap the retry left in the file is itself a line, so the analysis can see it instead of
+    // reading a session that starts in the middle of nowhere.
+    const body =
+      failure === null
+        ? batch
+        : [
+            JSON.stringify({
+              event: 'flush:retry',
+              at: new Date().toISOString(),
+              perf: Math.round(performance.now()),
+              lines: requeued,
+              dropped,
+              error: failure,
+            }),
+            ...batch,
+          ]
+    return fetch(`${base}/log?device=${encodeURIComponent(name)}`, { method: 'POST', body: body.join('\n'), keepalive })
+      .then((res) => {
+        if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
+        failure = null
+        requeued = 0
+        dropped = 0
+      })
+      .catch((err: unknown) => {
+        requeue(batch, (err as Error).message)
+      })
+  }
+
+  /**
+   * `keepalive` is not free: Chrome caps the sum of the bodies of all in-flight keepalive requests at
+   * 64 KiB per document, and the session-start burst is ~63 KB (`session:start` 21.6 KB + `session:truth`
+   * 10 KB, twice under React StrictMode, plus `cmd:done` and `screen`). With any earlier batch still on
+   * the wire the fetch rejects outright and the whole batch is gone — which is how `.remote/synth.ndjson`
+   * ended up with a `session:done` and no `session:start`. So the timer path sends a plain fetch and keeps
+   * a single batch in flight; only the hide/close path, which cannot wait for anything, asks for keepalive.
+   */
+  function flush(keepalive = false): void {
     timer = null
     if (closed || !ready || queue.length === 0) return
-    const body = queue.splice(0).join('\n')
-    // keepalive: a flush fired from `visibilitychange` must survive the page going to the background.
-    fetch(`${base}/log?device=${encodeURIComponent(name)}`, { method: 'POST', body, keepalive: true }).catch(() => {})
+    if (!keepalive && inflight) {
+      // File order is what the analysis reads back: two overlapping POSTs can land either way round.
+      arm()
+      return
+    }
+    const done = post(queue.splice(0), keepalive)
+    if (keepalive) return
+    inflight = done.then(() => {
+      inflight = null
+    })
   }
 
   function log(event: string, data: Record<string, unknown> = {}): void {
     if (closed) return
     queue.push(JSON.stringify({ event, at: new Date().toISOString(), perf: Math.round(performance.now()), ...data }))
-    if (timer === null) timer = window.setTimeout(flush, FLUSH_MS)
+    trim()
+    arm()
   }
 
   const onHide = () => {
-    if (document.visibilityState === 'hidden') flush()
+    if (document.visibilityState === 'hidden') flush(true)
   }
   document.addEventListener('visibilitychange', onHide)
 
@@ -146,7 +219,7 @@ export function connectRemote(
       window.clearTimeout(timer)
       timer = null
     }
-    flush() // final synchronous drain, while `closed` is still false so it actually sends
+    flush(true) // final drain, while `closed` is still false so it actually sends
     closed = true
     es.close()
     document.removeEventListener('visibilitychange', onHide)
