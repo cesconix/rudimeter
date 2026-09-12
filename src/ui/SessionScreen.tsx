@@ -135,6 +135,8 @@ export function SessionScreen({
       options,
       latencyMs: calibration.latencyMs,
       slope: calibration.slope,
+      countInEnd: s.grid.countInEnd,
+      minStepDur: s.grid.minStepDur,
       slots: s.grid.slots.map((sl) => ({
         i: sl.index,
         t: sl.t,

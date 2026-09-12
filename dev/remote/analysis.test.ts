@@ -263,6 +263,65 @@ describe('analyzeSession', () => {
     expect(a.synthetic).toBeNull()
     expect(a.trust.verdicts.some((v) => v.key === 'truth')).toBe(true)
   })
+
+  it("drops count-in hits at the logged countInEnd/minStepDur, not at the first slot's own t/dur", () => {
+    // Logged countInEnd 1.0 s, minStepDur 0.2 s (mixed subdivisions elsewhere in the grid): the
+    // runner's own threshold is countInEnd − minStepDur/2 = 1.0 − 0.1 = 0.9 s. The first slot itself
+    // sits at 1.3 s with dur 0.5 s (a rest before it), so the old "first.t − first.dur/2" rule would
+    // have used 1.3 − 0.25 = 1.05 s and wrongly dropped a hit at 0.95 s (0.9 ≤ 0.95 < 1.05) that the
+    // runner kept. With the fix the hit survives, misses its only slot's window (±0.25 s around 1.3)
+    // and lands as an extra.
+    const lines = [
+      engine(0),
+      line('session:start', 2, {
+        exerciseId: 'x',
+        bpm: 60,
+        latencyMs: 0,
+        slope: null,
+        options: {},
+        countInEnd: 1.0,
+        minStepDur: 0.2,
+        slots: [
+          { i: 0, t: 1.3, dur: 0.5, hand: 'R', accent: false, ornament: null, repeat: 0, bar: 0, beat: 0, sub: 0 },
+        ],
+        clicks: [],
+      }),
+      line('hit', 3, { t: 0.95, peakDb: -20 }),
+      line('session:done', 5, { exerciseId: 'x', bpm: 60, stats: stats({ miss: 1, extras: 1 }), markdown: '' }),
+    ]
+    const a = analyzeSession(splitSessions(lines, 'dev')[0], deps)
+    expect(a.extras).toHaveLength(1)
+    expect(a.extras[0].t).toBeCloseTo(0.95, 5)
+    expect(a.notes[0].grade).toBe('miss')
+  })
+
+  it('keeps the guide click out of the echo signal and flags that the guide was on', () => {
+    // latency 50 ms; a beat click at t=1.0 and an off-beat guide note click at t=1.2. A raw hit at
+    // click + latency lands exactly on each: 1.05 s for the beat, 1.25 s for the note. Only the beat
+    // click is a real metronome click for the echo check — the note is what the drummer is meant to
+    // play on, so a stroke landing there is not evidence of an echo.
+    const lines = [
+      engine(0),
+      line('session:start', 2, {
+        exerciseId: 'x',
+        bpm: 60,
+        latencyMs: 50,
+        slope: null,
+        options: {},
+        slots: slots(1),
+        clicks: [
+          { t: 1.0, kind: 'beat', silent: false },
+          { t: 1.2, kind: 'note', silent: false },
+        ],
+      }),
+      line('hit', 3, { t: 1.05, peakDb: -20 }),
+      line('hit', 3.1, { t: 1.25, peakDb: -20 }),
+      line('session:done', 5, { exerciseId: 'x', bpm: 60, stats: stats({ miss: 1, extras: 1 }), markdown: '' }),
+    ]
+    const a = analyzeSession(splitSessions(lines, 'dev')[0], deps)
+    expect(a.trust.echo).toBe(1)
+    expect(a.trust.verdicts.some((v) => v.key === 'guide' && v.level === 'warn')).toBe(true)
+  })
 })
 
 describe('analyzeCalibrations / errorBudget', () => {

@@ -1,6 +1,7 @@
 // What the remote channel logged (dev/remote/plugin.ts → .remote/<device>.ndjson), read back as answers:
 // per session, how the strokes matched the score and how far the detection can be trusted; per device,
 // how precise and stable the calibration is. Pure — bun test, the CLI and the dashboard page share it.
+import { type ClickKind, isGuide } from '../../src/engine/grid'
 import { judge } from '../../src/engine/judge'
 import { mean, type SessionStats, sd } from '../../src/engine/stats'
 import { DEFAULT_WINDOWS, type Exercise, type Grade, type Hand, type Hit, type Slot } from '../../src/engine/types'
@@ -315,7 +316,16 @@ export function analyzeSession(rec: SessionRecord, deps: AnalyzeDeps): SessionAn
   const slots = toSlots(rec.grid.slots)
   const clicks = rec.grid.clicks
   const first = slots[0]
-  const audible = clicks.filter((c) => !c.silent)
+  // The guide (metronome.guide on) sounds a stroke on every note (src/engine/grid.ts buildRepeat):
+  // from a speaker without headphones it reaches the microphone exactly on the expected instant, so
+  // it must not count as a click for the echo check — it would flag every on-grid stroke as an echo.
+  const audible = clicks.filter((c) => !c.silent && !isGuide(c.kind as ClickKind))
+  // The count-in drop threshold: logged on `session:start` (src/ui/SessionScreen.tsx describe) from the
+  // grid in force during the count-in, which is the grid the runner used for those hits. Logs before
+  // 2026-09-12 lack the fields; the fallback (first slot's own t/dur) is only exact when the grid has a
+  // single subdivision throughout and no leading rest — for anything else it is an approximation.
+  const minDur = num(start.minStepDur) ?? (slots.length ? Math.min(...slots.map((s) => s.dur)) : 0)
+  const countInEnd = num(start.countInEnd) ?? first?.t ?? 0
 
   // Trust flags are found on the raw hits (echo: the click's own delay; doubles: the pad's tail) and
   // travel with the hit object into the judge, which hands the same objects back. Hits are logged in
@@ -345,9 +355,9 @@ export function analyzeSession(rec: SessionRecord, deps: AnalyzeDeps): SessionAn
       flags.push('floor')
     }
     // The runner's correction, mirrored (src/session/runner.ts addHit): latency off the time, slope off
-    // the level, count-in hits dropped — here "before half a step ahead of the first slot".
+    // the level, count-in hits dropped at `countInEnd - minStepDur / 2`.
     const c: Hit = { t: h.t - latencyMs / 1000, peakDb: slope !== null && slope > 0 ? h.peakDb / slope : h.peakDb }
-    if (first && c.t < first.t - first.dur / 2) return
+    if (c.t < countInEnd - minDur / 2) return
     corrected.push(c)
     if (flags.length) flagsOf.set(c, flags)
   })
@@ -409,6 +419,12 @@ export function analyzeSession(rec: SessionRecord, deps: AnalyzeDeps): SessionAn
       key: 'echo',
       level: 'warn',
       text: `${echo}/${hits} hits at click + latency: some strokes may be the click.`,
+    })
+  if (clicks.some((c) => isGuide(c.kind as ClickKind)))
+    verdicts.push({
+      key: 'guide',
+      level: 'warn',
+      text: 'guide sound on: without headphones its echo lands exactly where an on-grid stroke would, and the echo signal cannot tell them apart.',
     })
   if (doubles)
     verdicts.push({
