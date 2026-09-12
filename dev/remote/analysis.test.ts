@@ -322,8 +322,108 @@ describe('analyzeSession', () => {
       line('session:done', 5, { exerciseId: 'x', bpm: 60, stats: stats({ miss: 1, extras: 1 }), markdown: '' }),
     ]
     const a = analyzeSession(splitSessions(lines, 'dev')[0], deps)
-    expect(a.trust.echo).toBe(1)
+    // One candidate, the beat click's: the guide note at 1.2 s never enters `audible`. One candidate is
+    // below the 8 the scatter rule needs and the run has no count-in click, so nothing corroborates it
+    // and `echo` stays 0 — the point here is only that the guide did not produce a second candidate.
+    expect(a.trust.echoCandidates).toBe(1)
+    expect(a.trust.echo).toBe(0)
     expect(a.trust.verdicts.some((v) => v.key === 'guide' && v.level === 'warn')).toBe(true)
+  })
+
+  it('says nothing about echoes on a synthetic run with headphones: the click never reaches the input', () => {
+    // Headphones on: the speaker path does not exist. Every hit here sits exactly on click + 35 ms and
+    // the guide is on, which without the headphones flag would be 4/4 candidates plus a guide warn.
+    const lines = [
+      engine(0, { synth: { seed: 42, preset: 'steady', latencyMs: 35, headphones: true } }),
+      line('session:start', 2, {
+        exerciseId: 'x',
+        bpm: 60,
+        latencyMs: 35,
+        slope: null,
+        options: {},
+        countInEnd: 1.0,
+        minStepDur: 0.5,
+        slots: slots(4),
+        clicks: [...clicks(4), { t: 1.25, kind: 'note', silent: false }],
+      }),
+      ...[1.035, 1.535, 2.035, 2.535].map((t, i) => line('hit', 3 + i, { t, peakDb: -18 })),
+      line('session:done', 9, { exerciseId: 'x', bpm: 60, stats: stats({ good: 4 }), markdown: '' }),
+    ]
+    const a = analyzeSession(splitSessions(lines, 'dev')[0], deps)
+    expect(a.trust.echo).toBe(0)
+    expect(a.trust.echoCandidates).toBe(0)
+    expect(a.trust.echoResidualSdMs).toBeNull()
+    expect(a.trust.verdicts.some((v) => v.key === 'echo')).toBe(false)
+    expect(a.trust.verdicts.some((v) => v.key === 'guide')).toBe(false)
+    expect(a.notes.every((n) => !n.flags.includes('echo'))).toBe(true)
+  })
+
+  it('calls scattered hits on the beat what they are: strokes on time, not the click', () => {
+    // 12 hits at click + 50 ms + jitter, jitter alternating ±5, ∓5, ±6, ∓6, ±7, ∓7, ±8, ∓8, ±5, ∓5,
+    // ±6, ∓6 ms: mean 0, Σx² = 2·(25+36+49+64+25+36) = 470, sample σ = √(470/11) = 6.54 ms — far above
+    // the 2 ms a real echo holds. The two count-in clicks (0.0 s, 0.5 s, before countInEnd 1.0 s) get
+    // no hit at all: 0/2. Neither rule corroborates, so `echo` is 0 and the verdict is a note, not a flag.
+    const jitter = [5, -5, 6, -6, 7, -7, 8, -8, 5, -5, 6, -6]
+    const lines = [
+      engine(0),
+      line('session:start', 2, {
+        exerciseId: 'x',
+        bpm: 60,
+        latencyMs: 50,
+        slope: null,
+        options: {},
+        countInEnd: 1.0,
+        minStepDur: 0.5,
+        slots: slots(12),
+        clicks: [{ t: 0, kind: 'bar', silent: false }, { t: 0.5, kind: 'beat', silent: false }, ...clicks(12)],
+      }),
+      ...jitter.map((j, i) => line('hit', 3 + i, { t: 1 + i * 0.5 + 0.05 + j / 1000, peakDb: -18 })),
+      line('session:done', 20, { exerciseId: 'x', bpm: 60, stats: stats({ good: 12 }), markdown: '' }),
+    ]
+    const a = analyzeSession(splitSessions(lines, 'dev')[0], deps)
+    expect(a.trust.echoCandidates).toBe(12)
+    expect(a.trust.echoResidualSdMs).toBeCloseTo(6.54, 2)
+    expect(a.trust.countInClicks).toBe(2)
+    expect(a.trust.countInEchoes).toBe(0)
+    expect(a.trust.echo).toBe(0)
+    expect(a.trust.verdicts.find((v) => v.key === 'echo')?.level).toBe('ok')
+    expect(a.notes.every((n) => !n.flags.includes('echo'))).toBe(true)
+    expect(a.regrade.good).toBe(12)
+  })
+
+  it('trusts the count-in when the scatter alone would not: nothing to play there, so a hit is the click', () => {
+    // Both count-in clicks (0.0 s, 0.5 s) are answered at + 50 ms exactly, then 6 in-session candidates
+    // scatter ±3 ms: over the 6 that is σ = √(54/5) = 3.29 ms, and over all 8 candidates (the two
+    // count-in residuals are 0) σ = √(54/7) = 2.78 ms — both above the 2 ms bar, so the scatter rule
+    // says nothing. 2/2 count-in clicks echoed does corroborate: echo 8/8 hits = 100 % → bad.
+    const jitter = [3, -3, 3, -3, 3, -3]
+    const lines = [
+      engine(0),
+      line('session:start', 2, {
+        exerciseId: 'x',
+        bpm: 60,
+        latencyMs: 50,
+        slope: null,
+        options: {},
+        countInEnd: 1.0,
+        minStepDur: 0.5,
+        slots: slots(6),
+        clicks: [{ t: 0, kind: 'bar', silent: false }, { t: 0.5, kind: 'beat', silent: false }, ...clicks(6)],
+      }),
+      line('hit', 2.1, { t: 0.05, peakDb: -18 }),
+      line('hit', 2.6, { t: 0.55, peakDb: -18 }),
+      ...jitter.map((j, i) => line('hit', 3 + i, { t: 1 + i * 0.5 + 0.05 + j / 1000, peakDb: -18 })),
+      line('session:done', 12, { exerciseId: 'x', bpm: 60, stats: stats({ good: 6 }), markdown: '' }),
+    ]
+    const a = analyzeSession(splitSessions(lines, 'dev')[0], deps)
+    expect(a.trust.echoCandidates).toBe(8)
+    expect(a.trust.echoResidualSdMs).toBeCloseTo(2.78, 2)
+    expect(a.trust.countInEchoes).toBe(2)
+    expect(a.trust.countInClicks).toBe(2)
+    expect(a.trust.echo).toBe(8)
+    expect(a.trust.verdicts.find((v) => v.key === 'echo')?.level).toBe('bad')
+    // The two count-in hits are dropped before the judge, so only the six in-session ones carry the flag.
+    expect(a.notes.filter((n) => n.flags.includes('echo'))).toHaveLength(6)
   })
 })
 

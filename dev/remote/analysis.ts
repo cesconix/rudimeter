@@ -146,7 +146,15 @@ export interface SessionAnalysis {
   clicks: LoggedClick[]
   trust: {
     hits: number
+    /** hits the echo check stands behind: `echoCandidates` when corroborated, 0 otherwise */
     echo: number
+    /** raw hits sitting within ±10 ms of click + latency, corroborated or not */
+    echoCandidates: number
+    /** σ of the candidates' distance from click + latency: a real echo barely scatters, a drummer does */
+    echoResidualSdMs: number | null
+    /** audible metronome clicks before the first slot, and how many of them a hit answered */
+    countInClicks: number
+    countInEchoes: number
     doubles: number
     floor: number
     sigmaMs: number | null
@@ -162,8 +170,23 @@ export interface AnalyzeDeps {
   exerciseById(id: string): Exercise | undefined
 }
 
-/** A raw hit this close to click + latency is the click coming back through the microphone. */
+/** A raw hit this close to click + latency is a candidate for the click coming back through the microphone. */
 const ECHO_MS = 10
+/**
+ * A candidate alone proves nothing: a drummer on time on a click beat lands in the same ±10 ms window.
+ * What separates them is scatter. On the fixtures a real echo holds residual σ 0.01 ms (iphone) and
+ * 0.42 ms (mac) — it is the click itself, delayed by a fixed path — while strokes on the beat scatter
+ * σ 3.15 ms and 5.28 ms. Eight candidates are enough for that σ to mean something.
+ */
+const ECHO_MIN_CANDIDATES = 8
+const ECHO_RESIDUAL_SIGMA_MS = 2
+/**
+ * The other corroboration, independent of σ: during the count-in there is nothing to play yet, so a hit
+ * on a count-in click can only be that click coming back. Both fixtures with a real echo answer 2/2
+ * count-in clicks; both runs of on-time strokes answer 0/2.
+ */
+const COUNT_IN_MIN_CLICKS = 2
+const COUNT_IN_ECHO_SHARE = 0.5
 /** A stroke and its detection are the same event within this window; beyond it, a miss and a false hit. */
 const TRUTH_MS = 20
 /** The pad's tail past the 40 ms refractory: seen on the iPhone 40–56 ms after loud hits, 20 dB down. */
@@ -329,6 +352,12 @@ export function analyzeSession(rec: SessionRecord, deps: AnalyzeDeps): SessionAn
   // single subdivision throughout and no leading rest — for anything else it is an approximation.
   const minDur = num(start.minStepDur) ?? (slots.length ? Math.min(...slots.map((s) => s.dur)) : 0)
   const countInEnd = num(start.countInEnd) ?? first?.t ?? 0
+  // A synthetic run with headphones on has no speaker path at all: the click is mixed into the
+  // headphones, never into the input (see `?headphones=off` in the README for the case that is not
+  // this one). Every candidate would be a stroke on the beat, so there is no echo question to ask.
+  const headphones =
+    (rec.engine?.synth as { headphones?: unknown } | null | undefined)?.headphones === true ||
+    rec.truth?.headphones === true
 
   // Trust flags are found on the raw hits (echo: the click's own delay; doubles: the pad's tail) and
   // travel with the hit object into the judge, which hands the same objects back. Hits are logged in
@@ -336,15 +365,24 @@ export function analyzeSession(rec: SessionRecord, deps: AnalyzeDeps): SessionAn
   const raw = [...rec.hits].sort((a, b) => a.t - b.t)
   const flagsOf = new Map<Hit, string[]>()
   const corrected: Hit[] = []
-  let echo = 0
+  // Whether the candidates are echoes at all is decided on the whole run, below: the per-hit flag
+  // cannot be written while walking the hits, so each candidate keeps the corrected hit it produced
+  // (null when the count-in drop removed it, as it still counts as a candidate).
+  const candidates: { hit: Hit | null; residualMs: number; countIn: boolean }[] = []
   let doubles = 0
   let floor = 0
   raw.forEach((h, k) => {
     const flags: string[] = []
-    if (audible.some((c) => Math.abs((h.t - c.t) * 1000 - latencyMs) <= ECHO_MS)) {
-      echo++
-      flags.push('echo')
-    }
+    // The nearest audible click such that the hit sits within ±ECHO_MS of click + latency; the signed
+    // distance to it is the residual the corroboration below reads.
+    let nearest: { residualMs: number; countIn: boolean } | null = null
+    if (!headphones)
+      for (const c of audible) {
+        const residualMs = (h.t - c.t) * 1000 - latencyMs
+        if (Math.abs(residualMs) > ECHO_MS) continue
+        if (nearest === null || Math.abs(residualMs) < Math.abs(nearest.residualMs))
+          nearest = { residualMs, countIn: c.t < countInEnd }
+      }
     const prev = raw[k - 1]
     if (prev) {
       const dt = (h.t - prev.t) * 1000
@@ -360,10 +398,26 @@ export function analyzeSession(rec: SessionRecord, deps: AnalyzeDeps): SessionAn
     // The runner's correction, mirrored (src/session/runner.ts addHit): latency off the time, slope off
     // the level, count-in hits dropped at `countInEnd - minStepDur / 2`.
     const c: Hit = { t: h.t - latencyMs / 1000, peakDb: slope !== null && slope > 0 ? h.peakDb / slope : h.peakDb }
-    if (c.t < countInEnd - minDur / 2) return
+    const kept = c.t >= countInEnd - minDur / 2
+    if (nearest) candidates.push({ hit: kept ? c : null, ...nearest })
+    if (!kept) return
     corrected.push(c)
     if (flags.length) flagsOf.set(c, flags)
   })
+
+  const echoCandidates = candidates.length
+  const echoResidualSdMs = sd(candidates.map((c) => c.residualMs))
+  const countInEchoes = candidates.filter((c) => c.countIn).length
+  const countInClicks = headphones ? 0 : audible.filter((c) => c.t < countInEnd).length
+  // Either corroboration on its own is enough, and each catches what the other cannot: a long session
+  // whose count-in the drummer sat out is caught by the scatter, a short one by the count-in.
+  const corroborated =
+    (echoCandidates >= ECHO_MIN_CANDIDATES && echoResidualSdMs !== null && echoResidualSdMs < ECHO_RESIDUAL_SIGMA_MS) ||
+    (countInClicks >= COUNT_IN_MIN_CLICKS && countInEchoes / countInClicks >= COUNT_IN_ECHO_SHARE)
+  const echo = corroborated ? echoCandidates : 0
+  // `echo` goes in front of the flags the walk above already found, so the order stays echo/double/floor.
+  if (corroborated)
+    for (const cand of candidates) if (cand.hit) flagsOf.set(cand.hit, ['echo', ...(flagsOf.get(cand.hit) ?? [])])
 
   const result = judge(slots, corrected, { windows: DEFAULT_WINDOWS })
   const notes: NoteRow[] = result.judged.map((j) => ({
@@ -411,19 +465,26 @@ export function analyzeSession(rec: SessionRecord, deps: AnalyzeDeps): SessionAn
   const hits = rec.hits.length
   const share = (n: number): number => (hits ? n / hits : 0)
   const verdicts: Verdict[] = []
-  if (share(echo) > 0.5)
+  const evidence = `residual σ ${echoResidualSdMs === null ? '—' : echoResidualSdMs.toFixed(2)} ms and ${countInEchoes}/${countInClicks} count-in clicks echoed`
+  if (corroborated && share(echo) > 0.5)
     verdicts.push({
       key: 'echo',
       level: 'bad',
-      text: `${echo}/${hits} hits sit at click + ${latencyMs.toFixed(1)} ms: the click's own echo — no headphones, or a loopback input. The report describes the click, not the drummer.`,
+      text: `${echo}/${hits} hits sit at click + ${latencyMs.toFixed(1)} ms with ${evidence}: the click's own echo — no headphones, or a loopback input. The report describes the click, not the drummer.`,
     })
-  else if (share(echo) > 0.1)
+  else if (corroborated && share(echo) > 0.1)
     verdicts.push({
       key: 'echo',
       level: 'warn',
-      text: `${echo}/${hits} hits at click + latency: some strokes may be the click.`,
+      text: `${echo}/${hits} hits at click + latency with ${evidence}: some strokes may be the click.`,
     })
-  if (clicks.some((c) => isGuide(c.kind as ClickKind)))
+  else if (!corroborated && share(echoCandidates) > 0.1)
+    verdicts.push({
+      key: 'echo',
+      level: 'ok',
+      text: `${echoCandidates}/${hits} hits sit on click + latency but scatter σ ${echoResidualSdMs === null ? '—' : echoResidualSdMs.toFixed(2)} ms and ${countInEchoes}/${countInClicks} count-in clicks echoed: on-time strokes, not the click.`,
+    })
+  if (!headphones && clicks.some((c) => isGuide(c.kind as ClickKind)))
     verdicts.push({
       key: 'guide',
       level: 'warn',
@@ -605,7 +666,21 @@ export function analyzeSession(rec: SessionRecord, deps: AnalyzeDeps): SessionAn
     notes,
     extras,
     clicks,
-    trust: { hits, echo, doubles, floor, sigmaMs, output, gaps, notRunning, verdicts },
+    trust: {
+      hits,
+      echo,
+      echoCandidates,
+      echoResidualSdMs,
+      countInClicks,
+      countInEchoes,
+      doubles,
+      floor,
+      sigmaMs,
+      output,
+      gaps,
+      notRunning,
+      verdicts,
+    },
     synthetic,
     markdown: typeof done?.markdown === 'string' ? done.markdown : null,
   }

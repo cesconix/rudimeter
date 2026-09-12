@@ -56,7 +56,7 @@ export function formatVerdict(a: SessionAnalysis): string {
       (a.regrade.matchesApp === null ? '' : a.regrade.matchesApp ? ' · matches the app' : ' · DIFFERS from the app'),
   )
   out.push(
-    `hits ${a.trust.hits} · echo ${a.trust.echo} · doubles ${a.trust.doubles} · floor ${a.trust.floor} · σ offset ${ms(a.trust.sigmaMs, 2)} ms · output ${ms(a.trust.output.mean)} ± ${ms(a.trust.output.sd)} ms (max ${ms(a.trust.output.max)}) · gaps ${a.trust.gaps}`,
+    `hits ${a.trust.hits} · echo ${a.trust.echo}/${a.trust.echoCandidates} candidates (residual σ ${ms(a.trust.echoResidualSdMs, 2)} ms · count-in ${a.trust.countInEchoes}/${a.trust.countInClicks}) · doubles ${a.trust.doubles} · floor ${a.trust.floor} · σ offset ${ms(a.trust.sigmaMs, 2)} ms · output ${ms(a.trust.output.mean)} ± ${ms(a.trust.output.sd)} ms (max ${ms(a.trust.output.max)}) · gaps ${a.trust.gaps}`,
   )
   if (a.synthetic) {
     const s = a.synthetic

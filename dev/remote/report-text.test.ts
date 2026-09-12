@@ -26,6 +26,10 @@ const session = (over: Partial<SessionAnalysis> = {}): SessionAnalysis => ({
   trust: {
     hits: 82,
     echo: 82,
+    echoCandidates: 82,
+    echoResidualSdMs: 0.01,
+    countInClicks: 2,
+    countInEchoes: 2,
     doubles: 0,
     floor: 0,
     sigmaMs: 0.01,
