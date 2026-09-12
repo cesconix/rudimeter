@@ -8,6 +8,7 @@ import { join } from 'node:path'
 import type { Plugin } from 'vite'
 import { EXERCISES } from '../../src/data/exercises'
 import { deviceReport } from './device-report'
+import { parseFeedbackBody } from './feedback'
 import { lastSeqOf, resolveTarget, safeName, uniqueName } from './registry'
 import { encodeWav } from './wav'
 
@@ -243,6 +244,35 @@ export function remotePlugin(): Plugin {
             await appendFile(join(root, `${device}.ndjson`), `${line.raw}\n`)
             info(`${device} audio ${file} (${seconds.toFixed(1)} s)`)
             json(res, 200, { file, seconds })
+            return
+          }
+          if (req.method === 'POST' && url.pathname === '/feedback') {
+            // A comment typed on the dashboard for a session picked from its table, days after the fact if
+            // need be. It lands in the device's own file as the same `session:feedback` line the app writes
+            // from the summary, plus the session's id, since here nothing says which session "the last" is.
+            let raw: unknown
+            try {
+              raw = JSON.parse((await readBody(req)).toString('utf8'))
+            } catch (err) {
+              json(res, 400, { error: `malformed JSON: ${(err as Error).message}` })
+              return
+            }
+            const parsed = parseFeedbackBody(raw, device)
+            if (!parsed.ok) {
+              json(res, 400, { error: parsed.error })
+              return
+            }
+            await ensureSeq(device)
+            const line = remember(device, 'session:feedback', {
+              event: 'session:feedback',
+              at: new Date().toISOString(),
+              sessionId: parsed.sessionId,
+              text: parsed.text,
+              source: 'dashboard',
+            })
+            await appendFile(join(root, `${device}.ndjson`), `${line.raw}\n`)
+            info(`${device} session:feedback from the dashboard (${parsed.text.length} chars)`)
+            json(res, 200, { ok: true, seq: line.seq })
             return
           }
           if (req.method === 'POST' && url.pathname === '/cmd') {

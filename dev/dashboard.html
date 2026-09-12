@@ -44,11 +44,13 @@
       pre { background: #f4f4f4; padding: 0.5rem; overflow: auto; font-size: 0.85rem; }
       #status { color: #555; }
       .small { font-size: 0.85rem; color: #555; }
+      .feedback { padding-left: 1.2rem; } .feedback li { white-space: pre-wrap; margin: 0.3rem 0; }
+      textarea { display: block; width: 100%; max-width: 640px; font: inherit; padding: 0.4rem; }
     </style>
   </head>
   <body>
     <h1>Session dashboard</h1>
-    <p class="small">Reads <code>.remote/&lt;device&gt;.ndjson</code> through the dev server. Notes vs the score first; how far to trust the detection next to it; per device, how precise the calibration is. No audio, no microphone on this page.</p>
+    <p class="small">Reads <code>.remote/&lt;device&gt;.ndjson</code> through the dev server. Notes vs the score first; how far to trust the detection next to it; per device, how precise the calibration is. No audio, no microphone on this page. A comment can be added to any session here; the app asks for one at the end of each session.</p>
     <div class="row">
       <label>Device <select id="device"></select></label>
       <button id="refresh" type="button">Refresh</button>

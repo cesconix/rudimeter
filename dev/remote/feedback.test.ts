@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import type { LogLine } from './analysis'
-import { collectFeedback } from './feedback'
+import { collectFeedback, parseFeedbackBody } from './feedback'
 
 const at = (s: number): string => new Date(Date.UTC(2026, 8, 12, 6, 0, 0, Math.round(s * 1000))).toISOString()
 const line = (event: string, s: number, fields: Record<string, unknown> = {}): string =>
@@ -60,5 +60,26 @@ describe('collectFeedback', () => {
   })
   it('is empty for logs without a comment', () => {
     expect(collectFeedback([{ device: 'x', text: session(1, 'stone-1').join('\n') }], deps)).toEqual([])
+  })
+})
+
+describe('parseFeedbackBody', () => {
+  it('accepts a session of the device with a trimmed comment within the cap, rejects the rest', () => {
+    expect(parseFeedbackBody({ sessionId: 'iphone@2026-09-12T06:22:57.210Z', text: '  late  ' }, 'iphone')).toEqual({
+      ok: true,
+      sessionId: 'iphone@2026-09-12T06:22:57.210Z',
+      text: 'late',
+    })
+    expect(parseFeedbackBody({ sessionId: 'mac@2026-09-12T06:22:57.210Z', text: 'late' }, 'iphone')).toMatchObject({
+      ok: false,
+      error: expect.stringContaining('sessionId must be'),
+    })
+    expect(parseFeedbackBody({ text: 'late' }, 'iphone')).toMatchObject({ ok: false })
+    expect(parseFeedbackBody({ sessionId: 'iphone@x', text: '   ' }, 'iphone')).toMatchObject({
+      ok: false,
+      error: expect.stringContaining('1 to 2000'),
+    })
+    expect(parseFeedbackBody({ sessionId: 'iphone@x', text: 'x'.repeat(2001) }, 'iphone')).toMatchObject({ ok: false })
+    expect(parseFeedbackBody(null, 'iphone')).toMatchObject({ ok: false })
   })
 })
