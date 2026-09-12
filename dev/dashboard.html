@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>rudimeter · session dashboard</title>
+    <style>
+      body { font: 15px/1.4 system-ui, sans-serif; margin: 1rem; background: #fff; color: #000; }
+      h1 { font-size: 1.3rem; margin: 0 0 0.5rem; }
+      h2 { font-size: 1.1rem; margin: 1.5rem 0 0.5rem; }
+      .row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0.5rem 0; }
+      button, select, input { font-size: 0.95rem; padding: 0.3rem 0.5rem; }
+      table { border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 0.9rem; }
+      td, th { border: 1px solid #ddd; padding: 0.2rem 0.5rem; text-align: right; white-space: nowrap; }
+      th:first-child, td:first-child, td.left, th.left { text-align: left; }
+      tr.session { cursor: pointer; }
+      tr.session:hover, tr.session.selected { background: #eef3ff; }
+      .chip { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 1rem; margin: 0.15rem; font-size: 0.85rem; }
+      .chip.ok { background: #d9f2df; } .chip.warn { background: #fff0c2; } .chip.bad { background: #ffd6d6; }
+      .scroll { overflow-x: auto; border: 1px solid #ddd; background: #fafafa; }
+      svg text { font: 11px system-ui, sans-serif; fill: #444; }
+      svg .lane { fill: #888; }
+      svg .rail { stroke: #ddd; }
+      svg .click { stroke: #999; stroke-width: 1.5; }
+      svg .click.bar { stroke: #333; stroke-width: 2; }
+      svg .slot { fill: none; stroke: #999; stroke-width: 1.2; }
+      svg .slot.accent { stroke: #333; stroke-width: 2; }
+      svg .slot.miss { stroke: #d0021b; }
+      svg .hit { stroke: none; }
+      svg .hit.good { fill: #2a9d3a; } svg .hit.ok { fill: #d9a400; } svg .hit.off { fill: #d0021b; }
+      svg .hit.echo { stroke: #666; stroke-width: 2; stroke-dasharray: 2 2; }
+      svg .hit.floor { opacity: 0.35; }
+      svg .extra line { stroke: #d0021b; stroke-width: 2; }
+      svg .extra.echo line { stroke: #666; stroke-dasharray: 2 2; }
+      svg .mark { fill: #d0021b; font-weight: bold; text-anchor: middle; }
+      svg .band.ok { fill: #fff6d6; } svg .band.good { fill: #e3f5e6; }
+      svg .offset { stroke-width: 2; stroke: #2a9d3a; } svg .offset.ok { stroke: #d9a400; } svg .offset.off { stroke: #d0021b; } svg .offset.miss { stroke: #d0021b; }
+      svg .bar.s0 { fill: #3b6fd8; } svg .bar.s1 { fill: #d88a3b; }
+      svg .band-line { stroke: #bbb; stroke-dasharray: 3 3; }
+      svg polyline { fill: none; stroke: #3b6fd8; stroke-width: 1.5; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 1rem; }
+      details summary { cursor: pointer; margin: 0.5rem 0; }
+      pre { background: #f4f4f4; padding: 0.5rem; overflow: auto; font-size: 0.85rem; }
+      #status { color: #555; }
+      .small { font-size: 0.85rem; color: #555; }
+    </style>
+  </head>
+  <body>
+    <h1>Session dashboard</h1>
+    <p class="small">Reads <code>.remote/&lt;device&gt;.ndjson</code> through the dev server. Notes vs the score first; how far to trust the detection next to it; per device, how precise the calibration is. No audio, no microphone on this page.</p>
+    <div class="row">
+      <label>Device <select id="device"></select></label>
+      <button id="refresh" type="button">Refresh</button>
+      <span id="status"></span>
+    </div>
+    <h2>Sessions</h2>
+    <div id="sessions"></div>
+    <div id="detail"></div>
+    <h2>Calibration</h2>
+    <div id="calibration"></div>
+    <script type="module" src="./dashboard.ts"></script>
+  </body>
+</html>

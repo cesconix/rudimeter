@@ -1,6 +1,13 @@
 {
   "$schema": "https://unpkg.com/knip@latest/schema.json",
-  "entry": ["src/**/*.test.ts", "dev/**/*.test.ts", "dev/gallery.ts", "dev/lab.ts", "dev/scenarios/*.ts"],
+  "entry": [
+    "src/**/*.test.ts",
+    "dev/**/*.test.ts",
+    "dev/gallery.ts",
+    "dev/lab.ts",
+    "dev/dashboard.ts",
+    "dev/scenarios/*.ts"
+  ],
   "project": ["src/**/*.{ts,tsx}", "dev/**/*.ts"],
   "rules": { "types": "off" }
 }
