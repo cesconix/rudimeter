@@ -394,6 +394,9 @@ export function splitSessions(lines: LogLine[], device: string): SessionRecord[]
  * The `session:feedback` lines `splitSessions` attached to nothing: an unknown id, or a comment before
  * any session had closed. Out of the analysis, since there is nothing to hang them on; the CLI lists
  * them all the same, so a comment typed in earnest does not vanish.
+ *
+ * Callers must pass the same `lines` array `splitSessions` received: the match against `records` is by
+ * object identity, not by value. Today `collectFeedback` is the only caller, and it does.
  */
 export function strayFeedback(lines: LogLine[], records: SessionRecord[]): LogLine[] {
   const attached = new Set(records.flatMap((r) => r.feedback))

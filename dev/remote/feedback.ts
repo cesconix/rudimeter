@@ -45,7 +45,11 @@ export function parseFeedbackBody(
 ): { ok: true; sessionId: string; text: string } | { ok: false; error: string } {
   const body = (raw ?? {}) as { sessionId?: unknown; text?: unknown }
   const sessionId = typeof body.sessionId === 'string' ? body.sessionId : ''
-  if (!sessionId.startsWith(`${device}@`))
+  // The tail must be an ISO instant, not just any string after "device@": without this, a crafted body
+  // could append an arbitrary (multi-MB) line that never matches a session and just lands as a stray.
+  const tailIsInstant =
+    sessionId.startsWith(`${device}@`) && Number.isFinite(Date.parse(sessionId.slice(device.length + 1)))
+  if (!tailIsInstant)
     return {
       ok: false,
       error: `sessionId must be "${device}@<session:start at>", got ${JSON.stringify(body.sessionId ?? null)}`,

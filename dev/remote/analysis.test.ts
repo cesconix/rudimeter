@@ -143,12 +143,16 @@ describe('parseLines / splitSessions', () => {
       done(12, 'y'),
       line('session:feedback', 13, { sessionId: `dev@${at(2)}`, text: 'echo, in hindsight', source: 'dashboard' }),
       line('session:feedback', 14, { sessionId: 'dev@2020-01-01T00:00:00.000Z', text: 'nobody', source: 'dashboard' }),
+      // z opens and never closes: an app comment with no id right after it must still land on the last
+      // CLOSED record (y), not on the open one — `out[out.length - 1]`, never `open ?? out[out.length - 1]`.
+      start(14.5, 'z'),
       line('session:feedback', 15, { text: 'second one', source: 'app' }),
     ]
     const recs = splitSessions(lines, 'dev')
-    expect(recs).toHaveLength(2)
+    expect(recs).toHaveLength(3)
     expect(recs[0].feedback.map((f) => f.text)).toEqual(['left hand late', 'echo, in hindsight'])
     expect(recs[1].feedback.map((f) => f.text)).toEqual(['second one'])
+    expect(recs[2].feedback).toEqual([])
     expect(strayFeedback(lines, recs).map((f) => f.text)).toEqual(['before any session', 'nobody'])
     const a = analyzeSession(recs[0], deps)
     expect(a.feedback).toEqual([

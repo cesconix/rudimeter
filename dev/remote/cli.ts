@@ -49,7 +49,9 @@ if (args.cmd === 'ls') {
   // Reads the files, like report: a review happens with the server down, on any day's logs.
   const names = args.args.name
     ? [String(args.args.name)]
-    : (await readdir('.remote'))
+    : // A checkout with no session yet has no `.remote/` at all: fall back to empty, like `/sessions` does,
+      // so the command prints "no feedback yet" instead of a raw ENOENT.
+      (await readdir('.remote').catch(() => [] as string[]))
         .filter((f) => f.endsWith('.ndjson'))
         .map((f) => f.slice(0, -'.ndjson'.length))
         .sort()
