@@ -10,3 +10,8 @@ export function cleanFeedback(raw: unknown): string | null {
   const text = raw.trim()
   return text.length > 0 && text.length <= MAX_FEEDBACK_CHARS ? text : null
 }
+
+/** The fields the app's Send logs: the id when the page knows it, so the comment cannot land on the wrong session. */
+export function appFeedbackFields(text: string, sessionId: string | null): Record<string, unknown> {
+  return sessionId === null ? { text, source: 'app' } : { text, source: 'app', sessionId }
+}

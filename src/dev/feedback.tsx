@@ -2,11 +2,16 @@
 // numbers, or nothing. Dev-only, like the channel it writes to: App.tsx loads it with the same `import()`
 // under `import.meta.env.DEV` as ./remote, so none of it — copy included — reaches the production bundle.
 import { useState } from 'react'
-import { cleanFeedback, MAX_FEEDBACK_CHARS } from './feedback-text'
+import { appFeedbackFields, cleanFeedback, MAX_FEEDBACK_CHARS } from './feedback-text'
 import type { Remote } from './remote'
 
 export interface FeedbackProps {
   remote: Remote
+  /**
+   * `<device>@<at of session:start>`, null when the page never logged the start (older channel, or
+   * the session began before the channel came up)
+   */
+  sessionId: string | null
 }
 
 /**
@@ -14,7 +19,7 @@ export interface FeedbackProps {
  * the drummer has already answered (or closed) shows nothing more. No line is logged on mount or on
  * Close — a session without feedback is just a session.
  */
-export function FeedbackBox({ remote }: FeedbackProps) {
+export function FeedbackBox({ remote, sessionId }: FeedbackProps) {
   const [draft, setDraft] = useState('')
   const [state, setState] = useState<'open' | 'sent' | 'closed'>('open')
   if (state === 'closed') return null
@@ -46,7 +51,7 @@ export function FeedbackBox({ remote }: FeedbackProps) {
           disabled={text === null}
           onClick={() => {
             if (text === null) return
-            remote.log('session:feedback', { text, source: 'app' })
+            remote.log('session:feedback', appFeedbackFields(text, sessionId))
             setState('sent')
           }}
         >

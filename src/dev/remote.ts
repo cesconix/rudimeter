@@ -6,7 +6,12 @@ export type CommandHandler = (args: Record<string, unknown>) => unknown | Promis
 export interface Remote {
   /** The name the server settled on: `iphone`, or `iphone-2` if a first page took it. */
   name: string
-  log(event: string, data?: Record<string, unknown>): void
+  /**
+   * Returns the ISO `at` it stamped into the line, or `null` when the channel is closed (nothing
+   * logged): the session id the analysis derives is `<device>@<at of session:start>`, and only `log`
+   * knows the `at` it wrote.
+   */
+  log(event: string, data?: Record<string, unknown>): string | null
   on(cmd: string, handler: CommandHandler): () => void
   /** Records `seconds` of `source` and ships it as a WAV. Resolves with the file name. */
   record(ctx: AudioContext, source: AudioNode, seconds: number, label: string): Promise<string>
@@ -115,11 +120,13 @@ export function connectRemote(
     })
   }
 
-  function log(event: string, data: Record<string, unknown> = {}): void {
-    if (closed) return
-    queue.push(JSON.stringify({ event, at: new Date().toISOString(), perf: Math.round(performance.now()), ...data }))
+  function log(event: string, data: Record<string, unknown> = {}): string | null {
+    if (closed) return null
+    const at = new Date().toISOString()
+    queue.push(JSON.stringify({ event, at, perf: Math.round(performance.now()), ...data }))
     trim()
     arm()
+    return at
   }
 
   const onHide = () => {

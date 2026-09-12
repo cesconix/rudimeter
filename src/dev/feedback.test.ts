@@ -8,7 +8,7 @@ import type { Remote } from './remote'
 // The Send/Close transitions are verified in the browser (plan 07, final check).
 const remote: Remote = {
   name: 'test',
-  log: () => {},
+  log: () => null,
   on: () => () => {},
   record: () => Promise.reject(new Error('not in a test')),
   close: () => {},
@@ -16,7 +16,7 @@ const remote: Remote = {
 
 describe('FeedbackBox', () => {
   it('mounts open: heading, capped textarea with the placeholder, Send disabled until there is text, Close', () => {
-    const html = renderToStaticMarkup(createElement(FeedbackBox, { remote }))
+    const html = renderToStaticMarkup(createElement(FeedbackBox, { remote, sessionId: null }))
     expect(html).toContain('How did it go?')
     // react-dom@19's static renderer writes prop names it does not special-case (maxLength is not in its
     // fixed attribute table, unlike e.g. className/tabIndex) verbatim, so the attribute lands camelCased.

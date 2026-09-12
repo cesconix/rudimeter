@@ -65,6 +65,10 @@ export function App() {
   const [notice, setNotice] = useState<string | null>(null)
   const [calibrateSignal, setCalibrateSignal] = useState(0)
   const sessionControls = useRef<{ stop(): void } | null>(null)
+  // The summary's box needs the id of the session it closes: `session:start` is logged through
+  // `logEvent`, so this is where its `at` is seen. React StrictMode logs `session:start` twice a
+  // millisecond apart and the analysis keeps the second one, which is also the last one seen here.
+  const sessionStartAt = useRef<string | null>(null)
   useEffect(() => {
     if (!remoteName) return
     let r: Remote | null = null
@@ -213,7 +217,13 @@ export function App() {
 
   // Stable identities: SessionScreen keeps both among the dependencies of the effect that owns the
   // runner, and a new function on every render would restart the session from the top.
-  const logEvent = useCallback((event: string, data: Record<string, unknown>) => remote?.log(event, data), [remote])
+  const logEvent = useCallback(
+    (event: string, data: Record<string, unknown>) => {
+      const at = remote?.log(event, data) ?? null
+      if (event === 'session:start') sessionStartAt.current = at
+    },
+    [remote],
+  )
   const registerSession = useCallback((c: { stop(): void } | null) => {
     sessionControls.current = c
   }, [])
@@ -380,7 +390,12 @@ export function App() {
         onRepeat={() => setScreen('session')}
         onPick={() => setScreen('pick')}
       >
-        {remote && FeedbackBox && <FeedbackBox remote={remote} />}
+        {remote && FeedbackBox && (
+          <FeedbackBox
+            remote={remote}
+            sessionId={sessionStartAt.current === null ? null : `${remote.name}@${sessionStartAt.current}`}
+          />
+        )}
       </SummaryScreen>
     )
   } else {

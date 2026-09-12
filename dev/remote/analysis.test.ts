@@ -142,6 +142,7 @@ describe('parseLines / splitSessions', () => {
       start(10, 'y'),
       done(12, 'y'),
       line('session:feedback', 13, { sessionId: `dev@${at(2)}`, text: 'echo, in hindsight', source: 'dashboard' }),
+      line('session:feedback', 13.5, { sessionId: `dev@${at(2)}`, text: 'from the app, by id', source: 'app' }),
       line('session:feedback', 14, { sessionId: 'dev@2020-01-01T00:00:00.000Z', text: 'nobody', source: 'dashboard' }),
       // z opens and never closes: an app comment with no id right after it must still land on the last
       // CLOSED record (y), not on the open one — `out[out.length - 1]`, never `open ?? out[out.length - 1]`.
@@ -150,7 +151,7 @@ describe('parseLines / splitSessions', () => {
     ]
     const recs = splitSessions(lines, 'dev')
     expect(recs).toHaveLength(3)
-    expect(recs[0].feedback.map((f) => f.text)).toEqual(['left hand late', 'echo, in hindsight'])
+    expect(recs[0].feedback.map((f) => f.text)).toEqual(['left hand late', 'echo, in hindsight', 'from the app, by id'])
     expect(recs[1].feedback.map((f) => f.text)).toEqual(['second one'])
     expect(recs[2].feedback).toEqual([])
     expect(strayFeedback(lines, recs).map((f) => f.text)).toEqual(['before any session', 'nobody'])
@@ -158,6 +159,7 @@ describe('parseLines / splitSessions', () => {
     expect(a.feedback).toEqual([
       { at: at(6), text: 'left hand late', source: 'app' },
       { at: at(13), text: 'echo, in hindsight', source: 'dashboard' },
+      { at: at(13.5), text: 'from the app, by id', source: 'app' },
     ])
     // A comment is text for the reader, not a signal: no verdict mentions it.
     expect(a.trust.verdicts.some((v) => v.key === 'feedback')).toBe(false)
