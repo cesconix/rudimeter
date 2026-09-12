@@ -1,4 +1,8 @@
 import { describe, expect, it } from 'bun:test'
+import { parseExercise } from '../../src/engine/exercise'
+import { buildGrid } from '../../src/engine/grid'
+import { runOracle } from '../../src/sim/oracle'
+import { PLAYER_PRESETS, planStrokes } from '../../src/sim/player'
 import {
   analyzeCalibrations,
   analyzeSession,
@@ -314,6 +318,106 @@ describe('analyzeSession', () => {
     expect(a.synthetic?.timingMs.mean).toBeCloseTo(4, 0)
     expect(a.synthetic?.levelDb.mean).toBeCloseTo(-0.5, 1)
     expect(a.trust.verdicts.some((v) => v.key === 'synthetic' && v.level === 'bad')).toBe(true)
+  })
+
+  it('compares the app stats with the oracle for the same seed, and says so when they part', () => {
+    // A real 4-slot exercise on the grid the runner builds: `SessionRunner.start` uses
+    // `buildGrid(ex, bpm, now + 0.5, { countInBars: 1, metronome: DEFAULT_METRONOME })` and `runOracle`
+    // starts its virtual clock at 0, so t0 = 0.5 reproduces the oracle's own grid slot for slot.
+    // At 120 bpm in 2/4 the count-in bar ends at 1.5 s and the four slots sit at 1.5, 1.75, 2.0, 2.25 s
+    // (dur 0.25). `steady` seed 7 plays them at −2.17, −0.13, −12.47, +0.92 ms of their slot: four
+    // `good`, mean offset −3.462 ms — which is exactly what `runOracle` reports, since both judge the
+    // same strokes. The page logs the raw hits, so each stroke goes in at + 35 ms of latency.
+    const ex = parseExercise({ id: 'oracle-x', name: 'Oracle', timeSignature: [2, 4], steps: 'RL RL', repeats: 1 })
+    const grid = buildGrid(ex, 120, 0.5, { countInBars: 1 })
+    const strokes = planStrokes(grid.slots, PLAYER_PRESETS.steady, 7)
+    const oracleStats = runOracle({ exercise: ex, bpm: 120, preset: 'steady', seed: 7 })
+    const logged: LoggedSlot[] = grid.slots.map((s) => ({
+      i: s.index,
+      t: s.t,
+      dur: s.dur,
+      hand: s.step.hand ?? 'R',
+      accent: s.step.accent,
+      ornament: null,
+      repeat: s.repeat,
+      bar: s.bar,
+      beat: s.beat,
+      sub: s.sub,
+    }))
+    const run = (hits: typeof strokes, appStats: typeof oracleStats): LogLine[] => [
+      engine(0, { synth: { seed: 7, preset: 'steady', latencyMs: 35, headphones: true } }),
+      line('session:start', 2, {
+        exerciseId: 'oracle-x',
+        bpm: 120,
+        latencyMs: 35,
+        slope: null,
+        options: {},
+        countInEnd: grid.countInEnd,
+        minStepDur: grid.minStepDur,
+        slots: logged,
+        clicks: grid.clicks,
+      }),
+      line('session:truth', 2, { preset: 'steady', seed: 7, latencyMs: 35, headphones: true, strokes }),
+      ...hits.map((s, i) => line('hit', 3 + i, { t: s.t + 0.035, peakDb: s.peakDb })),
+      line('session:done', 9, { exerciseId: 'oracle-x', bpm: 120, stats: appStats, markdown: '' }),
+    ]
+    const exDeps = { exerciseById: (id: string) => (id === 'oracle-x' ? ex : undefined) }
+
+    const same = analyzeSession(splitSessions(run(strokes, oracleStats), 'dev')[0], exDeps)
+    expect(same.synthetic?.detected).toBe(4)
+    expect(same.synthetic?.missed).toBe(0)
+    expect(same.synthetic?.oracle).toEqual({ miss: 0, extras: 0, meanOffsetMs: 0 })
+    expect(same.trust.verdicts.some((v) => v.key === 'oracle')).toBe(false)
+
+    // Drop the last stroke's hit: the detector missed slot 3, so the app logs good 3 / miss 1 where the
+    // oracle still has good 4 / miss 0. Removing the hit alone could not move this block — it compares
+    // the app's own logged stats with the oracle, not the re-judged counts — so the log says both.
+    const short = analyzeSession(
+      splitSessions(run(strokes.slice(0, 3), { ...oracleStats, good: 3, miss: 1 }), 'dev')[0],
+      exDeps,
+    )
+    expect(short.regrade).toMatchObject({ good: 3, miss: 1, extras: 0, matchesApp: true })
+    expect(short.synthetic?.oracle).toEqual({ miss: 1, extras: 0, meanOffsetMs: 0 })
+    expect(short.trust.verdicts.find((v) => v.key === 'oracle')?.level).toBe('warn')
+  })
+
+  it('cuts the synthetic truth at the last hit when the run was stopped', () => {
+    // Truth of 4 strokes at 1.0, 1.6, 2.2, 2.8 s; the drummer stopped after the second. The cut is the
+    // last hit + 0.5 s = 2.1 s, so only the first two strokes were ever playable: 2 strokes, both
+    // detected, 0 missed. Without the cut the run would read as 2 strokes missed out of 4.
+    const t = [1.0, 1.6, 2.2, 2.8]
+    const lines = [
+      engine(0, { synth: { seed: 1, preset: 'steady', latencyMs: 0, headphones: true } }),
+      line('session:start', 2, {
+        exerciseId: 'x',
+        bpm: 100,
+        latencyMs: 0,
+        slope: null,
+        options: {},
+        slots: slots(4, 1, 0.6),
+        clicks: [],
+      }),
+      line('session:truth', 2, {
+        preset: 'steady',
+        seed: 1,
+        latencyMs: 0,
+        headphones: true,
+        strokes: t.map((x, i) => ({ t: x, peakDb: -18, slot: i })),
+      }),
+      line('hit', 3, { t: 1.0, peakDb: -18 }),
+      line('hit', 4, { t: 1.6, peakDb: -18 }),
+      line('session:done', 5, {
+        exerciseId: 'x',
+        bpm: 100,
+        stopped: true,
+        stats: stats({ good: 2, miss: 2 }),
+        markdown: '',
+      }),
+    ]
+    const a = analyzeSession(splitSessions(lines, 'dev')[0], deps)
+    expect(a.stopped).toBe(true)
+    expect(a.synthetic).toMatchObject({ strokes: 2, detected: 2, missed: 0, falseHits: 0, oracle: null })
+    expect(a.trust.verdicts.some((v) => v.key === 'synthetic')).toBe(false)
   })
 
   it('warns on a synthetic run logged without truth and still reads slots without dur', () => {
