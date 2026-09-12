@@ -1,0 +1,758 @@
+// What the remote channel logged (dev/remote/plugin.ts → .remote/<device>.ndjson), read back as answers:
+// per session, how the strokes matched the score and how far the detection can be trusted; per device,
+// how precise and stable the calibration is. Pure — bun test, the CLI and the dashboard page share it.
+import { judge } from '../../src/engine/judge'
+import { mean, type SessionStats, sd } from '../../src/engine/stats'
+import { DEFAULT_WINDOWS, type Exercise, type Grade, type Hand, type Hit, type Slot } from '../../src/engine/types'
+import { type OracleConfig, runOracle } from '../../src/sim/oracle'
+import type { PlayerPreset } from '../../src/sim/player'
+
+export interface LogLine {
+  event: string
+  at: string
+  seq: number
+  [key: string]: unknown
+}
+
+/** A slot as `session:start` logs it. `dur`, `bar`, `beat`, `sub`, `ornament` arrived on 2026-09-12: older logs lack them. */
+export interface LoggedSlot {
+  i: number
+  t: number
+  dur?: number
+  hand: Hand
+  accent: boolean
+  ornament?: string | null
+  repeat: number
+  bar?: number
+  beat?: number
+  sub?: number
+}
+export interface LoggedClick {
+  t: number
+  kind: string
+  silent: boolean
+}
+export interface RawHit {
+  t: number
+  peakDb: number
+}
+export interface OutputSample {
+  ctxTime: number
+  outputMs: number
+  bgDb: number
+  state: string
+}
+export interface TruthStroke {
+  t: number
+  peakDb: number
+  slot: number | null
+}
+
+export interface SessionRecord {
+  device: string
+  start: LogLine
+  grid: { slots: LoggedSlot[]; clicks: LoggedClick[] }
+  replans: number
+  done: LogLine | null
+  hits: RawHit[]
+  outputs: OutputSample[]
+  engine: LogLine | null
+  calibration: LogLine | null
+  measured: LogLine | null
+  truth: LogLine | null
+  errors: LogLine[]
+}
+
+export type Level = 'ok' | 'warn' | 'bad'
+export interface Verdict {
+  key: string
+  level: Level
+  text: string
+}
+export interface NoteRow {
+  i: number
+  bar: number
+  beat: number
+  sub: number
+  hand: Hand
+  accent: boolean
+  t: number
+  hitT: number | null
+  offsetMs: number | null
+  peakDb: number | null
+  grade: Grade
+  flags: string[]
+}
+export interface ExtraRow {
+  t: number
+  peakDb: number
+  flags: string[]
+}
+export interface Spread {
+  mean: number | null
+  sd: number | null
+  /** largest absolute value */
+  max: number | null
+}
+export interface SyntheticBlock {
+  preset: string
+  seed: number
+  strokes: number
+  detected: number
+  missed: number
+  falseHits: number
+  timingMs: Spread
+  levelDb: Spread
+  /** app stats minus oracle stats; null when the exercise is unknown or the run was stopped */
+  oracle: { miss: number; extras: number; meanOffsetMs: number } | null
+}
+export interface SessionAnalysis {
+  id: string
+  device: string
+  exerciseId: string
+  bpm: number
+  startedAt: string
+  endedAt: string | null
+  complete: boolean
+  stopped: boolean
+  aborted: boolean
+  replans: number
+  /** first slot time on the audio clock, and the span to the end of the last slot */
+  t0: number
+  durationS: number
+  options: Record<string, unknown>
+  calibration: { latencyMs: number; slope: number | null; r2: number | null; deviceLabel: string }
+  engine: {
+    deviceLabel: string
+    sampleRate: number | null
+    outputLatencyMs: number | null
+    synth: boolean
+    settings: Record<string, unknown>
+  }
+  /** as the app logged them in session:done */
+  stats: SessionStats | null
+  regrade: {
+    good: number
+    ok: number
+    off: number
+    miss: number
+    extras: number
+    absorbed: number
+    matchesApp: boolean | null
+  }
+  notes: NoteRow[]
+  extras: ExtraRow[]
+  clicks: LoggedClick[]
+  trust: {
+    hits: number
+    echo: number
+    doubles: number
+    floor: number
+    sigmaMs: number | null
+    output: Spread
+    gaps: number
+    notRunning: number
+    verdicts: Verdict[]
+  }
+  synthetic: SyntheticBlock | null
+  markdown: string | null
+}
+export interface AnalyzeDeps {
+  exerciseById(id: string): Exercise | undefined
+}
+
+/** A raw hit this close to click + latency is the click coming back through the microphone. */
+const ECHO_MS = 10
+/** A stroke and its detection are the same event within this window; beyond it, a miss and a false hit. */
+const TRUTH_MS = 20
+/** The pad's tail past the 40 ms refractory: seen on the iPhone 40–56 ms after loud hits, 20 dB down. */
+const DOUBLE_MIN_MS = 40
+const DOUBLE_MAX_MS = 80
+const DOUBLE_DROP_DB = 12
+const FLOOR_MARGIN_DB = 6
+/** No drummer holds σ under 5 ms; under 2 ms the source is synchronous with the clock (the click itself). */
+const HUMAN_SIGMA_MS = 2
+const SIGMA_MIN_NOTES = 20
+const OUTPUT_GAP_S = 2.5
+
+const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
+const spread = (xs: number[]): Spread => ({
+  mean: mean(xs),
+  sd: sd(xs),
+  max: xs.length ? Math.max(...xs.map((x) => Math.abs(x))) : null,
+})
+
+export function parseLines(text: string): LogLine[] {
+  const out: LogLine[] = []
+  for (const raw of text.split('\n')) {
+    if (!raw.trim()) continue
+    try {
+      out.push(JSON.parse(raw) as LogLine)
+    } catch {
+      // The last line of a file still being appended can be torn: skip it, the next read sees it whole.
+    }
+  }
+  return out
+}
+
+const gridOf = (l: LogLine): SessionRecord['grid'] => ({
+  slots: (l.slots as LoggedSlot[] | undefined) ?? [],
+  clicks: (l.clicks as LoggedClick[] | undefined) ?? [],
+})
+
+export function splitSessions(lines: LogLine[], device: string): SessionRecord[] {
+  const out: SessionRecord[] = []
+  let engine: LogLine | null = null
+  let calibration: LogLine | null = null
+  let measured: LogLine | null = null
+  let open: SessionRecord | null = null
+  const close = (): void => {
+    if (open) out.push(open)
+    open = null
+  }
+  for (const l of lines) {
+    switch (l.event) {
+      case 'engine':
+        engine = l
+        break
+      case 'calibration:done':
+        calibration = l
+        break
+      case 'calibration:measured':
+        measured = l
+        break
+      case 'session:start': {
+        // React StrictMode mounts the session twice in dev: two `session:start` a millisecond apart, the
+        // first from a runner torn down before it heard anything. The second one is the session.
+        const ghost =
+          open !== null &&
+          open.hits.length === 0 &&
+          open.outputs.length === 0 &&
+          Date.parse(l.at) - Date.parse(open.start.at) < 2000
+        if (!ghost) close()
+        open = {
+          device,
+          start: l,
+          grid: gridOf(l),
+          replans: 0,
+          done: null,
+          hits: [],
+          outputs: [],
+          engine,
+          calibration,
+          measured,
+          truth: null,
+          errors: [],
+        }
+        break
+      }
+      case 'session:replan':
+        if (open) {
+          open.grid = gridOf(l)
+          open.replans++
+        }
+        break
+      case 'session:truth':
+        if (open) open.truth = l
+        break
+      case 'hit':
+        open?.hits.push({ t: Number(l.t), peakDb: Number(l.peakDb) })
+        break
+      case 'output':
+        open?.outputs.push({
+          ctxTime: Number(l.ctxTime),
+          outputMs: Number(l.outputMs),
+          bgDb: Number(l.bgDb),
+          state: String(l.state),
+        })
+        break
+      case 'cmd:error':
+      case 'calibration:failed':
+        open?.errors.push(l)
+        break
+      case 'session:done':
+        if (open) {
+          open.done = l
+          close()
+        }
+        break
+      default:
+        break
+    }
+  }
+  close()
+  return out
+}
+
+/** Slots as `judge` wants them. Without a logged `dur` (older logs) the gap to the next slot stands in. */
+function toSlots(logged: LoggedSlot[]): Slot[] {
+  const gaps = logged
+    .slice(1)
+    .map((s, k) => s.t - logged[k].t)
+    .filter((g) => g > 0)
+  const minGap = gaps.length ? Math.min(...gaps) : 0.25
+  return logged.map((s, k) => ({
+    index: s.i,
+    t: s.t,
+    dur: s.dur ?? (k + 1 < logged.length ? logged[k + 1].t - s.t : minGap),
+    step: {
+      hand: s.hand,
+      accent: s.accent,
+      ...(s.ornament ? { ornament: s.ornament as Slot['step']['ornament'] } : {}),
+    },
+    repeat: s.repeat,
+    bar: s.bar ?? 0,
+    beat: s.beat ?? 0,
+    sub: s.sub ?? 0,
+  }))
+}
+
+export function analyzeSession(rec: SessionRecord, deps: AnalyzeDeps): SessionAnalysis {
+  const start = rec.start
+  const latencyMs = num(start.latencyMs) ?? 0
+  const slope = num(start.slope)
+  const floorDb = num(rec.engine?.floorDb) ?? -40
+  const slots = toSlots(rec.grid.slots)
+  const clicks = rec.grid.clicks
+  const first = slots[0]
+  const audible = clicks.filter((c) => !c.silent)
+
+  // Trust flags are found on the raw hits (echo: the click's own delay; doubles: the pad's tail) and
+  // travel with the hit object into the judge, which hands the same objects back. Hits are logged in
+  // time order, but "the previous hit" must mean the previous in time whatever the log did.
+  const raw = [...rec.hits].sort((a, b) => a.t - b.t)
+  const flagsOf = new Map<Hit, string[]>()
+  const corrected: Hit[] = []
+  let echo = 0
+  let doubles = 0
+  let floor = 0
+  raw.forEach((h, k) => {
+    const flags: string[] = []
+    if (audible.some((c) => Math.abs((h.t - c.t) * 1000 - latencyMs) <= ECHO_MS)) {
+      echo++
+      flags.push('echo')
+    }
+    const prev = raw[k - 1]
+    if (prev) {
+      const dt = (h.t - prev.t) * 1000
+      if (dt >= DOUBLE_MIN_MS && dt <= DOUBLE_MAX_MS && h.peakDb <= prev.peakDb - DOUBLE_DROP_DB) {
+        doubles++
+        flags.push('double')
+      }
+    }
+    if (h.peakDb <= floorDb + FLOOR_MARGIN_DB) {
+      floor++
+      flags.push('floor')
+    }
+    // The runner's correction, mirrored (src/session/runner.ts addHit): latency off the time, slope off
+    // the level, count-in hits dropped — here "before half a step ahead of the first slot".
+    const c: Hit = { t: h.t - latencyMs / 1000, peakDb: slope !== null && slope > 0 ? h.peakDb / slope : h.peakDb }
+    if (first && c.t < first.t - first.dur / 2) return
+    corrected.push(c)
+    if (flags.length) flagsOf.set(c, flags)
+  })
+
+  const result = judge(slots, corrected, { windows: DEFAULT_WINDOWS })
+  const notes: NoteRow[] = result.judged.map((j) => ({
+    i: j.slot.index,
+    bar: j.slot.bar,
+    beat: j.slot.beat,
+    sub: j.slot.sub,
+    hand: (j.slot.step.hand ?? 'R') as Hand,
+    accent: j.slot.step.accent,
+    t: j.slot.t,
+    hitT: j.hit?.t ?? null,
+    offsetMs: j.offsetMs,
+    peakDb: j.hit?.peakDb ?? null,
+    grade: j.grade,
+    flags: j.hit ? (flagsOf.get(j.hit) ?? []) : [],
+  }))
+  const extras: ExtraRow[] = result.extras.map((h) => ({ t: h.t, peakDb: h.peakDb, flags: flagsOf.get(h) ?? [] }))
+  const count = (g: Grade): number => notes.filter((n) => n.grade === g).length
+  const counts = {
+    good: count('good'),
+    ok: count('ok'),
+    off: count('off'),
+    miss: count('miss'),
+    extras: extras.length,
+    absorbed: result.absorbed.length,
+  }
+  const done = rec.done
+  const stats = (done?.stats as SessionStats | undefined) ?? null
+  const stopped = done?.stopped === true
+  const matchesApp =
+    stats && !stopped
+      ? stats.good === counts.good &&
+        stats.ok === counts.ok &&
+        stats.off === counts.off &&
+        stats.miss === counts.miss &&
+        stats.extras === counts.extras
+      : null
+
+  const offsets = notes.map((n) => n.offsetMs).filter((x): x is number => x !== null)
+  const sigmaMs = offsets.length >= SIGMA_MIN_NOTES ? sd(offsets) : null
+  const output = spread(rec.outputs.map((o) => o.outputMs))
+  const gaps = rec.outputs.filter((o, k) => k > 0 && o.ctxTime - rec.outputs[k - 1].ctxTime > OUTPUT_GAP_S).length
+  const notRunning = rec.outputs.filter((o) => o.state !== 'running').length
+  const r2 = num((rec.measured?.fit as { r2?: unknown } | null | undefined)?.r2)
+  const hits = rec.hits.length
+  const share = (n: number): number => (hits ? n / hits : 0)
+  const verdicts: Verdict[] = []
+  if (share(echo) > 0.5)
+    verdicts.push({
+      key: 'echo',
+      level: 'bad',
+      text: `${echo}/${hits} hits sit at click + ${latencyMs.toFixed(1)} ms: the click's own echo — no headphones, or a loopback input. The report describes the click, not the drummer.`,
+    })
+  else if (share(echo) > 0.1)
+    verdicts.push({
+      key: 'echo',
+      level: 'warn',
+      text: `${echo}/${hits} hits at click + latency: some strokes may be the click.`,
+    })
+  if (doubles)
+    verdicts.push({
+      key: 'doubles',
+      level: 'warn',
+      text: `${doubles} double triggers (${DOUBLE_MIN_MS}–${DOUBLE_MAX_MS} ms after a louder hit, ≥ ${DOUBLE_DROP_DB} dB lower): pad tail past the 40 ms refractory.`,
+    })
+  if (share(floor) > 0.3)
+    verdicts.push({
+      key: 'floor',
+      level: 'warn',
+      text: `${floor}/${hits} hits within ${FLOOR_MARGIN_DB} dB of the ${floorDb} dBFS floor: soft strokes are at risk.`,
+    })
+  if (sigmaMs !== null && sigmaMs < HUMAN_SIGMA_MS)
+    verdicts.push({
+      key: 'sigma',
+      level: 'bad',
+      text: `σ offset ${sigmaMs.toFixed(2)} ms over ${offsets.length} notes: no drummer is this steady — a source synchronous with the clock.`,
+    })
+  if (output.sd !== null && output.sd > 5)
+    verdicts.push({
+      key: 'output',
+      level: 'warn',
+      text: `output latency σ ${output.sd.toFixed(1)} ms (max ${(output.max ?? 0).toFixed(1)} ms): the click does not hold still.`,
+    })
+  if (gaps)
+    verdicts.push({
+      key: 'gaps',
+      level: 'warn',
+      text: `${gaps} gaps > ${OUTPUT_GAP_S} s between output samples: tab hidden or context suspended.`,
+    })
+  if (notRunning)
+    verdicts.push({ key: 'state', level: 'warn', text: `${notRunning} output samples with the context not running.` })
+  if (slope === null)
+    verdicts.push({ key: 'calibration', level: 'warn', text: 'no slope saved: dynamics not corrected.' })
+  else if (r2 !== null && r2 < 0.9)
+    verdicts.push({
+      key: 'calibration',
+      level: 'warn',
+      text: `ramp r² ${r2.toFixed(2)}: dynamics correction unreliable.`,
+    })
+  if (matchesApp === false && stats)
+    verdicts.push({
+      key: 'regrade',
+      level: 'warn',
+      text: `re-judging the log gives ${counts.good}/${counts.ok}/${counts.off}/${counts.miss}+${counts.extras} vs the app's ${stats.good}/${stats.ok}/${stats.off}/${stats.miss}+${stats.extras}: grading not reproducible from the log.`,
+    })
+  if (!done) verdicts.push({ key: 'incomplete', level: 'warn', text: 'no session:done: the page left before the end.' })
+  if (stopped)
+    verdicts.push({
+      key: 'stopped',
+      level: 'ok',
+      text: done?.aborted === true ? 'stopped before the first hit.' : 'stopped early.',
+    })
+  if (rec.errors.length)
+    verdicts.push({
+      key: 'errors',
+      level: 'warn',
+      text: `${rec.errors.length} errors in the window: ${rec.errors.map((e) => String(e.error ?? e.event)).join('; ')}`,
+    })
+
+  let synthetic: SyntheticBlock | null = null
+  if (rec.truth) {
+    let truth = (rec.truth.strokes as TruthStroke[] | undefined) ?? []
+    // A stopped run never played its future: only the strokes up to the last hit count as truth.
+    if (stopped && corrected.length) {
+      const last = corrected[corrected.length - 1].t + 0.5
+      truth = truth.filter((s) => s.t <= last)
+    }
+    const used = new Set<number>()
+    const timing: number[] = []
+    const level: number[] = []
+    for (const s of truth) {
+      let best = -1
+      let bestD = Number.POSITIVE_INFINITY
+      corrected.forEach((h, k) => {
+        if (used.has(k)) return
+        const d = Math.abs(h.t - s.t) * 1000
+        if (d <= TRUTH_MS && d < bestD) {
+          best = k
+          bestD = d
+        }
+      })
+      if (best < 0) continue
+      used.add(best)
+      timing.push((corrected[best].t - s.t) * 1000)
+      level.push(corrected[best].peakDb - s.peakDb)
+    }
+    const preset = String(rec.truth.preset) as PlayerPreset
+    const seed = Number(rec.truth.seed)
+    const ex = deps.exerciseById(String(start.exerciseId))
+    const opts = (start.options ?? {}) as {
+      metronome?: OracleConfig['metronome']
+      autoIncrement?: OracleConfig['autoIncrement'] | null
+    }
+    let oracle: SyntheticBlock['oracle'] = null
+    if (ex && stats && !stopped) {
+      const o = runOracle({
+        exercise: ex,
+        bpm: Number(start.bpm),
+        preset,
+        seed,
+        metronome: opts.metronome,
+        autoIncrement: opts.autoIncrement ?? undefined,
+      })
+      oracle = {
+        miss: stats.miss - o.miss,
+        extras: stats.extras - o.extras,
+        meanOffsetMs: (stats.meanOffsetMs ?? 0) - (o.meanOffsetMs ?? 0),
+      }
+    }
+    synthetic = {
+      preset,
+      seed,
+      strokes: truth.length,
+      detected: timing.length,
+      missed: truth.length - timing.length,
+      falseHits: corrected.length - used.size,
+      timingMs: spread(timing),
+      levelDb: spread(level),
+      oracle,
+    }
+    if (synthetic.missed || synthetic.falseHits)
+      verdicts.push({
+        key: 'synthetic',
+        level: 'bad',
+        text: `detector vs truth: ${synthetic.missed} strokes missed, ${synthetic.falseHits} false hits (window ±${TRUTH_MS} ms).`,
+      })
+    if (oracle && (oracle.miss !== 0 || oracle.extras !== 0 || Math.abs(oracle.meanOffsetMs) > 0.5))
+      verdicts.push({
+        key: 'oracle',
+        level: 'warn',
+        text: `app vs oracle: Δmiss ${oracle.miss}, Δextra ${oracle.extras}, Δoffset ${oracle.meanOffsetMs.toFixed(2)} ms (README tolerance: exact, exact, ±0.5 ms).`,
+      })
+  } else if (rec.engine?.synth) {
+    verdicts.push({
+      key: 'truth',
+      level: 'warn',
+      text: 'synthetic run without session:truth (log older than 2026-09-12): no accuracy block.',
+    })
+  }
+  if (!verdicts.some((v) => v.level !== 'ok'))
+    verdicts.unshift({
+      key: 'clean',
+      level: 'ok',
+      text: 'nothing suspicious: the notes table can be read as the drummer.',
+    })
+
+  const last = slots[slots.length - 1]
+  const eng = rec.engine
+  return {
+    id: `${rec.device}@${start.at}`,
+    device: rec.device,
+    exerciseId: String(start.exerciseId),
+    bpm: Number(start.bpm),
+    startedAt: start.at,
+    endedAt: done?.at ?? null,
+    complete: done !== null,
+    stopped,
+    aborted: done?.aborted === true,
+    replans: rec.replans,
+    t0: first?.t ?? 0,
+    durationS: last && first ? last.t + last.dur - first.t : 0,
+    options: (start.options as Record<string, unknown> | undefined) ?? {},
+    calibration: { latencyMs, slope, r2, deviceLabel: String(rec.calibration?.deviceLabel ?? '') },
+    engine: {
+      deviceLabel: String(eng?.deviceLabel ?? ''),
+      sampleRate: num(eng?.sampleRate),
+      outputLatencyMs: num(eng?.outputLatencyMs),
+      synth: Boolean(eng?.synth),
+      settings: (eng?.settings as Record<string, unknown> | undefined) ?? {},
+    },
+    stats,
+    regrade: { ...counts, matchesApp },
+    notes,
+    extras,
+    clicks,
+    trust: { hits, echo, doubles, floor, sigmaMs, output, gaps, notRunning, verdicts },
+    synthetic,
+    markdown: typeof done?.markdown === 'string' ? done.markdown : null,
+  }
+}
+
+export interface CalibrationRow {
+  at: string
+  latencyMs: number
+  offsetSdMs: number | null
+  offsetMinMs: number | null
+  offsetMaxMs: number | null
+  n: number
+  slope: number | null
+  r2: number | null
+  deviceLabel: string
+  /** what the context declares: baseLatency + outputLatency of the engine line in force */
+  contextMs: number | null
+  /** measured minus declared: the acoustic and unknown part of the path */
+  deltaMs: number | null
+  processing: Record<string, unknown>
+}
+export interface CalibrationAnalysis {
+  device: string
+  rows: CalibrationRow[]
+  /** σ of the latency across calibrations on the microphone of the last one */
+  driftSdMs: number | null
+  verdicts: Verdict[]
+}
+
+const PROCESSING_KEYS = ['echoCancellation', 'noiseSuppression', 'autoGainControl', 'voiceIsolation'] as const
+
+export function analyzeCalibrations(lines: LogLine[], device: string): CalibrationAnalysis {
+  const rows: CalibrationRow[] = []
+  let engine: LogLine | null = null
+  let measured: LogLine | null = null
+  for (const l of lines) {
+    if (l.event === 'engine') engine = l
+    else if (l.event === 'calibration:measured') measured = l
+    else if (l.event === 'calibration:done') {
+      const offsets = ((measured?.offsetsMs as unknown[] | undefined) ?? []).filter(
+        (x): x is number => typeof x === 'number',
+      )
+      const fit = (measured?.fit as { r2?: unknown } | null | undefined) ?? null
+      const latencyMs = Number(l.latencyMs)
+      const base = num(engine?.baseLatencyMs)
+      const out = num(engine?.outputLatencyMs)
+      const contextMs = base !== null && out !== null ? base + out : null
+      const settings = (engine?.settings as Record<string, unknown> | undefined) ?? {}
+      const processing: Record<string, unknown> = {}
+      for (const k of PROCESSING_KEYS) if (k in settings) processing[k] = settings[k]
+      rows.push({
+        at: l.at,
+        latencyMs,
+        offsetSdMs: sd(offsets),
+        offsetMinMs: offsets.length ? Math.min(...offsets) : null,
+        offsetMaxMs: offsets.length ? Math.max(...offsets) : null,
+        n: offsets.length,
+        slope: num(l.slope),
+        r2: num(fit?.r2),
+        deviceLabel: String(l.deviceLabel ?? ''),
+        contextMs,
+        deltaMs: contextMs !== null ? latencyMs - contextMs : null,
+        processing,
+      })
+      measured = null
+    }
+  }
+  const last = rows[rows.length - 1]
+  const series = last ? rows.filter((r) => r.deviceLabel === last.deviceLabel).map((r) => r.latencyMs) : []
+  const driftSdMs = series.length >= 2 ? sd(series) : null
+  const verdicts: Verdict[] = []
+  if (last) {
+    if (last.offsetSdMs !== null && last.offsetSdMs > 3)
+      verdicts.push({
+        key: 'repeat',
+        level: 'warn',
+        text: `the ${last.n} calibration clicks scatter σ ${last.offsetSdMs.toFixed(1)} ms: the echo is not stable.`,
+      })
+    if (driftSdMs !== null && driftSdMs > 5)
+      verdicts.push({
+        key: 'drift',
+        level: 'warn',
+        text: `latency drifts σ ${driftSdMs.toFixed(1)} ms across ${series.length} calibrations on ${last.deviceLabel}.`,
+      })
+    if (last.slope === null || (last.r2 !== null && last.r2 < 0.9))
+      verdicts.push({
+        key: 'ramp',
+        level: 'warn',
+        text: last.slope === null ? 'last calibration saved no slope.' : `last ramp r² ${(last.r2 ?? 0).toFixed(2)}.`,
+      })
+    if (last.deltaMs !== null && Math.abs(last.deltaMs) > 60)
+      verdicts.push({
+        key: 'context',
+        level: 'warn',
+        text: `measured minus declared latency = ${last.deltaMs.toFixed(1)} ms: the context does not know its own output path (Bluetooth? iOS reports 0).`,
+      })
+    const on = PROCESSING_KEYS.filter((k) => last.processing[k] === true)
+    if (on.length)
+      verdicts.push({ key: 'processing', level: 'warn', text: `microphone processing on: ${on.join(', ')}.` })
+  } else verdicts.push({ key: 'none', level: 'warn', text: 'no calibration logged for this device.' })
+  if (!verdicts.length) verdicts.push({ key: 'clean', level: 'ok', text: 'calibration stable.' })
+  return { device, rows, driftSdMs, verdicts }
+}
+
+export interface BudgetTerm {
+  key: string
+  label: string
+  ms: number | null
+  source: 'fixed' | 'measured'
+  note: string
+}
+export interface Budget {
+  terms: BudgetTerm[]
+  /** quadrature sum of the known terms */
+  totalMs: number | null
+  goodMs: number
+  okMs: number
+}
+
+export function errorBudget(cal: CalibrationAnalysis, sessions: SessionAnalysis[], sampleRate: number | null): Budget {
+  const sr = sampleRate ?? 48000
+  const block = (128 / sr) * 1000
+  const last = cal.rows[cal.rows.length - 1] ?? null
+  const outSd = sessions.map((s) => s.trust.output.sd).filter((x): x is number => x !== null)
+  const terms: BudgetTerm[] = [
+    {
+      key: 'block',
+      label: 'worklet block (128 samples)',
+      ms: block / 2,
+      source: 'fixed',
+      note: `onsets and calibration offsets are quantised to ${block.toFixed(2)} ms at ${sr} Hz: ± half a block`,
+    },
+    {
+      key: 'hold',
+      label: 'detector hold (5 ms)',
+      ms: 0,
+      source: 'fixed',
+      note: 'the same on click and stroke: cancelled by the calibration. The attack difference between click and stroke is the systematic part only a synthetic run or a known pattern reveals.',
+    },
+    {
+      key: 'repeat',
+      label: 'calibration repeatability (σ of the offsets)',
+      ms: last?.offsetSdMs ?? null,
+      source: 'measured',
+      note: last ? `last calibration ${last.at}` : 'no calibration logged',
+    },
+    {
+      key: 'drift',
+      label: 'calibration drift (σ across calibrations, same microphone)',
+      ms: cal.driftSdMs,
+      source: 'measured',
+      note: `${cal.rows.length} calibrations`,
+    },
+    {
+      key: 'output',
+      label: 'output latency jitter in session (mean σ)',
+      ms: outSd.length ? mean(outSd) : null,
+      source: 'measured',
+      note: `${outSd.length} sessions`,
+    },
+  ]
+  const known = terms.map((t) => t.ms).filter((x): x is number => x !== null)
+  return {
+    terms,
+    totalMs: known.length ? Math.sqrt(known.reduce((a, x) => a + x * x, 0)) : null,
+    goodMs: DEFAULT_WINDOWS.goodMs,
+    okMs: DEFAULT_WINDOWS.okMs,
+  }
+}
