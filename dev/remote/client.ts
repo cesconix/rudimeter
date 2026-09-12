@@ -80,7 +80,10 @@ export interface ParsedArgs {
 
 const FLAGS = ['to', 'all', 'until', 'timeout', 'n']
 
-/** `[--to name | --all] <cmd> [<json>] [--until event] [--timeout ms]`; `ls`, `tail [name] [--n N]`, `wait <event>`. */
+/**
+ * `[--to name | --all] <cmd> [<json>] [--until event] [--timeout ms]`; `ls`, `tail [name] [--n N]`,
+ * `wait <event>`, `report [name] [--n N]`, `verdict [name]`, `calibrations [name]`.
+ */
 export function parseArgs(argv: string[]): ParsedArgs {
   const out: ParsedArgs = { to: null, all: false, cmd: '', args: {}, until: null, timeoutMs: 60000, n: 50 }
   const positional: string[] = []
@@ -106,7 +109,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
   const [cmd, raw] = positional
   if (!cmd) throw new Error('usage: remote [--to name | --all] <cmd> [<json>] | ls | tail [name] | wait <event>')
   out.cmd = cmd
-  if (cmd === 'tail') out.args = raw ? { name: raw } : {}
+  if (cmd === 'tail' || cmd === 'report' || cmd === 'verdict' || cmd === 'calibrations')
+    out.args = raw ? { name: raw } : {}
   else if (cmd === 'wait') {
     if (!raw) throw new Error('wait needs an event name')
     out.args = { event: raw }

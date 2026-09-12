@@ -2,10 +2,12 @@
 // and land in `.remote/<device>.ndjson`; raw microphone audio lands next to them as WAV. It exists so
 // that an iPhone on the desk can be driven from the terminal and its numbers read from a file, instead
 // of screenshots of a log.
-import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { appendFile, mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { join } from 'node:path'
 import type { Plugin } from 'vite'
+import { EXERCISES } from '../../src/data/exercises'
+import { deviceReport } from './device-report'
 import { lastSeqOf, resolveTarget, safeName, uniqueName } from './registry'
 import { encodeWav } from './wav'
 
@@ -300,6 +302,26 @@ export function remotePlugin(): Plugin {
             }
             res.setHeader('content-type', 'application/json')
             res.end(line.raw)
+            return
+          }
+          if (req.method === 'GET' && url.pathname === '/sessions') {
+            // Everything the dashboard shows, analysed here so the page stays a renderer. One device on
+            // request, otherwise every log on disk. `last` caps the sessions per device (20 by default).
+            const only = q.get('device')
+            const last = Math.max(1, Number(q.get('last') ?? 20) || 20)
+            const names = only
+              ? [safeName(only)]
+              : (await readdir(root).catch(() => [] as string[]))
+                  .filter((f) => f.endsWith('.ndjson'))
+                  .map((f) => f.slice(0, -'.ndjson'.length))
+                  .sort()
+            const deps = { exerciseById: (id: string) => EXERCISES.find((e) => e.id === id) }
+            const devices = []
+            for (const name of names) {
+              const text = await readFile(join(root, `${name}.ndjson`), 'utf8').catch(() => '')
+              devices.push(deviceReport(name, text, deps, last))
+            }
+            json(res, 200, { devices })
             return
           }
           json(res, 404, { error: `unknown route ${req.method} ${url.pathname}` })

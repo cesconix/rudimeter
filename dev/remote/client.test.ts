@@ -28,6 +28,10 @@ describe('parseArgs', () => {
       timeoutMs: 600000,
     })
   })
+  it('report/verdict/calibrations take a device name, not JSON', () => {
+    expect(parseArgs(['report', 'iphone', '--n', '3'])).toMatchObject({ cmd: 'report', args: { name: 'iphone' }, n: 3 })
+    expect(parseArgs(['verdict'])).toMatchObject({ cmd: 'verdict', args: {} })
+  })
 })
 
 describe('defaultUntil', () => {
