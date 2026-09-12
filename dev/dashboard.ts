@@ -79,7 +79,7 @@ function sessionsTable(sessions: SessionAnalysis[]): string {
       <td>${pct(a.trust.echo, a.trust.hits)}</td><td>${a.trust.doubles}</td><td>${fmt(a.trust.sigmaMs, 2)}</td>
       <td class="left"><span class="chip ${worst(a.trust.verdicts)}">${worst(a.trust.verdicts)}</span></td>
       <td>${fmt(a.calibration.latencyMs)} · ${fmt(a.calibration.slope, 2)} · ${fmt(a.calibration.r2, 3)}</td>
-      <td class="left">${[a.complete ? '' : 'incomplete', a.stopped ? 'stopped' : '', a.synthetic ? 'synthetic' : a.engine.synth ? 'synthetic (no truth)' : ''].filter(Boolean).join(' · ')}</td>
+      <td class="left">${[a.complete ? '' : 'incomplete', a.orphan ? 'orphan' : '', a.stopped ? 'stopped' : '', a.synthetic ? 'synthetic' : a.engine.synth ? 'synthetic (no truth)' : ''].filter(Boolean).join(' · ')}</td>
     </tr>`,
     )
     .join('')

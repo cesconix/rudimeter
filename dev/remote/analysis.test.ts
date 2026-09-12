@@ -196,6 +196,43 @@ describe('analyzeSession', () => {
     expect(a.extras.some((e) => e.flags.includes('double'))).toBe(true)
   })
 
+  it('keeps a session whose session:start was lost, with its hits, flagged as an orphan', () => {
+    // The batch carrying `session:start` never reached the server, so the log jumps from `screen` to
+    // hits to `session:done` (exactly `.remote/synth.ndjson` seq 60 → 262). The three hits and the
+    // app's own stats are on disk; the grid is not, so there is nothing to re-judge against.
+    const lines = [
+      engine(0),
+      line('screen', 1, { screen: 'pick' }),
+      line('hit', 3, { t: 1.0, peakDb: -20 }),
+      line('hit', 3.5, { t: 1.5, peakDb: -21 }),
+      line('hit', 4, { t: 2.0, peakDb: -19 }),
+      line('session:done', 5, {
+        exerciseId: 'stone-1',
+        bpm: 120,
+        stats: stats({ good: 3 }),
+        markdown: '# report',
+      }),
+    ]
+    const recs = splitSessions(lines, 'dev')
+    expect(recs).toHaveLength(1)
+    expect(recs[0].hits).toHaveLength(3)
+    expect(recs[0].start.orphan).toBe(true)
+    expect(recs[0].start.at).toBe(at(3)) // the first stray hit's own timestamp, not the done's
+    const a = analyzeSession(recs[0], deps)
+    expect(a.orphan).toBe(true)
+    expect(a.exerciseId).toBe('stone-1')
+    expect(a.bpm).toBe(120)
+    expect(a.stats?.good).toBe(3)
+    expect(a.markdown).toBe('# report')
+    expect(a.regrade.matchesApp).toBeNull()
+    expect(a.trust.verdicts.some((v) => v.key === 'regrade')).toBe(false)
+    const orphan = a.trust.verdicts.find((v) => v.key === 'orphan')
+    expect(orphan?.level).toBe('warn')
+    expect(orphan?.text).toBe(
+      '3 hits and a session:done with no session:start: a log batch was lost (see flush:retry).',
+    )
+  })
+
   it('keeps the output samples as a series and says which of them a gap precedes', () => {
     // ctxTime 10, 11, 14.5, 15: only 14.5 − 11 = 3.5 s is past the 2.5 s threshold, so index 2 and
     // nothing else. `gaps` is the length of that list by construction.

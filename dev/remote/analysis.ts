@@ -117,6 +117,8 @@ export interface SessionAnalysis {
   complete: boolean
   stopped: boolean
   aborted: boolean
+  /** reconstructed from a `session:done` whose `session:start` never reached the file: no grid to judge */
+  orphan: boolean
   replans: number
   /** first slot time on the audio clock, and the span to the end of the last slot */
   t0: number
@@ -234,9 +236,16 @@ export function splitSessions(lines: LogLine[], device: string): SessionRecord[]
   let calibration: LogLine | null = null
   let measured: LogLine | null = null
   let open: SessionRecord | null = null
+  // Hits logged while no session is open. An armed engine and a stale tab both log them legitimately,
+  // so they never open a record on their own — but if a `session:done` turns up with no `session:start`
+  // (the batch carrying it was lost, see `flush:retry`), they are that session's hits.
+  let stray: RawHit[] = []
+  let strayFrom: LogLine | null = null
   const close = (): void => {
     if (open) out.push(open)
     open = null
+    stray = []
+    strayFrom = null
   }
   for (const l of lines) {
     switch (l.event) {
@@ -283,9 +292,15 @@ export function splitSessions(lines: LogLine[], device: string): SessionRecord[]
       case 'session:truth':
         if (open) open.truth = l
         break
-      case 'hit':
-        open?.hits.push({ t: Number(l.t), peakDb: Number(l.peakDb) })
+      case 'hit': {
+        const hit: RawHit = { t: Number(l.t), peakDb: Number(l.peakDb) }
+        if (open) open.hits.push(hit)
+        else {
+          stray.push(hit)
+          strayFrom ??= l
+        }
         break
+      }
       case 'output':
         open?.outputs.push({
           ctxTime: Number(l.ctxTime),
@@ -301,12 +316,41 @@ export function splitSessions(lines: LogLine[], device: string): SessionRecord[]
       case 'flush:retry':
         open?.errors.push(l)
         break
-      case 'session:done':
+      case 'session:done': {
         if (open) {
           open.done = l
           close()
+          break
         }
+        // No `session:start` on disk, but the hits and the app's own report are: keep the session and
+        // mark it, rather than dropping a run that happened. The grid is gone with the start line, so
+        // there is nothing to re-judge against — `analyzeSession` says so instead of guessing.
+        const from = strayFrom ?? l
+        out.push({
+          device,
+          start: {
+            event: 'session:start',
+            at: from.at,
+            seq: from.seq,
+            orphan: true,
+            exerciseId: l.exerciseId,
+            bpm: l.bpm,
+          },
+          grid: { slots: [], clicks: [] },
+          replans: 0,
+          done: l,
+          hits: stray,
+          outputs: [],
+          engine,
+          calibration,
+          measured,
+          truth: null,
+          errors: [],
+        })
+        stray = []
+        strayFrom = null
         break
+      }
       default:
         break
     }
@@ -451,8 +495,10 @@ export function analyzeSession(rec: SessionRecord, deps: AnalyzeDeps): SessionAn
   const done = rec.done
   const stats = (done?.stats as SessionStats | undefined) ?? null
   const stopped = done?.stopped === true
+  // Nothing to compare against without the grid the app judged: the re-grade is not a second opinion here.
+  const orphan = start.orphan === true
   const matchesApp =
-    stats && !stopped
+    stats && !stopped && !orphan
       ? stats.good === counts.good &&
         stats.ok === counts.ok &&
         stats.off === counts.off &&
@@ -545,6 +591,12 @@ export function analyzeSession(rec: SessionRecord, deps: AnalyzeDeps): SessionAn
       key: 'regrade',
       level: 'warn',
       text: `re-judging the log gives ${counts.good}/${counts.ok}/${counts.off}/${counts.miss}+${counts.extras} vs the app's ${stats.good}/${stats.ok}/${stats.off}/${stats.miss}+${stats.extras}: grading not reproducible from the log.`,
+    })
+  if (orphan)
+    verdicts.push({
+      key: 'orphan',
+      level: 'warn',
+      text: `${hits} hits and a session:done with no session:start: a log batch was lost (see flush:retry).`,
     })
   if (!done) verdicts.push({ key: 'incomplete', level: 'warn', text: 'no session:done: the page left before the end.' })
   if (stopped)
@@ -659,6 +711,7 @@ export function analyzeSession(rec: SessionRecord, deps: AnalyzeDeps): SessionAn
     complete: done !== null,
     stopped,
     aborted: done?.aborted === true,
+    orphan,
     replans: rec.replans,
     t0: first?.t ?? 0,
     durationS: last && first ? last.t + last.dur - first.t : 0,

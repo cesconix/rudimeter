@@ -13,7 +13,12 @@ export function formatTable(sessions: SessionAnalysis[]): string {
     ['when', 'device', 'exercise', 'bpm', 'good/ok/off/miss+extra', 'echo', 'doubles', 'σ ms', 'verdict', 'flags'],
   ]
   for (const a of sessions) {
-    const flags = [a.complete ? '' : 'incomplete', a.stopped ? 'stopped' : '', a.synthetic ? 'synthetic' : '']
+    const flags = [
+      a.complete ? '' : 'incomplete',
+      a.orphan ? 'orphan' : '',
+      a.stopped ? 'stopped' : '',
+      a.synthetic ? 'synthetic' : '',
+    ]
       .filter(Boolean)
       .join(' ')
     rows.push([

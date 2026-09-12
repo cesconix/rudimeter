@@ -12,6 +12,7 @@ const session = (over: Partial<SessionAnalysis> = {}): SessionAnalysis => ({
   complete: true,
   stopped: false,
   aborted: false,
+  orphan: false,
   replans: 0,
   t0: 1,
   durationS: 80,
