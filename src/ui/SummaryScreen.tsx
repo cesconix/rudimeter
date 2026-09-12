@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { type ReactNode, useState } from 'react'
 import type { CalibrationData } from '../audio/storage'
 import { bpmRuns, toMarkdown } from '../engine/report'
 import type { SessionStats } from '../engine/stats'
@@ -11,11 +11,12 @@ interface Props {
   calibration: CalibrationData | null
   onRepeat(): void
   onPick(): void
+  children?: ReactNode
 }
 
 const f = (x: number | null, d = 1) => (x === null ? '—' : x.toFixed(d))
 
-export function SummaryScreen({ stats, exercise, bpm, calibration, onRepeat, onPick }: Props) {
+export function SummaryScreen({ stats, exercise, bpm, calibration, onRepeat, onPick, children }: Props) {
   const [copied, setCopied] = useState<string | null>(null)
   const md = toMarkdown(stats, exercise, bpm, new Date(), calibration)
 
@@ -119,6 +120,9 @@ export function SummaryScreen({ stats, exercise, bpm, calibration, onRepeat, onP
         </button>
         {copied && <span>{copied}</span>}
       </div>
+      {/* Dev-only extras (the feedback box) sit here, above the markdown copy: on an iPad the `<pre>` runs
+          past the fold and a box under it would go unseen. */}
+      {children}
       <pre>{md}</pre>
     </main>
   )

@@ -1,4 +1,4 @@
-import { type ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { type ComponentType, type ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DEFAULT_THRESHOLDS } from '../audio/capture'
 import { audibleTime } from '../audio/clock'
 import { createEngine, describeMicError, type Engine } from '../audio/engine'
@@ -10,6 +10,7 @@ import {
   saveCalibration,
 } from '../audio/storage'
 import { EXERCISES } from '../data/exercises'
+import type { FeedbackProps } from '../dev/feedback'
 import type { Remote } from '../dev/remote'
 import { remoteNameFrom } from '../dev/remote-name'
 import { DEFAULT_AUTO_INCREMENT } from '../engine/progression'
@@ -54,6 +55,9 @@ export function App() {
     [],
   )
   const [remote, setRemote] = useState<Remote | null>(null)
+  // The feedback box rides the same dev-only dynamic import as the channel it writes to: the component
+  // sits in state, null until its chunk lands, and the summary renders it only next to a live `remote`.
+  const [FeedbackBox, setFeedbackBox] = useState<ComponentType<FeedbackProps> | null>(null)
   // The name the server settled on, which is not always the one asked for: a second page from the same
   // phone is named `iphone-2` and writes `iphone-2.ndjson`. `Remote.name` is a getter and the `hello`
   // that sets it re-renders nothing, so the badge would keep showing the wanted name. Null until `hello`.
@@ -80,6 +84,11 @@ export function App() {
           window.setTimeout(() => setNotice((n) => (n === text ? null : n)), seconds * 1000)
         })
         setRemote(r)
+      })
+      import('../dev/feedback').then((m) => {
+        if (cancelled) return
+        // A function handed to a state setter is an updater: wrap it, so the component itself is stored.
+        setFeedbackBox(() => m.FeedbackBox)
       })
     }
     return () => {
@@ -370,7 +379,9 @@ export function App() {
         calibration={calibration}
         onRepeat={() => setScreen('session')}
         onPick={() => setScreen('pick')}
-      />
+      >
+        {remote && FeedbackBox && <FeedbackBox remote={remote} />}
+      </SummaryScreen>
     )
   } else {
     content = <StartScreen onStart={start} busy={busy} error={error} />
