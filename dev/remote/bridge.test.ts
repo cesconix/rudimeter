@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { linesFrom, requestFrom } from './bridge'
+import { applyHeaders, linesFrom, requestFrom } from './bridge'
 
 describe('requestFrom', () => {
   it('keeps method, path, query and headers, drops host/connection/content-length, no body on GET', async () => {
@@ -46,6 +46,28 @@ describe('requestFrom', () => {
     const r = call()
     expect([...r.headers.keys()].some((k) => k.startsWith(':'))).toBe(false)
     expect(r.headers.get('cookie')).toBe('rudimeter_admin=t')
+  })
+})
+
+describe('applyHeaders', () => {
+  it('sends every `set-cookie` value and leaves ordinary headers unchanged', () => {
+    const response = new Response(null, {
+      headers: [
+        ['content-type', 'application/json'],
+        ['set-cookie', 'a=1'],
+        ['set-cookie', 'b=2'],
+      ],
+    })
+    const sent: Record<string, string | string[]> = {}
+    applyHeaders({ setHeader: (k, v) => (sent[k] = v) }, response)
+    expect(sent['set-cookie']).toEqual(['a=1', 'b=2'])
+    expect(sent['content-type']).toBe('application/json')
+  })
+  it('does not call `setHeader` for `set-cookie` when there is none', () => {
+    const response = new Response(null, { headers: { 'content-type': 'text/plain' } })
+    const names: string[] = []
+    applyHeaders({ setHeader: (k) => names.push(k) }, response)
+    expect(names).not.toContain('set-cookie')
   })
 })
 

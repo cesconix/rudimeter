@@ -11,7 +11,7 @@ import { safeName } from '../../api/_lib/names'
 import { type Appended, type DeviceRow, type Store, sqlStore } from '../../api/_lib/store'
 import { deviceReport } from '../../src/analysis/device-report'
 import { EXERCISES } from '../../src/data/exercises'
-import { type Line, linesFrom, requestFrom } from './bridge'
+import { applyHeaders, type Line, linesFrom, requestFrom } from './bridge'
 import { resolveTarget, uniqueName } from './registry'
 import { encodeWav } from './wav'
 
@@ -151,9 +151,7 @@ export function remotePlugin(): Plugin {
           const body = method === 'GET' || method === 'HEAD' ? undefined : await readBody(req)
           const response = await handle(requestFrom(req, body), { store, adminToken: null })
           res.statusCode = response.status
-          response.headers.forEach((v, k) => {
-            res.setHeader(k, v)
-          })
+          applyHeaders(res, response)
           res.end(Buffer.from(await response.arrayBuffer()))
         } catch (err) {
           json(res, 500, { error: (err as Error).message })

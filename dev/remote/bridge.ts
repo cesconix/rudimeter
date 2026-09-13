@@ -31,6 +31,23 @@ export function requestFrom(
   })
 }
 
+/**
+ * The other direction: a `Response`'s headers onto a Node response. `res.setHeader` replaces rather than
+ * accumulates, so copying with one `setHeader` call per entry collapses two `set-cookie`s into the last
+ * one — `getSetCookie()` is the one place the Fetch API still hands back every value, and Node's
+ * `setHeader` accepts that array whole, emitting one header line per element.
+ */
+export function applyHeaders(
+  res: { setHeader(name: string, value: string | string[]): void },
+  response: Response,
+): void {
+  const cookies = response.headers.getSetCookie()
+  if (cookies.length > 0) res.setHeader('set-cookie', cookies)
+  response.headers.forEach((v, k) => {
+    if (k.toLowerCase() !== 'set-cookie') res.setHeader(k, v)
+  })
+}
+
 export interface Line {
   seq: number
   event: string
