@@ -75,7 +75,11 @@ export function connectTelemetry(opts: TelemetryOptions): TelemetryHandle {
   }
 
   function settle(settled: string): void {
-    if (settled === name) return
+    // A response can still be in flight when close() runs (close()'s own final drain resolves after
+    // `closed = true`, and an earlier timer-path fetch may already be on the wire): without this guard
+    // its `name` reaches `onName` after the caller believes the channel is dead. For a tester that
+    // callback writes the key back into storage, so Stop would silently undo itself on the next reload.
+    if (closed || settled === name) return
     name = settled
     opts.onName?.(settled)
   }
