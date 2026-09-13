@@ -12,6 +12,7 @@
     "lint": "biome check .",
     "format": "biome check --write .",
     "knip": "knip",
+    "api": "bun api/server.ts",
     "sim": "bun dev/sim.ts",
     "remote": "NODE_TLS_REJECT_UNAUTHORIZED=0 bun dev/remote/cli.ts",
     "scenario": "NODE_TLS_REJECT_UNAUTHORIZED=0 bun dev/remote/run-scenario.ts",

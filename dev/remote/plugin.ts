@@ -6,10 +6,10 @@ import { appendFile, mkdir, readdir, readFile, writeFile } from 'node:fs/promise
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { join } from 'node:path'
 import type { Plugin } from 'vite'
+import { parseFeedbackBody } from '../../api/feedback'
 import { safeName } from '../../api/names'
 import { EXERCISES } from '../../src/data/exercises'
 import { deviceReport } from './device-report'
-import { parseFeedbackBody } from './feedback'
 import { lastSeqOf, resolveTarget, uniqueName } from './registry'
 import { encodeWav } from './wav'
 
