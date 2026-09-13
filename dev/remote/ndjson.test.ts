@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'bun:test'
-import { numbered, parseNdjson, renumbered, toNdjson } from './ndjson'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { numbered, parseNdjson, renumbered, toNdjson, writeExported } from './ndjson'
 
 describe('parseNdjson', () => {
   it('keeps raw and fields, skips blank lines, names the first bad line', () => {
@@ -33,5 +36,32 @@ describe('numbered / renumbered', () => {
   it('toNdjson ends with one newline, empty for nothing', () => {
     expect(toNdjson(['{}', '{}'])).toBe('{}\n{}\n')
     expect(toNdjson([])).toBe('')
+  })
+})
+
+// Never `.remote/`: a temp dir this suite owns and cleans up, so a regression here can never touch a real fixture.
+describe('writeExported', () => {
+  it('refuses to clobber an existing file without --force, leaving its content untouched', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'rudimeter-export-'))
+    const path = join(dir, 'existing.ndjson')
+    try {
+      await writeFile(path, 'original\n')
+      await expect(writeExported(path, 'clobber\n', false)).rejects.toThrow(`${path} exists: pass --force to overwrite`)
+      expect(await readFile(path, 'utf8')).toBe('original\n')
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('--force overwrites the existing file', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'rudimeter-export-'))
+    const path = join(dir, 'existing.ndjson')
+    try {
+      await writeFile(path, 'original\n')
+      await writeExported(path, 'forced\n', true)
+      expect(await readFile(path, 'utf8')).toBe('forced\n')
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
   })
 })

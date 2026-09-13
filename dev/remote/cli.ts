@@ -13,7 +13,7 @@
 // Commands to a page need the dev server (`bun run dev`; `RUDIMETER_REMOTE_URL` overrides https://localhost:5173).
 // Reads open `.remote/dev.db` directly; `--remote` reads rudimeter.com (`RUDIMETER_URL`) with `DASHBOARD_TOKEN`,
 // both from `.env.local`, which Bun loads on its own.
-import { readFile, stat, writeFile } from 'node:fs/promises'
+import { readFile, writeFile } from 'node:fs/promises'
 import { resolve, sep } from 'node:path'
 import { safeName } from '../../api/_lib/names'
 import { SeqError } from '../../api/_lib/store'
@@ -21,7 +21,7 @@ import { deviceReport } from '../../src/analysis/device-report'
 import { EXERCISES } from '../../src/data/exercises'
 import { createClient, DEFAULT_URL, defaultUntil, parseArgs } from './client'
 import { collectFeedback } from './feedback'
-import { numbered, parseNdjson, renumbered, toNdjson } from './ndjson'
+import { numbered, parseNdjson, renumbered, toNdjson, writeExported } from './ndjson'
 import { formatCalibrations, formatFeedback, formatFeedbackMarkdown, formatTable, formatVerdict } from './report-text'
 import { httpSource, localSource, openDevStore, type Source } from './source'
 import { syncDevices } from './sync'
@@ -102,10 +102,10 @@ if (args.cmd === 'ls') {
   if (args.remote) throw new Error('export reads the local store: run sync first')
   const name = String(args.args.name)
   const path = args.args.path ? String(args.args.path) : `.remote/${name}.ndjson`
-  // The fixtures sit at the default path: never overwrite one by accident.
-  if (!args.force && (await stat(path).catch(() => null))) throw new Error(`${path} exists: pass --force to overwrite`)
   const text = await textOf(await source(), name)
-  await writeFile(path, text)
+  // The fixtures sit at the default path: writeExported's own exclusive write is the guard, atomically —
+  // never a check-then-write window where something else could create the file in between.
+  await writeExported(path, text, args.force)
   console.log(`exported ${text ? text.trimEnd().split('\n').length : 0} lines to ${path}`)
 } else if (args.cmd === 'import') {
   if (args.remote) throw new Error('import writes the local store only')

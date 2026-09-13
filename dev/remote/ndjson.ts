@@ -1,5 +1,6 @@
 // NDJSON is the interchange format now, not the storage: `export` writes it, `import` reads it, the four
 // fixtures in `.remote/` are it. Byte for byte: a line goes into the store exactly as it sits in the file.
+import { writeFile } from 'node:fs/promises'
 import type { NumberedLine } from '../../api/_lib/store'
 
 export interface ParsedLine {
@@ -52,3 +53,19 @@ export function renumbered(lines: ParsedLine[], from: number): NumberedLine[] {
 }
 
 export const toNdjson = (raws: string[]): string => (raws.length ? `${raws.join('\n')}\n` : '')
+
+/**
+ * Writes `content` to `path`. Without `force`, the write itself is the guard — the exclusive flag `wx`
+ * makes the filesystem refuse to create the file if it already exists, atomically: no check-then-write
+ * window where a file created after the check but before the write would be silently destroyed. `export`'s
+ * default path is where the four `.remote/` fixtures live, so this is the one write in the CLI that can
+ * cause unrecoverable loss.
+ */
+export async function writeExported(path: string, content: string, force: boolean): Promise<void> {
+  try {
+    await writeFile(path, content, force ? undefined : { flag: 'wx' })
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'EEXIST') throw new Error(`${path} exists: pass --force to overwrite`)
+    throw err
+  }
+}
