@@ -1,7 +1,7 @@
 // What `POST /api/feedback` accepts: `{ sessionId, text }` for a session of `device`, the text within
 // the cap the app's box enforces. The id must be the device's own (`<device>@<session:start at>`): a
 // comment for `iphone@…` appended to `mac.ndjson` would never find its session.
-import { cleanFeedback, MAX_FEEDBACK_CHARS } from '../src/dev/feedback-text'
+import { cleanFeedback, MAX_FEEDBACK_CHARS } from '../../src/dev/feedback-text'
 
 export function parseFeedbackBody(
   raw: unknown,

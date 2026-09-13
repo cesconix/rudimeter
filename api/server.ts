@@ -1,8 +1,8 @@
 // The production API: one Bun server, one Vercel Function (`vercel.json` rewrites `/api/*` here). No
 // Vercel API inside: the same file runs on any host with Bun, and `bun run api` runs it on the Mac
 // against the Neon `preview` branch named in `.env.local`.
-import { handle } from './handler'
-import { sqlStore } from './store'
+import { handle } from './_lib/handler'
+import { sqlStore } from './_lib/store'
 
 const url = process.env.DATABASE_URL
 const adminToken = process.env.DASHBOARD_TOKEN
