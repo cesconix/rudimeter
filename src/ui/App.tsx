@@ -17,7 +17,10 @@ import type { SessionStats } from '../engine/stats'
 import type { Exercise } from '../engine/types'
 import { parseSynthConfig } from '../sim/config'
 import { createSynthGraph, type SynthGraph, type SynthRun } from '../sim/graph'
+import { APP_INFO } from '../telemetry/app-info'
+import type { Telemetry } from '../telemetry/client'
 import type { FeedbackProps } from '../telemetry/feedback'
+import { forgetTester, readTester, rememberTester, type Tester, withoutTester } from '../telemetry/tester'
 import { CalibrationScreen } from './CalibrationScreen'
 import { ExercisePicker } from './ExercisePicker'
 import { DEFAULT_SESSION_OPTIONS, type SessionOptions } from './options'
@@ -54,14 +57,25 @@ export function App() {
         : null,
     [],
   )
+  // `?tester=<key>` or the stored one: the page shares its sessions with the store behind rudimeter.com.
+  // Read once, and the key leaves the URL at once: it is a secret, and the address bar is no place for it.
+  const tester = useMemo<Tester | null>(() => {
+    const t = readTester(window.location.search, localStorage)
+    if (t && new URLSearchParams(window.location.search).has('tester'))
+      window.history.replaceState(null, '', withoutTester(window.location.href))
+    return t
+  }, [])
   const [remote, setRemote] = useState<Remote | null>(null)
-  // The feedback box rides the same dev-only dynamic import as the channel it writes to: the component
-  // sits in state, null until its chunk lands, and the summary renders it only next to a live `remote`.
+  // Whatever the page logs to: the dev channel (which is also a Telemetry) or the tester's client.
+  const [telemetry, setTelemetry] = useState<Telemetry | null>(null)
+  // The feedback box loads next to whatever client is up: the component sits in state, null until its
+  // chunk lands, and the summary renders it only next to a live `telemetry`.
   const [FeedbackBox, setFeedbackBox] = useState<ComponentType<FeedbackProps> | null>(null)
   // The name the server settled on, which is not always the one asked for: a second page from the same
   // phone is named `iphone-2` and writes `iphone-2.ndjson`. `Remote.name` is a getter and the `hello`
   // that sets it re-renders nothing, so the badge would keep showing the wanted name. Null until `hello`.
-  const [settledName, setSettledName] = useState<string | null>(null)
+  // A tester's stored name shows at once; the dev channel settles at hello.
+  const [settledName, setSettledName] = useState<string | null>(() => (remoteName ? null : (tester?.name ?? null)))
   const [notice, setNotice] = useState<string | null>(null)
   const [calibrateSignal, setCalibrateSignal] = useState(0)
   const sessionControls = useRef<{ stop(): void } | null>(null)
@@ -70,36 +84,54 @@ export function App() {
   // millisecond apart and the analysis keeps the second one, which is also the last one seen here.
   const sessionStartAt = useRef<string | null>(null)
   useEffect(() => {
-    if (!remoteName) return
-    let r: Remote | null = null
+    let t: Telemetry | null = null
     let cancelled = false
-    // The `import()` sits inside a bare `import.meta.env.DEV` block and not behind `remoteName`
-    // alone: Vite rewrites the flag to `false` when building and the bundler drops a statically
-    // false branch whole, dynamic import included. `remoteName` is a runtime value, so guarding on
-    // it proves nothing to the bundler and the client shipped anyway as its own production chunk
-    // (dist/assets/remote-*.js, 2.2 kB of `__remote`). knip reads the source, where the import is
-    // always there, so it still follows it.
-    if (import.meta.env.DEV) {
+    const say = (text: string, seconds: number) => {
+      setNotice(text)
+      window.setTimeout(() => setNotice((n) => (n === text ? null : n)), seconds * 1000)
+    }
+    if (import.meta.env.DEV && remoteName) {
+      // The `import()` sits inside a bare `import.meta.env.DEV` block and not behind `remoteName`
+      // alone: Vite rewrites the flag to `false` when building and the bundler drops a statically
+      // false branch whole, dynamic import included. `remoteName` is a runtime value, so guarding on
+      // it proves nothing to the bundler and the client shipped anyway as its own production chunk
+      // (dist/assets/remote-*.js, 2.2 kB of `__remote`). knip reads the source, where the import is
+      // always there, so it still follows it.
       import('../dev/remote').then((m) => {
         if (cancelled) return
-        r = m.connectRemote(remoteName, navigator.userAgent, { onName: setSettledName })
-        m.registerBasics(r, (text, seconds) => {
-          setNotice(text)
-          window.setTimeout(() => setNotice((n) => (n === text ? null : n)), seconds * 1000)
-        })
+        const r = m.connectRemote(remoteName, navigator.userAgent, { onName: setSettledName })
+        m.registerBasics(r, say)
+        t = r
         setRemote(r)
+        setTelemetry(r)
       })
-      import('../telemetry/feedback').then((m) => {
+    } else if (tester) {
+      // Not behind the DEV guard on purpose: this chunk ships, and loads only on a page that has a key.
+      import('../telemetry/client').then((m) => {
         if (cancelled) return
-        // A function handed to a state setter is an updater: wrap it, so the component itself is stored.
-        setFeedbackBox(() => m.FeedbackBox)
+        t = m.connectTelemetry({
+          name: tester.name ?? '…',
+          endpoint: () => m.apiLogEndpoint(tester.key),
+          flushMs: 2000,
+          onName: (name) => {
+            setSettledName(name)
+            rememberTester(localStorage, { key: tester.key, name })
+          },
+        })
+        t.log('hello', { ua: navigator.userAgent, url: window.location.href, app: APP_INFO })
+        setTelemetry(t)
       })
-    }
+    } else return
+    // The feedback box rides whichever client is up: its chunk ships, and loads only next to one.
+    import('../telemetry/feedback').then((m) => {
+      if (cancelled) return
+      setFeedbackBox(() => m.FeedbackBox)
+    })
     return () => {
       cancelled = true
-      r?.close()
+      t?.close()
     }
-  }, [remoteName])
+  }, [remoteName, tester])
 
   // iOS suspends the context after lock/background: show the banner and resume on tap.
   useEffect(() => {
@@ -116,9 +148,9 @@ export function App() {
   // What the remote operator cannot see from the Mac: which input the page really opened, how far the
   // audible clock trails the scheduling one, and every onset the detector fires.
   useEffect(() => {
-    if (!remote || !engine) return
+    if (!telemetry || !engine) return
     const ctx = engine.ctx
-    remote.log('engine', {
+    telemetry.log('engine', {
       deviceLabel: engine.capture.info?.deviceLabel ?? '',
       settings: engine.capture.info?.settings ?? {},
       sampleRate: ctx.sampleRate,
@@ -131,12 +163,12 @@ export function App() {
     const offMeter = engine.capture.onMeter((m) => {
       bgDb = m.bgDb
     })
-    const offHit = engine.capture.onHit((h) => remote.log('hit', { t: h.t, peakDb: h.peakDb }))
+    const offHit = engine.capture.onHit((h) => telemetry.log('hit', { t: h.t, peakDb: h.peakDb }))
     // One line a second: enough to see the output latency drift or the context fall asleep, few enough
     // that a 10-minute session stays readable.
     const timer = window.setInterval(
       () =>
-        remote.log('output', {
+        telemetry.log('output', {
           ctxTime: ctx.currentTime,
           outputMs: (ctx.currentTime - audibleTime(ctx)) * 1000,
           bgDb,
@@ -149,11 +181,11 @@ export function App() {
       offHit()
       clearInterval(timer)
     }
-  }, [remote, engine, synth])
+  }, [telemetry, engine, synth])
 
   useEffect(() => {
-    remote?.log('screen', { screen })
-  }, [remote, screen])
+    telemetry?.log('screen', { screen })
+  }, [telemetry, screen])
 
   // `start` reports a failure through the `error` state, which the remote `arm` handler cannot read
   // back: that closure captured `error` on the render that registered it. Keep the last message here so
@@ -205,7 +237,7 @@ export function App() {
     } catch {
       // Ignore: storing it is an optimization, not a requirement.
     }
-    remote?.log('calibration:done', { ...data })
+    telemetry?.log('calibration:done', { ...data })
     setCalibration(data)
     setScreen('pick')
   }
@@ -219,10 +251,11 @@ export function App() {
   // runner, and a new function on every render would restart the session from the top.
   const logEvent = useCallback(
     (event: string, data: Record<string, unknown>) => {
-      const at = remote?.log(event, data) ?? null
+      // `session:start` names the build, so a session can be re-judged tomorrow with the rules of its day.
+      const at = telemetry?.log(event, event === 'session:start' ? { ...data, app: APP_INFO } : data) ?? null
       if (event === 'session:start') sessionStartAt.current = at
     },
-    [remote],
+    [telemetry],
   )
   const registerSession = useCallback((c: { stop(): void } | null) => {
     sessionControls.current = c
@@ -309,10 +342,26 @@ export function App() {
     </p>
   )
 
-  // Which name the server settled on: the operator needs it to aim `--to`, and it proves the channel is up.
-  // Before `hello` lands there is nothing settled yet, so show the wanted name with a `…` rather than a
-  // figure the operator could copy into `--to` and miss.
-  const remoteBadge = remote && <p className="synth-badge">Remote · {settledName ?? `${remoteName}…`}</p>
+  const stopSharing = () => {
+    forgetTester(localStorage)
+    telemetry?.close()
+    setTelemetry(null)
+    setSettledName(null)
+  }
+  // Which name the server settled on: the operator needs it to aim `--to`, a tester sees whose sessions
+  // these are. Before the first answer there is nothing settled yet, hence the `…`.
+  const telemetryBadge =
+    telemetry &&
+    (remote ? (
+      <p className="synth-badge">Remote · {settledName ?? `${remoteName}…`}</p>
+    ) : (
+      <p className="synth-badge">
+        Sharing sessions as {settledName ?? '…'} — stroke timing, levels, calibration and your comments. Never audio.{' '}
+        <button type="button" className="secondary" onClick={stopSharing}>
+          Stop
+        </button>
+      </p>
+    ))
   const overlay = notice && <p className="big notice">{notice}</p>
 
   let content: ReactElement
@@ -329,7 +378,7 @@ export function App() {
           onDone={onCalibrated}
           runSignal={calibrateSignal}
           onMeasured={(m) =>
-            remote?.log(m.latencyMs === null ? 'calibration:failed' : 'calibration:measured', { ...m })
+            telemetry?.log(m.latencyMs === null ? 'calibration:failed' : 'calibration:measured', { ...m })
           }
         />
       </>
@@ -390,10 +439,14 @@ export function App() {
         onRepeat={() => setScreen('session')}
         onPick={() => setScreen('pick')}
       >
-        {remote && FeedbackBox && (
+        {telemetry && FeedbackBox && (
           <FeedbackBox
-            remote={remote}
-            sessionId={sessionStartAt.current === null ? null : `${remote.name}@${sessionStartAt.current}`}
+            remote={telemetry}
+            sessionId={
+              settledName === null || sessionStartAt.current === null
+                ? null
+                : `${settledName}@${sessionStartAt.current}`
+            }
           />
         )}
       </SummaryScreen>
@@ -405,7 +458,7 @@ export function App() {
   return (
     <>
       {badge}
-      {remoteBadge}
+      {telemetryBadge}
       {overlay}
       {content}
     </>

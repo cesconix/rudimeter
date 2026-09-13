@@ -1,30 +1,16 @@
-// Page side of the remote debug channel (see dev/remote/plugin.ts). Loaded only in dev, only with
-// `?remote`: App.tsx imports it dynamically behind `import.meta.env.DEV`.
-// logs go to `/api/log`, commands come over `/__remote/events`
+// Page side of the remote debug channel (see dev/remote/plugin.ts): the telemetry client from
+// src/telemetry/client.ts plus SSE for commands and the WAV upload. Loaded only in dev, only with
+// `?remote`: App.tsx and dev/lab.ts import it dynamically behind `import.meta.env.DEV`.
+import { APP_INFO } from '../telemetry/app-info'
+import { apiLogEndpoint, connectTelemetry, type Telemetry } from '../telemetry/client'
 
 export type CommandHandler = (args: Record<string, unknown>) => unknown | Promise<unknown>
 
-export interface Remote {
-  /** The name the server settled on: `iphone`, or `iphone-2` if a first page took it. */
-  name: string
-  /**
-   * Returns the ISO `at` it stamped into the line, or `null` when the channel is closed (nothing
-   * logged): the session id the analysis derives is `<device>@<at of session:start>`, and only `log`
-   * knows the `at` it wrote.
-   */
-  log(event: string, data?: Record<string, unknown>): string | null
+export interface Remote extends Telemetry {
   on(cmd: string, handler: CommandHandler): () => void
   /** Records `seconds` of `source` and ships it as a WAV. Resolves with the file name. */
   record(ctx: AudioContext, source: AudioNode, seconds: number, label: string): Promise<string>
-  close(): void
 }
-
-const FLUSH_MS = 250
-/**
- * A dead server must not grow the queue without bound: 5000 lines is ~8 minutes of the busiest traffic
- * seen (~10 `hit`/s plus 1 `output`/s) and a few hundred KB of strings. Past it the oldest go, counted.
- */
-const MAX_QUEUE_LINES = 5000
 
 export function connectRemote(
   wanted: string,
@@ -38,126 +24,22 @@ export function connectRemote(
 ): Remote {
   const base = `${location.origin}/__remote`
   const handlers = new Map<string, CommandHandler>()
-  const queue: string[] = []
-  let name = wanted
   // The device key the server settles at hello: the page posts to /api/log with it, like a tester's link would.
-  let key = ''
-  let ready = false
-  let timer: number | null = null
-  // Set once `close()` has run its final flush: `log`/`flush` become no-ops so a call arriving after
-  // close (e.g. a late `cmd:done`) cannot resurrect the queue or schedule a stray `fetch` to `/log`.
-  let closed = false
-  /** The batch the timer path has on the wire, so it never puts a second one next to it. */
-  let inflight: Promise<void> | null = null
-  /** Why the last batch failed, until a batch gets through and reports it as `flush:retry`. */
-  let failure: string | null = null
-  let requeued = 0
-  let dropped = 0
-
-  function arm(): void {
-    if (!closed && timer === null) timer = window.setTimeout(() => flush(), FLUSH_MS)
-  }
-
-  function trim(): void {
-    if (queue.length > MAX_QUEUE_LINES) dropped += queue.splice(0, queue.length - MAX_QUEUE_LINES).length
-  }
-
-  function requeue(batch: string[], reason: string): void {
-    queue.unshift(...batch)
-    requeued += batch.length
-    failure = reason
-    trim()
-    console.error(`[remote] log batch failed, requeued: ${reason}`)
-    arm()
-  }
-
-  function post(batch: string[], keepalive: boolean): Promise<void> {
-    // The gap the retry left in the file is itself a line, so the analysis can see it instead of
-    // reading a session that starts in the middle of nowhere.
-    const body =
-      failure === null
-        ? batch
-        : [
-            JSON.stringify({
-              event: 'flush:retry',
-              at: new Date().toISOString(),
-              perf: Math.round(performance.now()),
-              lines: requeued,
-              dropped,
-              error: failure,
-            }),
-            ...batch,
-          ]
-    return fetch(`${location.origin}/api/log?key=${encodeURIComponent(key)}`, {
-      method: 'POST',
-      body: body.join('\n'),
-      keepalive,
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
-        failure = null
-        requeued = 0
-        dropped = 0
-      })
-      .catch((err: unknown) => {
-        requeue(batch, (err as Error).message)
-      })
-  }
-
-  /**
-   * `keepalive` is not free: Chrome caps the sum of the bodies of all in-flight keepalive requests at
-   * 64 KiB per document, and the session-start burst is ~63 KB (`session:start` 21.6 KB + `session:truth`
-   * 10 KB, twice under React StrictMode, plus `cmd:done` and `screen`). With any earlier batch still on
-   * the wire the fetch rejects outright and the whole batch is gone — which is how `.remote/synth.ndjson`
-   * ended up with a `session:done` and no `session:start`. So the timer path sends a plain fetch and keeps
-   * a single batch in flight; only the hide/close path, which cannot wait for anything, asks for keepalive.
-   */
-  function flush(keepalive = false): void {
-    timer = null
-    if (closed || !ready || queue.length === 0) return
-    if (!keepalive && inflight) {
-      // File order is what the analysis reads back: two overlapping POSTs can land either way round.
-      arm()
-      return
-    }
-    const done = post(queue.splice(0), keepalive)
-    if (keepalive) return
-    inflight = done.then(() => {
-      inflight = null
-    })
-  }
-
-  function log(event: string, data: Record<string, unknown> = {}): string | null {
-    if (closed) return null
-    const at = new Date().toISOString()
-    queue.push(JSON.stringify({ event, at, perf: Math.round(performance.now()), ...data }))
-    trim()
-    arm()
-    return at
-  }
-
-  const onHide = () => {
-    if (document.visibilityState === 'hidden') flush(true)
-  }
-  document.addEventListener('visibilitychange', onHide)
-
-  // A document that survives a navigation (bfcache-style) keeps this EventSource OPEN and goes on
-  // holding its name on the server, so the next page connects as `mac-2` instead of `mac`. The
-  // server-side reap cannot help: it drops streams that are dead, and this one is alive. Hang up here
-  // instead — `close()` does its final synchronous flush and is inert afterwards, so nothing is lost.
-  const onPageHide = () => {
-    close()
-  }
-  window.addEventListener('pagehide', onPageHide)
+  let key: string | null = null
+  const t = connectTelemetry({
+    name: wanted,
+    // Nothing leaves before hello: `/api/log` wants the key, and the server hands it out with the name.
+    endpoint: () => (key === null ? null : apiLogEndpoint(key)),
+    flushMs: 250,
+    onName: opts.onName,
+  })
 
   const es = new EventSource(`${base}/events?device=${encodeURIComponent(wanted)}&ua=${encodeURIComponent(ua)}`)
   es.addEventListener('hello', (e) => {
     const hello = JSON.parse((e as MessageEvent<string>).data) as { name: string; key: string }
-    name = hello.name
     key = hello.key
-    ready = true
-    log('hello', { ua, url: location.href })
-    opts.onName?.(name)
+    t.settle(hello.name)
+    t.log('hello', { ua, url: location.href, app: APP_INFO })
   })
   es.addEventListener('cmd', async (e) => {
     const { id, cmd, args } = JSON.parse((e as MessageEvent<string>).data) as {
@@ -167,16 +49,21 @@ export function connectRemote(
     }
     const handler = handlers.get(cmd)
     if (!handler) {
-      log('cmd:error', { id, cmd, error: `no handler for "${cmd}"` })
+      t.log('cmd:error', { id, cmd, error: `no handler for "${cmd}"` })
       return
     }
     try {
       const result = await handler(args)
-      log('cmd:done', { id, cmd, result: result ?? null })
+      t.log('cmd:done', { id, cmd, result: result ?? null })
     } catch (err) {
-      log('cmd:error', { id, cmd, error: (err as Error).message })
+      t.log('cmd:error', { id, cmd, error: (err as Error).message })
     }
   })
+  // A document that survives a navigation (bfcache-style) keeps this EventSource OPEN and goes on
+  // holding its name on the server, so the next page connects as `mac-2` instead of `mac`. The
+  // server-side reap cannot help: it drops streams that are dead, and this one is alive. Hang up here
+  // instead — `close()` does its final synchronous flush and is inert afterwards, so nothing is lost.
+  window.addEventListener('pagehide', () => es.close(), { once: true })
 
   let recorderLoaded: Promise<void> | null = null
 
@@ -214,7 +101,7 @@ export function connectRemote(
       at += c.length
     }
     const res = await fetch(
-      `${base}/audio?device=${encodeURIComponent(name)}&label=${encodeURIComponent(label)}&sampleRate=${ctx.sampleRate}`,
+      `${base}/audio?device=${encodeURIComponent(t.name)}&label=${encodeURIComponent(label)}&sampleRate=${ctx.sampleRate}`,
       { method: 'POST', body: all },
     )
     // A 400 or 500 from `/audio` leaves no `file` in the body: resolving with `undefined` would log
@@ -228,25 +115,11 @@ export function connectRemote(
     return file
   }
 
-  function close(): void {
-    // Cancel the debounce timer by its real id before `flush()` (which unconditionally nulls the
-    // `timer` variable itself) would lose it: an uncancelled native timeout still fires later.
-    if (timer !== null) {
-      window.clearTimeout(timer)
-      timer = null
-    }
-    flush(true) // final drain, while `closed` is still false so it actually sends
-    closed = true
-    es.close()
-    document.removeEventListener('visibilitychange', onHide)
-    window.removeEventListener('pagehide', onPageHide)
-  }
-
   return {
     get name() {
-      return name
+      return t.name
     },
-    log,
+    log: t.log,
     on(cmd, handler) {
       handlers.set(cmd, handler)
       return () => {
@@ -254,7 +127,10 @@ export function connectRemote(
       }
     },
     record,
-    close,
+    close() {
+      t.close()
+      es.close()
+    },
   }
 }
 
