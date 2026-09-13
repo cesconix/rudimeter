@@ -3,5 +3,8 @@
   "framework": "vite",
   "installCommand": "bunx bun@1.4.2 install --frozen-lockfile",
   "buildCommand": "bunx bun@1.4.2 run check && bunx bun@1.4.2 run build",
-  "outputDirectory": "dist"
+  "outputDirectory": "dist",
+  "bunVersion": "1.4.x",
+  "regions": ["fra1"],
+  "rewrites": [{ "source": "/api/(.*)", "destination": "/api/server" }]
 }
