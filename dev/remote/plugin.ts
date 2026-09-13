@@ -1,19 +1,23 @@
-// Dev-only remote debug channel. Pages register over SSE and receive commands; logs come in as NDJSON
-// and land in `.remote/<device>.ndjson`; raw microphone audio lands next to them as WAV. It exists so
-// that an iPhone on the desk can be driven from the terminal and its numbers read from a file, instead
-// of screenshots of a log.
-import { appendFile, mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
+// Dev-only remote debug channel: pages register over SSE and take commands from `bun run remote`; raw
+// microphone audio lands in `.remote/` as WAV. The lines themselves no longer live here: the page posts
+// them to `/api/log`, served under Vite by the same handler production runs (api/_lib/handler.ts) on a SQLite
+// store in `.remote/dev.db`, and this plugin only watches the appends to answer `/wait`.
+import { mkdir, writeFile } from 'node:fs/promises'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { join } from 'node:path'
 import type { Plugin } from 'vite'
-import { parseFeedbackBody } from '../../api/_lib/feedback'
+import { handle } from '../../api/_lib/handler'
 import { safeName } from '../../api/_lib/names'
+import { type Appended, type DeviceRow, type Store, sqlStore } from '../../api/_lib/store'
 import { deviceReport } from '../../src/analysis/device-report'
 import { EXERCISES } from '../../src/data/exercises'
-import { lastSeqOf, resolveTarget, uniqueName } from './registry'
+import { type Line, linesFrom, requestFrom } from './bridge'
+import { resolveTarget, uniqueName } from './registry'
 import { encodeWav } from './wav'
 
 const DIR = '.remote'
+/** Enough for `/sessions` to read a whole device: the biggest file seen (`synth2`) is ~1.4k lines. */
+const MAX_READ = 10_000_000
 /**
  * The ring only has to cover the gap between one `/wait` poll answering 204 and the next poll arriving —
  * sub-millisecond, since a waiter is registered while the poll is open. 500 lines is ~45 s at the
@@ -36,17 +40,13 @@ const MAX_AUDIO_BYTES = 12 * 1024 * 1024
 
 interface Client {
   name: string
+  /** The store's row for this name: `/audio` appends under its id. */
+  device: DeviceRow
   ua: string
   connectedAt: string
   res: ServerResponse
   /** The 15 s keep-alive, kept here so whoever drops the client can stop it too. */
   keepAlive: ReturnType<typeof setInterval>
-}
-
-interface Line {
-  seq: number
-  event: string
-  raw: string
 }
 
 interface Waiter {
@@ -56,7 +56,7 @@ interface Waiter {
   resolve(line: Line | null): void
 }
 
-async function readBody(req: IncomingMessage): Promise<Buffer> {
+async function readBody(req: IncomingMessage): Promise<Buffer<ArrayBuffer>> {
   const chunks: Buffer[] = []
   for await (const c of req) chunks.push(c as Buffer)
   return Buffer.concat(chunks)
@@ -74,61 +74,57 @@ export function remotePlugin(): Plugin {
   const clients = new Map<string, Client>()
   const lines = new Map<string, Line[]>()
   const seqs = new Map<string, number>()
-  // One in-flight `.ndjson` read per device, shared by `ensureSeq` below: see the comment there.
-  const seqReads = new Map<string, Promise<void>>()
   const waiters: Waiter[] = []
   let nextId = 1
 
-  // `event` may be a comma list (`calibration:done,calibration:failed`): a wait ends on any of them, or on a command error.
   const matches = (w: Waiter, l: Line) =>
     l.seq > w.after && (w.event.split(',').includes(l.event) || l.event === 'cmd:error')
-
-  /** Numbers the line, stores it for `/wait`, wakes the waiters. Returns the line with `seq` and `receivedAt` inside. */
-  function remember(device: string, event: string, fields: Record<string, unknown>): Line {
-    const seq = (seqs.get(device) ?? 0) + 1
-    seqs.set(device, seq)
-    const line = { seq, event, raw: JSON.stringify({ ...fields, seq, receivedAt: new Date().toISOString() }) }
-    const list = lines.get(device) ?? []
-    list.push(line)
-    if (list.length > KEEP) list.splice(0, list.length - KEEP)
-    lines.set(device, list)
-    for (let i = waiters.length - 1; i >= 0; i--) {
-      if (waiters[i].device === device && matches(waiters[i], line)) waiters.splice(i, 1)[0].resolve(line)
-    }
-    return line
-  }
 
   return {
     name: 'rudimeter-remote',
     apply: 'serve',
     configureServer(server) {
       const root = join(server.config.root, DIR)
-      const ready = mkdir(root, { recursive: true })
       const info = (msg: string) => server.config.logger.info(`[remote] ${msg}`)
+      // Absolute path after the scheme, so the URL reads `sqlite:///Users/…/.remote/dev.db`.
+      const base = sqlStore(`sqlite://${join(root, 'dev.db')}`)
+      const ready = mkdir(root, { recursive: true }).then(() => base.ensureSchema())
+      /** id → name, for `observe`: the store speaks ids, `/wait` and the ring speak names. */
+      const names = new Map<string, string>()
 
-      /**
-       * `seq` is per device and per file, not per server run: the numbering resumes from the last line
-       * on disk, once per device after a start. A device that never logged has no file: 0. Reads from
-       * `root` — the same directory `appendFile`/`writeFile` below use, not a bare `.remote/`, which
-       * would silently read nothing (and reset to 0) if the dev server's cwd ever differed from
-       * `server.config.root`.
-       */
-      const ensureSeq = async (device: string): Promise<void> => {
-        if (seqs.has(device)) return
-        // Two first-touch requests for one device (a `/log` batch racing an `/audio` upload right after
-        // a restart) share this one read instead of racing separate reads that could each resolve after
-        // `remember()` already advanced `seqs` and clobber it back down.
-        let pending = seqReads.get(device)
-        if (!pending) {
-          pending = readFile(join(root, `${device}.ndjson`), 'utf8')
-            .catch(() => '')
-            .then((text) => {
-              seqs.set(device, lastSeqOf(text))
-            })
-          seqReads.set(device, pending)
-          void pending.finally(() => seqReads.delete(device))
+      async function deviceNamed(name: string): Promise<DeviceRow> {
+        const row = (await base.deviceByName(name)) ?? (await base.createDevice(name))
+        names.set(row.id, row.name)
+        return row
+      }
+
+      /** Every append, whoever made it: the ring for `/wait`, the waiters, the per-device `seq`, the log line. */
+      async function observe(deviceId: string, out: Appended): Promise<void> {
+        const name = names.get(deviceId) ?? (await base.devices()).find((d) => d.id === deviceId)?.name
+        if (!name) return
+        names.set(deviceId, name)
+        const list = lines.get(name) ?? []
+        for (const line of linesFrom(out)) {
+          list.push(line)
+          for (let i = waiters.length - 1; i >= 0; i--) {
+            if (waiters[i].device === name && matches(waiters[i], line)) waiters.splice(i, 1)[0].resolve(line)
+          }
+          if (line.event !== 'hit' && line.event !== 'output') info(`${name} ${line.event}`)
         }
-        await pending
+        if (list.length > KEEP) list.splice(0, list.length - KEEP)
+        lines.set(name, list)
+        seqs.set(name, out.last)
+      }
+
+      // The handler gets a store whose `append` is watched: that is how `/wait` sees the lines the page
+      // posts to `/api/log`, the comments the dashboard posts to `/api/feedback` and the `audio` line below.
+      const store: Store = {
+        ...base,
+        async append(deviceId, fields, receivedAt) {
+          const out = await base.append(deviceId, fields, receivedAt)
+          await observe(deviceId, out)
+          return out
+        },
       }
 
       /**
@@ -146,13 +142,31 @@ export function remotePlugin(): Plugin {
         }
       }
 
+      // `/api/*` first, on the whole path: the handler routes on `/api/log`, `/api/lines`, … like production.
+      server.middlewares.use(async (req, res, next) => {
+        if (!req.url?.startsWith('/api/')) return next()
+        await ready
+        try {
+          const method = req.method ?? 'GET'
+          const body = method === 'GET' || method === 'HEAD' ? undefined : await readBody(req)
+          const response = await handle(requestFrom(req, body), { store, adminToken: null })
+          res.statusCode = response.status
+          response.headers.forEach((v, k) => {
+            res.setHeader(k, v)
+          })
+          res.end(Buffer.from(await response.arrayBuffer()))
+        } catch (err) {
+          json(res, 500, { error: (err as Error).message })
+        }
+      })
+
       server.middlewares.use('/__remote', async (req, res) => {
         await ready
         // Every request, not only `/events`: a page that is closed rather than reloaded leaves a corpse
         // that `/devices` lists and `/cmd` "delivers" to, so `remote ls` lies and one live phone reads as
         // two and demands `--to`. The sweep is a walk over a handful of clients, cheap at any rate.
         reapDeadClients()
-        // Connect strips the mount path: `req.url` starts at `/events`, `/log`, …
+        // Connect strips the mount path: `req.url` starts at `/events`, `/audio`, …
         const url = new URL(req.url ?? '/', 'http://localhost')
         const q = url.searchParams
         const device = safeName(q.get('device') ?? 'device')
@@ -160,12 +174,22 @@ export function remotePlugin(): Plugin {
           if (req.method === 'GET' && url.pathname === '/events') {
             reapDeadClients()
             const name = uniqueName(device, clients.keys())
+            const row = await deviceNamed(name)
+            seqs.set(name, await base.lastSeq(row.id))
             // No `connection` header: Vite may serve this over HTTP/2, where it is illegal.
             res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' })
-            res.write(`event: hello\ndata: ${JSON.stringify({ name })}\n\n`)
+            // The key is what the page posts with from now on: `/api/log?key=…`, same as a tester's link.
+            res.write(`event: hello\ndata: ${JSON.stringify({ name, key: row.key })}\n\n`)
             // A comment every 15 s keeps iOS from dropping an idle stream.
             const keepAlive = setInterval(() => res.write(': ping\n\n'), 15000)
-            clients.set(name, { name, ua: q.get('ua') ?? '', connectedAt: new Date().toISOString(), res, keepAlive })
+            clients.set(name, {
+              name,
+              device: row,
+              ua: q.get('ua') ?? '',
+              connectedAt: new Date().toISOString(),
+              res,
+              keepAlive,
+            })
             info(`${name} connected`)
             const gone = () => {
               clearInterval(keepAlive)
@@ -194,39 +218,7 @@ export function remotePlugin(): Plugin {
             )
             return
           }
-          if (req.method === 'POST' && url.pathname === '/log') {
-            await ensureSeq(device)
-            const rawLines = (await readBody(req))
-              .toString('utf8')
-              .split('\n')
-              .filter((raw) => raw.trim())
-            // Parse the whole batch before remembering any line: `remember()` advances `seq` and can
-            // wake a `/wait` waiter, but the batch is only written to disk once, at the end. A line
-            // that fails to parse must abort before any earlier line in the same batch gets a `seq`
-            // or a waiter that the on-disk file will never actually contain.
-            const parsed: { event: string; fields: Record<string, unknown> }[] = []
-            for (const [i, raw] of rawLines.entries()) {
-              let fields: Record<string, unknown>
-              try {
-                fields = JSON.parse(raw) as Record<string, unknown>
-              } catch (err) {
-                json(res, 400, { error: `malformed JSON on line ${i + 1}: ${(err as Error).message}` })
-                return
-              }
-              const event = typeof fields.event === 'string' ? fields.event : 'unknown'
-              parsed.push({ event, fields })
-            }
-            const out = parsed.map(({ event, fields }) => {
-              const line = remember(device, event, fields)
-              if (event !== 'hit' && event !== 'output') info(`${device} ${event}`)
-              return line.raw
-            })
-            await appendFile(join(root, `${device}.ndjson`), `${out.join('\n')}\n`)
-            json(res, 200, { ok: true, seq: seqs.get(device) ?? 0 })
-            return
-          }
           if (req.method === 'POST' && url.pathname === '/audio') {
-            await ensureSeq(device)
             const buf = await readBody(req)
             if (buf.byteLength > MAX_AUDIO_BYTES || buf.byteLength % 4 !== 0) {
               json(res, 400, {
@@ -241,39 +233,10 @@ export function remotePlugin(): Plugin {
             const file = `${device}-${stamp(new Date())}-${safeName(q.get('label') ?? 'audio')}.wav`
             await writeFile(join(root, file), encodeWav(samples, sampleRate))
             const seconds = samples.length / sampleRate
-            const line = remember(device, 'audio', { event: 'audio', file, seconds, sampleRate })
-            await appendFile(join(root, `${device}.ndjson`), `${line.raw}\n`)
+            const row = clients.get(device)?.device ?? (await deviceNamed(device))
+            await store.append(row.id, [{ event: 'audio', file, seconds, sampleRate }], new Date().toISOString())
             info(`${device} audio ${file} (${seconds.toFixed(1)} s)`)
             json(res, 200, { file, seconds })
-            return
-          }
-          if (req.method === 'POST' && url.pathname === '/feedback') {
-            // A comment typed on the dashboard for a session picked from its table, days after the fact if
-            // need be. It lands in the device's own file as the same `session:feedback` line the app writes
-            // from the summary, plus the session's id, since here nothing says which session "the last" is.
-            let raw: unknown
-            try {
-              raw = JSON.parse((await readBody(req)).toString('utf8'))
-            } catch (err) {
-              json(res, 400, { error: `malformed JSON: ${(err as Error).message}` })
-              return
-            }
-            const parsed = parseFeedbackBody(raw, device)
-            if (!parsed.ok) {
-              json(res, 400, { error: parsed.error })
-              return
-            }
-            await ensureSeq(device)
-            const line = remember(device, 'session:feedback', {
-              event: 'session:feedback',
-              at: new Date().toISOString(),
-              sessionId: parsed.sessionId,
-              text: parsed.text,
-              source: 'dashboard',
-            })
-            await appendFile(join(root, `${device}.ndjson`), `${line.raw}\n`)
-            info(`${device} session:feedback from the dashboard (${parsed.text.length} chars)`)
-            json(res, 200, { ok: true, seq: line.seq })
             return
           }
           if (req.method === 'POST' && url.pathname === '/cmd') {
@@ -336,21 +299,17 @@ export function remotePlugin(): Plugin {
             return
           }
           if (req.method === 'GET' && url.pathname === '/sessions') {
-            // Everything the dashboard shows, analysed here so the page stays a renderer. One device on
-            // request, otherwise every log on disk. `last` caps the sessions per device (20 by default).
+            // Everything the dashboard shows, analysed here so the page stays a renderer, until Task 8
+            // moves the analysis into the page. One device on request, otherwise every device in the store.
             const only = q.get('device')
             const last = Math.max(1, Number(q.get('last') ?? 20) || 20)
-            const names = only
-              ? [safeName(only)]
-              : (await readdir(root).catch(() => [] as string[]))
-                  .filter((f) => f.endsWith('.ndjson'))
-                  .map((f) => f.slice(0, -'.ndjson'.length))
-                  .sort()
+            const all = await base.devices()
+            const chosen = only ? all.filter((d) => d.name === safeName(only)) : all
             const deps = { exerciseById: (id: string) => EXERCISES.find((e) => e.id === id) }
             const devices = []
-            for (const name of names) {
-              const text = await readFile(join(root, `${name}.ndjson`), 'utf8').catch(() => '')
-              devices.push(deviceReport(name, text, deps, last))
+            for (const d of chosen) {
+              const text = (await base.read(d.id, 0, MAX_READ)).map((r) => r.line).join('\n')
+              devices.push(deviceReport(d.name, text, deps, last))
             }
             json(res, 200, { devices })
             return

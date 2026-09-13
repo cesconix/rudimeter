@@ -178,16 +178,16 @@ function wireDetail(a: SessionAnalysis): void {
       save.disabled = true
       fstatus.textContent = 'saving…'
       try {
-        const res = await fetch(`/__remote/feedback?device=${encodeURIComponent(a.device)}`, {
+        const res = await fetch('/api/feedback', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ sessionId: a.id, text: clean }),
+          body: JSON.stringify({ device: a.device, sessionId: a.id, text: clean }),
         })
         if (!res.ok) {
           const { error } = (await res.json().catch(() => ({}))) as { error?: string }
           throw new Error(error ?? `server said ${res.status}`)
         }
-        // Reload rather than patch the DOM: the file is the truth, and `load()` keeps the selection.
+        // Reload rather than patch the DOM: the store is the truth, and load() keeps the selection.
         await load()
       } catch (err) {
         fstatus.textContent = `save failed: ${(err as Error).message}`

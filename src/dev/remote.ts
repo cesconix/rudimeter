@@ -1,5 +1,6 @@
 // Page side of the remote debug channel (see dev/remote/plugin.ts). Loaded only in dev, only with
 // `?remote`: App.tsx imports it dynamically behind `import.meta.env.DEV`.
+// logs go to `/api/log`, commands come over `/__remote/events`
 
 export type CommandHandler = (args: Record<string, unknown>) => unknown | Promise<unknown>
 
@@ -39,6 +40,8 @@ export function connectRemote(
   const handlers = new Map<string, CommandHandler>()
   const queue: string[] = []
   let name = wanted
+  // The device key the server settles at hello: the page posts to /api/log with it, like a tester's link would.
+  let key = ''
   let ready = false
   let timer: number | null = null
   // Set once `close()` has run its final flush: `log`/`flush` become no-ops so a call arriving after
@@ -85,7 +88,11 @@ export function connectRemote(
             }),
             ...batch,
           ]
-    return fetch(`${base}/log?device=${encodeURIComponent(name)}`, { method: 'POST', body: body.join('\n'), keepalive })
+    return fetch(`${location.origin}/api/log?key=${encodeURIComponent(key)}`, {
+      method: 'POST',
+      body: body.join('\n'),
+      keepalive,
+    })
       .then((res) => {
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
         failure = null
@@ -145,7 +152,9 @@ export function connectRemote(
 
   const es = new EventSource(`${base}/events?device=${encodeURIComponent(wanted)}&ua=${encodeURIComponent(ua)}`)
   es.addEventListener('hello', (e) => {
-    name = (JSON.parse((e as MessageEvent<string>).data) as { name: string }).name
+    const hello = JSON.parse((e as MessageEvent<string>).data) as { name: string; key: string }
+    name = hello.name
+    key = hello.key
     ready = true
     log('hello', { ua, url: location.href })
     opts.onName?.(name)
