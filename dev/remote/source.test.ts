@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'bun:test'
 import { memoryStore } from '../../api/_lib/store'
-import { httpSource, localSource } from './source'
+import { DEV_DB, httpSource, localSource } from './source'
+
+describe('DEV_DB', () => {
+  it('is the dev store path documented in README.md and AGENTS.md: a silent move should break this, not just a mental model', () => {
+    expect(DEV_DB).toBe('.remote/dev.db')
+  })
+})
 
 describe('localSource', () => {
   it('reads every line of a device across pages, [] for an unknown one', async () => {
