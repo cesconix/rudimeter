@@ -15,7 +15,11 @@ export function requestFrom(
 ): Request {
   const headers = new Headers()
   for (const [k, v] of Object.entries(req.headers)) {
-    if (SKIP.has(k.toLowerCase())) continue
+    // Node's HTTP/2 compat layer puts `:method`, `:path`, `:scheme`, `:authority` into `req.headers`
+    // (the Vite dev server speaks HTTP/2 over its basic-ssl TLS); `Headers` throws on any name starting
+    // with `:`, which took down every `/api/*` route on the real protocol the browser uses. The URL
+    // below is already synthetic (`http://localhost…`), so none of these carry information this needs.
+    if (k.startsWith(':') || SKIP.has(k.toLowerCase())) continue
     if (typeof v === 'string') headers.set(k, v)
     else if (Array.isArray(v)) headers.set(k, v.join(', '))
   }

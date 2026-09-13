@@ -26,6 +26,27 @@ describe('requestFrom', () => {
     expect(r.headers.get('x-a')).toBe('1, 2')
     expect(await r.text()).toBe('{"event":"hello"}')
   })
+  it('drops HTTP/2 pseudo-headers instead of throwing on `Headers`', () => {
+    const call = () =>
+      requestFrom(
+        {
+          method: 'GET',
+          url: '/api/devices',
+          headers: {
+            ':method': 'GET',
+            ':path': '/api/devices',
+            ':scheme': 'https',
+            ':authority': 'localhost:5173',
+            cookie: 'rudimeter_admin=t',
+          },
+        },
+        undefined,
+      )
+    expect(call).not.toThrow()
+    const r = call()
+    expect([...r.headers.keys()].some((k) => k.startsWith(':'))).toBe(false)
+    expect(r.headers.get('cookie')).toBe('rudimeter_admin=t')
+  })
 })
 
 describe('linesFrom', () => {
