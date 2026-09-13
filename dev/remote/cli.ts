@@ -9,9 +9,9 @@
 // The dev server must be running (`bun run dev`); `RUDIMETER_REMOTE_URL` overrides https://localhost:5173.
 import { readdir, readFile, writeFile } from 'node:fs/promises'
 import { resolve, sep } from 'node:path'
+import { deviceReport } from '../../src/analysis/device-report'
 import { EXERCISES } from '../../src/data/exercises'
 import { createClient, DEFAULT_URL, defaultUntil, parseArgs } from './client'
-import { deviceReport } from './device-report'
 import { collectFeedback } from './feedback'
 import { formatCalibrations, formatFeedback, formatFeedbackMarkdown, formatTable, formatVerdict } from './report-text'
 

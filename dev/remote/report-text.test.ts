@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import type { CalibrationAnalysis, SessionAnalysis } from './analysis'
+import type { CalibrationAnalysis, SessionAnalysis } from '../../src/analysis/analysis'
 import type { FeedbackEntry } from './feedback'
 import { formatCalibrations, formatFeedback, formatFeedbackMarkdown, formatTable, formatVerdict } from './report-text'
 

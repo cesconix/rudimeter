@@ -1,12 +1,12 @@
-// What the remote channel logged (dev/remote/plugin.ts → .remote/<device>.ndjson), read back as answers:
+// What the telemetry logged (a device's lines: /api/log → the store, once .remote/<device>.ndjson), read back as answers:
 // per session, how the strokes matched the score and how far the detection can be trusted; per device,
 // how precise and stable the calibration is. Pure — bun test, the CLI and the dashboard page share it.
-import { type ClickKind, isGuide } from '../../src/engine/grid'
-import { judge } from '../../src/engine/judge'
-import { mean, type SessionStats, sd } from '../../src/engine/stats'
-import { DEFAULT_WINDOWS, type Exercise, type Grade, type Hand, type Hit, type Slot } from '../../src/engine/types'
-import { type OracleConfig, runOracle } from '../../src/sim/oracle'
-import type { PlayerPreset } from '../../src/sim/player'
+import { type ClickKind, isGuide } from '../engine/grid'
+import { judge } from '../engine/judge'
+import { mean, type SessionStats, sd } from '../engine/stats'
+import { DEFAULT_WINDOWS, type Exercise, type Grade, type Hand, type Hit, type Slot } from '../engine/types'
+import { type OracleConfig, runOracle } from '../sim/oracle'
+import type { PlayerPreset } from '../sim/player'
 
 export interface LogLine {
   event: string

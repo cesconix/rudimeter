@@ -10,7 +10,6 @@ import {
   saveCalibration,
 } from '../audio/storage'
 import { EXERCISES } from '../data/exercises'
-import type { FeedbackProps } from '../dev/feedback'
 import type { Remote } from '../dev/remote'
 import { remoteNameFrom } from '../dev/remote-name'
 import { DEFAULT_AUTO_INCREMENT } from '../engine/progression'
@@ -18,6 +17,7 @@ import type { SessionStats } from '../engine/stats'
 import type { Exercise } from '../engine/types'
 import { parseSynthConfig } from '../sim/config'
 import { createSynthGraph, type SynthGraph, type SynthRun } from '../sim/graph'
+import type { FeedbackProps } from '../telemetry/feedback'
 import { CalibrationScreen } from './CalibrationScreen'
 import { ExercisePicker } from './ExercisePicker'
 import { DEFAULT_SESSION_OPTIONS, type SessionOptions } from './options'
@@ -89,7 +89,7 @@ export function App() {
         })
         setRemote(r)
       })
-      import('../dev/feedback').then((m) => {
+      import('../telemetry/feedback').then((m) => {
         if (cancelled) return
         // A function handed to a state setter is an updater: wrap it, so the component itself is stored.
         setFeedbackBox(() => m.FeedbackBox)

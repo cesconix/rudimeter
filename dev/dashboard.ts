@@ -1,10 +1,11 @@
 // Dev page: the remote logs as a per-session view of "how did the strokes match the score" and "how far
 // can the detection be trusted", plus the calibration history and error budget per device. The analysis
-// is the server's (/__remote/sessions → dev/remote/device-report.ts); this file only draws.
-import { cleanFeedback, MAX_FEEDBACK_CHARS } from '../src/dev/feedback-text'
+// is the server's (/__remote/sessions → src/analysis/device-report.ts); this file only draws.
+
+import type { Budget, CalibrationAnalysis, SessionAnalysis, Verdict } from '../src/analysis/analysis'
+import type { DeviceReport } from '../src/analysis/device-report'
+import { cleanFeedback, MAX_FEEDBACK_CHARS } from '../src/telemetry/feedback-text'
 import { esc, histogramSvg, offsetsSvg, sparklineSvg, timelineSvg } from './dashboard-svg'
-import type { Budget, CalibrationAnalysis, SessionAnalysis, Verdict } from './remote/analysis'
-import type { DeviceReport } from './remote/device-report'
 
 const el = <T extends HTMLElement>(id: string): T => {
   const node = document.getElementById(id)

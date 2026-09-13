@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'bun:test'
-import { parseExercise } from '../../src/engine/exercise'
-import { buildGrid } from '../../src/engine/grid'
-import { runOracle } from '../../src/sim/oracle'
-import { PLAYER_PRESETS, planStrokes } from '../../src/sim/player'
+import { parseExercise } from '../engine/exercise'
+import { buildGrid } from '../engine/grid'
+import { runOracle } from '../sim/oracle'
+import { PLAYER_PRESETS, planStrokes } from '../sim/player'
 import {
   analyzeCalibrations,
   analyzeSession,

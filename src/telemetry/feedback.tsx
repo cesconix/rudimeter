@@ -1,12 +1,16 @@
 // The box at the end of a session: a free-text comment that lands in the session's log next to the
-// numbers, or nothing. Dev-only, like the channel it writes to: App.tsx loads it with the same `import()`
-// under `import.meta.env.DEV` as ./remote, so none of it — copy included — reaches the production bundle.
+// numbers, or nothing. Loaded on demand by App.tsx next to the channel it writes to (the dev channel, or
+// the tester's telemetry client from Task 7): the copy ships only in that chunk.
 import { useState } from 'react'
 import { appFeedbackFields, cleanFeedback, MAX_FEEDBACK_CHARS } from './feedback-text'
-import type { Remote } from './remote'
+
+/** What the box needs from whatever it writes to: only `log`. Both the dev channel and the telemetry client fit. */
+export interface FeedbackSink {
+  log(event: string, data?: Record<string, unknown>): string | null
+}
 
 export interface FeedbackProps {
-  remote: Remote
+  remote: FeedbackSink
   /**
    * `<device>@<at of session:start>`, null when the page never logged the start (older channel, or
    * the session began before the channel came up)

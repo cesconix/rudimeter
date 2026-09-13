@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import type { LogLine } from './analysis'
+import type { LogLine } from '../../src/analysis/analysis'
 import { collectFeedback } from './feedback'
 
 const at = (s: number): string => new Date(Date.UTC(2026, 8, 12, 6, 0, 0, Math.round(s * 1000))).toISOString()

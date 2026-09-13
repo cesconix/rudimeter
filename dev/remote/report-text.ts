@@ -1,5 +1,5 @@
 // Plain-text views of the analysis for the terminal. Numbers only; the dashboard draws.
-import type { Budget, CalibrationAnalysis, SessionAnalysis, Verdict } from './analysis'
+import type { Budget, CalibrationAnalysis, SessionAnalysis, Verdict } from '../../src/analysis/analysis'
 import type { FeedbackEntry } from './feedback'
 
 const ms = (x: number | null, d = 1): string => (x === null ? '—' : x.toFixed(d))

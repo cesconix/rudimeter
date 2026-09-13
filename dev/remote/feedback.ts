@@ -9,7 +9,7 @@ import {
   type SessionAnalysis,
   splitSessions,
   strayFeedback,
-} from './analysis'
+} from '../../src/analysis/analysis'
 
 export interface FeedbackEntry extends Feedback {
   device: string

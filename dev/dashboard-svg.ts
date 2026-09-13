@@ -1,6 +1,6 @@
 // SVG for the dashboard, as strings: a timeline of clicks, expected notes and hits, an offset strip,
 // histograms and sparklines. Pure — the page sets innerHTML, the tests read the markup.
-import type { SessionAnalysis } from './remote/analysis'
+import type { SessionAnalysis } from '../src/analysis/analysis'
 
 export const esc = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
