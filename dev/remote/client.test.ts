@@ -14,6 +14,10 @@ describe('parseArgs', () => {
       timeoutMs: 60000,
       n: null,
       export: null,
+      remote: false,
+      as: null,
+      renumber: false,
+      force: false,
     })
   })
   it('rejects unknown flags and bad json', () => {
@@ -42,6 +46,27 @@ describe('parseArgs', () => {
       export: 'docs/plans/feedback.md',
     })
     expect(() => parseArgs(['feedback', '--export'])).toThrow('--export needs a value')
+  })
+  it('reads the store commands and their flags', () => {
+    expect(parseArgs(['devices', 'add', 'Marco', '--remote'])).toMatchObject({
+      cmd: 'devices',
+      args: { sub: 'add', name: 'Marco' },
+      remote: true,
+    })
+    expect(parseArgs(['devices', 'ls'])).toMatchObject({ args: { sub: 'ls', name: null }, remote: false })
+    expect(() => parseArgs(['devices', 'rm', 'x'])).toThrow('usage')
+    expect(parseArgs(['export', 'iphone', '/tmp/x.ndjson', '--force'])).toMatchObject({
+      args: { name: 'iphone', path: '/tmp/x.ndjson' },
+      force: true,
+    })
+    expect(parseArgs(['import', 'f.ndjson', '--as', 'iphone', '--renumber'])).toMatchObject({
+      args: { file: 'f.ndjson' },
+      as: 'iphone',
+      renumber: true,
+    })
+    expect(() => parseArgs(['import', 'f.ndjson'])).toThrow('--as')
+    expect(parseArgs(['sync'])).toMatchObject({ cmd: 'sync', args: {} })
+    expect(parseArgs(['report', 'ipad', '--remote'])).toMatchObject({ args: { name: 'ipad' }, remote: true })
   })
 })
 

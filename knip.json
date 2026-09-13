@@ -10,5 +10,6 @@
     "api/**/*.test.ts"
   ],
   "project": ["src/**/*.{ts,tsx}", "dev/**/*.ts", "api/**/*.ts"],
-  "rules": { "types": "off" }
+  "rules": { "types": "off" },
+  "ignoreExportsUsedInFile": true
 }

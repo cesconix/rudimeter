@@ -78,14 +78,23 @@ export interface ParsedArgs {
   /** null: the command's own default (50 lines for tail/report, everything for feedback) */
   n: number | null
   export: string | null
+  /** reads rudimeter.com over HTTP with DASHBOARD_TOKEN, instead of opening .remote/dev.db directly */
+  remote: boolean
+  /** device name `import` writes under */
+  as: string | null
+  /** `import`: rewrite seq from the local device's lastSeq instead of trusting the file's own numbering */
+  renumber: boolean
+  /** `export`: overwrite an existing file at the destination path */
+  force: boolean
 }
 
-const FLAGS = ['to', 'all', 'until', 'timeout', 'n', 'export']
+const FLAGS = ['to', 'all', 'until', 'timeout', 'n', 'export', 'remote', 'as', 'renumber', 'force']
 
 /**
- * `[--to name | --all] <cmd> [<json>] [--until event] [--timeout ms]`; `ls`, `tail [name] [--n N]`,
- * `wait <event>`, `report [name] [--n N]`, `verdict [name]`, `calibrations [name]`,
- * `feedback [name] [--n N] [--export path]`.
+ * `[--to name | --all] <cmd> [<json>] [--until event] [--timeout ms]`; `ls`, `tail [name] [--n N] [--remote]`,
+ * `wait <event>`, `report [name] [--n N] [--remote]`, `verdict [name] [--remote]`, `calibrations [name] [--remote]`,
+ * `feedback [name] [--n N] [--export path] [--remote]`, `devices ls | devices add <name> [--remote]`,
+ * `export <name> [path] [--force]`, `import <file> --as <name> [--renumber]`, `sync`.
  */
 export function parseArgs(argv: string[]): ParsedArgs {
   const out: ParsedArgs = {
@@ -97,6 +106,10 @@ export function parseArgs(argv: string[]): ParsedArgs {
     timeoutMs: 60000,
     n: null,
     export: null,
+    remote: false,
+    as: null,
+    renumber: false,
+    force: false,
   }
   const positional: string[] = []
   for (let i = 0; i < argv.length; i++) {
@@ -111,27 +124,52 @@ export function parseArgs(argv: string[]): ParsedArgs {
       out.all = true
       continue
     }
+    if (flag === 'remote') {
+      out.remote = true
+      continue
+    }
+    if (flag === 'renumber') {
+      out.renumber = true
+      continue
+    }
+    if (flag === 'force') {
+      out.force = true
+      continue
+    }
     const value = argv[++i]
     if (value === undefined) throw new Error(`--${flag} needs a value`)
     if (flag === 'to') out.to = value
     else if (flag === 'until') out.until = value
     else if (flag === 'timeout') out.timeoutMs = Number(value)
     else if (flag === 'export') out.export = value
+    else if (flag === 'as') out.as = value
     else out.n = Number(value)
   }
-  const [cmd, raw] = positional
+  const [cmd, a, b] = positional
   if (!cmd) throw new Error('usage: remote [--to name | --all] <cmd> [<json>] | ls | tail [name] | wait <event>')
   out.cmd = cmd
   if (cmd === 'tail' || cmd === 'report' || cmd === 'verdict' || cmd === 'calibrations' || cmd === 'feedback')
-    out.args = raw ? { name: raw } : {}
+    out.args = a ? { name: a } : {}
+  else if (cmd === 'devices') {
+    if (a !== 'ls' && a !== 'add') throw new Error('usage: remote devices ls | remote devices add <name>')
+    if (a === 'add' && !b) throw new Error('devices add needs a name')
+    out.args = { sub: a, name: b ?? null }
+  } else if (cmd === 'export') {
+    if (!a) throw new Error('export needs a device name')
+    out.args = { name: a, path: b ?? null }
+  } else if (cmd === 'import') {
+    if (!a) throw new Error('import needs a file')
+    if (out.as === null) throw new Error('import needs --as <name>')
+    out.args = { file: a }
+  } else if (cmd === 'sync') out.args = {}
   else if (cmd === 'wait') {
-    if (!raw) throw new Error('wait needs an event name')
-    out.args = { event: raw }
-  } else if (raw !== undefined) {
+    if (!a) throw new Error('wait needs an event name')
+    out.args = { event: a }
+  } else if (a !== undefined) {
     try {
-      out.args = JSON.parse(raw) as Record<string, unknown>
+      out.args = JSON.parse(a) as Record<string, unknown>
     } catch {
-      throw new Error(`args must be JSON, got ${raw}`)
+      throw new Error(`args must be JSON, got ${a}`)
     }
   }
   return out
