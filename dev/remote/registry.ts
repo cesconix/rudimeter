@@ -23,16 +23,6 @@ export function resolveTarget(
   return { ok: false, error: `several devices connected, pass --to: ${names.join(', ')}` }
 }
 
-/** A file stem that cannot leave `.remote/`: lowercase letters, digits, dashes; 40 chars at most; never empty. */
-export function safeName(s: string): string {
-  const cleaned = s
-    .toLowerCase()
-    .replace(/[^a-z0-9-]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 40)
-  return cleaned || 'device'
-}
-
 /**
  * The highest `seq` already on disk, so a restarted dev server keeps numbering where the file stopped
  * instead of starting at 1 again (two runs in one file share `seq` values, and an analysis by `seq`

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { lastSeqOf, resolveTarget, safeName, uniqueName } from './registry'
+import { lastSeqOf, resolveTarget, uniqueName } from './registry'
 
 describe('uniqueName', () => {
   it('keeps a free name and numbers a taken one from 2', () => {
@@ -24,14 +24,6 @@ describe('resolveTarget', () => {
   it('--to must name a connected device', () => {
     expect(resolveTarget('ipad', ['iphone', 'ipad'])).toEqual({ ok: true, name: 'ipad' })
     expect(resolveTarget('watch', ['iphone']).ok).toBe(false)
-  })
-})
-
-describe('safeName', () => {
-  it('lowercase letters, digits and dashes only, never empty', () => {
-    expect(safeName('iPhone di Francesco')).toBe('iphone-di-francesco')
-    expect(safeName('../..')).toBe('device')
-    expect(safeName('a'.repeat(60))).toHaveLength(40)
   })
 })
 

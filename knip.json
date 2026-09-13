@@ -6,8 +6,9 @@
     "dev/gallery.ts",
     "dev/lab.ts",
     "dev/dashboard.ts",
-    "dev/scenarios/*.ts"
+    "dev/scenarios/*.ts",
+    "api/**/*.test.ts"
   ],
-  "project": ["src/**/*.{ts,tsx}", "dev/**/*.ts"],
+  "project": ["src/**/*.{ts,tsx}", "dev/**/*.ts", "api/**/*.ts"],
   "rules": { "types": "off" }
 }
