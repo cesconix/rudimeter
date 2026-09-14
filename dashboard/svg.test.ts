@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import type { SessionAnalysis } from '../src/analysis/analysis'
-import { bins, esc, histogramSvg, offsetsSvg, sparklineSvg, timelineSvg, timeScale } from './dashboard-svg'
+import { bins, esc, histogramSvg, offsetsSvg, sparklineSvg, timelineSvg, timeScale } from './svg'
 
 describe('dashboard-svg', () => {
   it('timeScale maps t0 to the left pad and t1 to width minus pad', () => {

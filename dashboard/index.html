@@ -50,17 +50,27 @@
   </head>
   <body>
     <h1>Session dashboard</h1>
-    <p class="small">Reads <code>.remote/&lt;device&gt;.ndjson</code> through the dev server. Notes vs the score first; how far to trust the detection next to it; per device, how precise the calibration is. No audio, no microphone on this page. A comment can be added to any session here; the app asks for one at the end of each session.</p>
-    <div class="row">
-      <label>Device <select id="device"></select></label>
-      <button id="refresh" type="button">Refresh</button>
-      <span id="status"></span>
+    <div id="login" hidden>
+      <form id="login-form" class="row">
+        <label>Admin token <input id="token" type="password" autocomplete="current-password" size="40" /></label>
+        <button type="submit">Save</button>
+      </form>
+      <p class="small">The value of DASHBOARD_TOKEN. The cookie lasts 90 days on this browser.</p>
     </div>
-    <h2>Sessions</h2>
-    <div id="sessions"></div>
-    <div id="detail"></div>
-    <h2>Calibration</h2>
-    <div id="calibration"></div>
-    <script type="module" src="./dashboard.ts"></script>
+    <div id="main">
+      <p class="small">Every device's lines, read from <code>/api/lines</code> and analysed here in the page: notes vs the score first; how far to trust the detection next to it; per device, how precise the calibration is. Polled every 3 s while this tab is visible. No audio, no microphone on this page. A comment can be added to any session here; the app asks for one at the end of each session.</p>
+      <div class="row">
+        <label>Device <select id="device"></select></label>
+        <button id="refresh" type="button">Refresh</button>
+        <span id="status"></span>
+        <button id="logout" type="button">Logout</button>
+      </div>
+      <h2>Sessions</h2>
+      <div id="sessions"></div>
+      <div id="detail"></div>
+      <h2>Calibration</h2>
+      <div id="calibration"></div>
+    </div>
+    <script type="module" src="./main.ts"></script>
   </body>
 </html>

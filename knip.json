@@ -5,10 +5,11 @@
     "dev/**/*.test.ts",
     "dev/gallery.ts",
     "dev/lab.ts",
-    "dev/dashboard.ts",
     "dev/scenarios/*.ts",
-    "api/**/*.test.ts"
+    "api/**/*.test.ts",
+    "dashboard/main.ts",
+    "dashboard/**/*.test.ts"
   ],
-  "project": ["src/**/*.{ts,tsx}", "dev/**/*.ts", "api/**/*.ts"],
+  "project": ["src/**/*.{ts,tsx}", "dev/**/*.ts", "api/**/*.ts", "dashboard/**/*.ts"],
   "rules": { "types": "off" }
 }

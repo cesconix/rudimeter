@@ -9,15 +9,11 @@ import type { Plugin } from 'vite'
 import { handle } from '../../api/_lib/handler'
 import { safeName } from '../../api/_lib/names'
 import { type Appended, type DeviceRow, type Store, sqlStore } from '../../api/_lib/store'
-import { deviceReport } from '../../src/analysis/device-report'
-import { EXERCISES } from '../../src/data/exercises'
 import { applyHeaders, type Line, linesFrom, requestFrom } from './bridge'
 import { resolveTarget, uniqueName } from './registry'
 import { encodeWav } from './wav'
 
 const DIR = '.remote'
-/** Enough for `/sessions` to read a whole device: the biggest file seen (`synth2`) is ~1.4k lines. */
-const MAX_READ = 10_000_000
 /**
  * The ring only has to cover the gap between one `/wait` poll answering 204 and the next poll arriving —
  * sub-millisecond, since a waiter is registered while the poll is open. 500 lines is ~45 s at the
@@ -294,22 +290,6 @@ export function remotePlugin(): Plugin {
             }
             res.setHeader('content-type', 'application/json')
             res.end(line.raw)
-            return
-          }
-          if (req.method === 'GET' && url.pathname === '/sessions') {
-            // Everything the dashboard shows, analysed here so the page stays a renderer, until Task 8
-            // moves the analysis into the page. One device on request, otherwise every device in the store.
-            const only = q.get('device')
-            const last = Math.max(1, Number(q.get('last') ?? 20) || 20)
-            const all = await base.devices()
-            const chosen = only ? all.filter((d) => d.name === safeName(only)) : all
-            const deps = { exerciseById: (id: string) => EXERCISES.find((e) => e.id === id) }
-            const devices = []
-            for (const d of chosen) {
-              const text = (await base.read(d.id, 0, MAX_READ)).map((r) => r.line).join('\n')
-              devices.push(deviceReport(d.name, text, deps, last))
-            }
-            json(res, 200, { devices })
             return
           }
           json(res, 404, { error: `unknown route ${req.method} ${url.pathname}` })

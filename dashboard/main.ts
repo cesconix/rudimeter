@@ -1,11 +1,34 @@
-// Dev page: the remote logs as a per-session view of "how did the strokes match the score" and "how far
-// can the detection be trusted", plus the calibration history and error budget per device. The analysis
-// is the server's (/__remote/sessions → src/analysis/device-report.ts); this file only draws.
-
-import type { Budget, CalibrationAnalysis, SessionAnalysis, Verdict } from '../src/analysis/analysis'
-import type { DeviceReport } from '../src/analysis/device-report'
+// The session dashboard: every device's lines read from `/api/lines` — the dev server's SQLite under Vite,
+// the production store on rudimeter.com/dashboard/ — analysed here in the page with src/analysis, and
+// polled by `seq` so a session shows up while it is being played. The API only stores lines.
+import {
+  type Budget,
+  type CalibrationAnalysis,
+  type LogLine,
+  parseLines,
+  type SessionAnalysis,
+  type Verdict,
+} from '../src/analysis/analysis'
+import { type DeviceReport, deviceReportFromLines } from '../src/analysis/device-report'
+import { EXERCISES } from '../src/data/exercises'
 import { cleanFeedback, MAX_FEEDBACK_CHARS } from '../src/telemetry/feedback-text'
-import { esc, histogramSvg, offsetsSvg, sparklineSvg, timelineSvg } from './dashboard-svg'
+import { mergeLines } from './merge-lines'
+import { esc, histogramSvg, offsetsSvg, sparklineSvg, timelineSvg } from './svg'
+
+interface DeviceSummary {
+  id: string
+  name: string
+  lastSeq: number
+  lastAt: string | null
+  lines: number
+  bytes: number
+}
+
+/** 3 s: a session's notes appear while it is played; the store answers a `since` poll with nothing in a few ms. */
+const LINES_MS = 3000
+const DEVICES_MS = 10000
+/** One `/api/lines` page; a device with a day of `hit` lines takes a few. */
+const PAGE = 20000
 
 const el = <T extends HTMLElement>(id: string): T => {
   const node = document.getElementById(id)
@@ -17,8 +40,14 @@ const status = el<HTMLSpanElement>('status')
 const sessionsBox = el<HTMLDivElement>('sessions')
 const detailBox = el<HTMLDivElement>('detail')
 const calibrationBox = el<HTMLDivElement>('calibration')
+const loginBox = el<HTMLDivElement>('login')
+const tokenInput = el<HTMLInputElement>('token')
+const mainBox = el<HTMLDivElement>('main')
 
-let reports: DeviceReport[] = []
+const deps = { exerciseById: (id: string) => EXERCISES.find((e) => e.id === id) }
+let devices: DeviceSummary[] = []
+/** Every line held per device name, in seq order: the analysis runs on these at each render. */
+const logs = new Map<string, LogLine[]>()
 let selected: string | null = null
 let pxPerSec = 60
 
@@ -30,30 +59,90 @@ const worst = (vs: Verdict[]): Verdict['level'] =>
 const chips = (vs: Verdict[]): string =>
   vs.map((v) => `<span class="chip ${v.level}" title="${esc(v.text)}">${esc(v.key)}: ${esc(v.text)}</span>`).join('')
 
-async function load(): Promise<void> {
-  status.textContent = 'loading…'
-  const res = await fetch('/__remote/sessions?last=50')
+class Unauthorized extends Error {}
+
+async function api(path: string, init?: RequestInit): Promise<Response> {
+  const res = await fetch(path, init)
+  if (res.status === 401) throw new Unauthorized('token required')
   if (!res.ok) {
-    status.textContent = `server said ${res.status}`
-    return
+    const { error } = (await res.json().catch(() => ({}))) as { error?: string }
+    throw new Error(error ?? `server said ${res.status}`)
   }
-  reports = ((await res.json()) as { devices: DeviceReport[] }).devices
-  const names = reports.map((r) => r.device)
+  return res
+}
+
+async function refreshDevices(): Promise<void> {
+  devices = (await (await api('/api/devices')).json()) as DeviceSummary[]
+  const names = devices.map((d) => d.name)
   const current = deviceSel.value
   deviceSel.innerHTML = names.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join('')
   deviceSel.value = names.includes(current) ? current : (names[0] ?? '')
-  status.textContent = `${reports.length} device files · ${new Date().toLocaleTimeString()}`
-  renderDevice()
+}
+
+/** Lines past the last held one; true when something new arrived. A full page may not be the end. */
+async function pull(name: string): Promise<boolean> {
+  const held = logs.get(name) ?? []
+  const since = held.length ? held[held.length - 1].seq : 0
+  const res = await api(`/api/lines?device=${encodeURIComponent(name)}&since=${since}&limit=${PAGE}`)
+  const added = parseLines(await res.text())
+  if (!added.length) return false
+  logs.set(name, mergeLines(held, added))
+  if (added.length >= PAGE) await pull(name)
+  return true
 }
 
 function current(): DeviceReport | undefined {
-  return reports.find((r) => r.device === deviceSel.value)
+  const name = deviceSel.value
+  return name ? deviceReportFromLines(name, logs.get(name) ?? [], deps, 50) : undefined
+}
+
+function setStatus(): void {
+  const bytes = devices.reduce((n, d) => n + d.bytes, 0)
+  const lines = (logs.get(deviceSel.value) ?? []).length
+  status.textContent = `live · ${new Date().toLocaleTimeString()} · ${lines} lines · storage ${(bytes / 1048576).toFixed(1)} MB`
+}
+
+/** A comment being typed must not be wiped by a re-render: hold the render until it is saved or cleared. */
+function drafting(): boolean {
+  const t = detailBox.querySelector<HTMLTextAreaElement>('#feedback-text')
+  return t !== null && (t.value.trim() !== '' || document.activeElement === t)
+}
+
+function fail(err: unknown): void {
+  if (err instanceof Unauthorized) {
+    showLogin()
+    return
+  }
+  status.textContent = `failed: ${(err as Error).message}`
+}
+
+function showLogin(): void {
+  loginBox.hidden = false
+  mainBox.hidden = true
+  tokenInput.focus()
+}
+
+async function tick(): Promise<void> {
+  if (document.hidden || !deviceSel.value) return
+  const changed = await pull(deviceSel.value)
+  setStatus()
+  if (changed && !drafting()) renderDevice()
+}
+
+async function boot(): Promise<void> {
+  status.textContent = 'loading…'
+  await refreshDevices()
+  loginBox.hidden = true
+  mainBox.hidden = false
+  if (deviceSel.value) await pull(deviceSel.value)
+  setStatus()
+  renderDevice()
 }
 
 function renderDevice(): void {
   const r = current()
   if (!r) {
-    sessionsBox.innerHTML = '<p class="small">no log on disk</p>'
+    sessionsBox.innerHTML = '<p class="small">no line for this device yet</p>'
     detailBox.innerHTML = ''
     calibrationBox.innerHTML = ''
     return
@@ -183,13 +272,17 @@ function wireDetail(a: SessionAnalysis): void {
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ device: a.device, sessionId: a.id, text: clean }),
         })
+        if (res.status === 401) throw new Unauthorized('token required')
         if (!res.ok) {
           const { error } = (await res.json().catch(() => ({}))) as { error?: string }
           throw new Error(error ?? `server said ${res.status}`)
         }
-        // Reload rather than patch the DOM: the store is the truth, and load() keeps the selection.
-        await load()
+        // Pull rather than patch the DOM: the store is the truth, and the render keeps the selection.
+        text.value = ''
+        await pull(a.device)
+        renderDevice()
       } catch (err) {
+        if (err instanceof Unauthorized) showLogin()
         fstatus.textContent = `save failed: ${(err as Error).message}`
         save.disabled = false
       }
@@ -235,13 +328,38 @@ function calibrationPanel(cal: CalibrationAnalysis, budget: Budget): string {
 
 deviceSel.addEventListener('change', () => {
   selected = null
-  renderDevice()
+  pull(deviceSel.value)
+    .then(() => {
+      setStatus()
+      renderDevice()
+    })
+    .catch(fail)
 })
-el<HTMLButtonElement>('refresh').addEventListener('click', () => {
-  load().catch((err: unknown) => {
-    status.textContent = `load failed: ${(err as Error).message}`
+el<HTMLButtonElement>('refresh').addEventListener('click', () => boot().catch(fail))
+el<HTMLFormElement>('login-form').addEventListener('submit', (e) => {
+  e.preventDefault()
+  api('/api/login', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ token: tokenInput.value }),
   })
+    .then(() => {
+      tokenInput.value = ''
+      return boot()
+    })
+    .catch((err: unknown) => {
+      status.textContent = err instanceof Unauthorized ? 'wrong token' : `login failed: ${(err as Error).message}`
+      showLogin()
+    })
 })
-load().catch((err: unknown) => {
-  status.textContent = `load failed: ${(err as Error).message}`
+el<HTMLButtonElement>('logout').addEventListener('click', () => {
+  fetch('/api/logout', { method: 'POST' }).then(showLogin, fail)
 })
+window.setInterval(() => tick().catch(fail), LINES_MS)
+window.setInterval(() => {
+  if (!document.hidden) refreshDevices().then(setStatus).catch(fail)
+}, DEVICES_MS)
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) tick().catch(fail)
+})
+boot().catch(fail)
