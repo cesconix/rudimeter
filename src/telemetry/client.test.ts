@@ -211,3 +211,79 @@ describe('connectTelemetry retry', () => {
     })
   })
 })
+
+/**
+ * The keepalive path deliberately bypasses the single-in-flight guard, so a tab being hidden really can
+ * have two batches on the wire at once. What one of them does when it lands must not touch the other's
+ * failure: a forgotten failure goes back out under a *fresh* id, and a fresh id is by definition not a
+ * replay, so `/api/log` stores those lines a second time — the duplicate fix 3 exists to prevent,
+ * arriving through the one door fix 3 cannot see.
+ */
+describe('connectTelemetry with two batches in flight', () => {
+  it('a batch that lands does not clear the failure of the one still waiting', async () => {
+    const g = globalThis as { window?: unknown; document?: unknown; fetch?: unknown }
+    const before = { window: g.window, document: g.document, fetch: g.fetch, error: console.error }
+    const sent: { body: string; id: string; settle: (res: unknown) => void; fail: (e: Error) => void }[] = []
+    // A holder, not two `let`s: assigned only inside these fakes, TypeScript narrows a bare local to
+    // `null` at the call sites below — the same reason the close-race test above uses `captured`.
+    const captured: { flush: (() => void) | null; hide: (() => void) | null } = { flush: null, hide: null }
+    g.window = {
+      setTimeout: (fn: () => void) => {
+        captured.flush = fn
+        return 1
+      },
+      clearTimeout: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }
+    g.document = {
+      visibilityState: 'hidden',
+      addEventListener: (event: string, fn: () => void) => {
+        if (event === 'visibilitychange') captured.hide = fn
+      },
+      removeEventListener: () => {},
+    }
+    g.fetch = ((_url: unknown, init: { body: string; headers: Record<string, string> }) =>
+      new Promise((resolve, reject) => {
+        sent.push({ body: init.body, id: init.headers['x-batch-id'], settle: resolve, fail: reject })
+      })) as unknown as typeof fetch
+    console.error = () => {}
+    const settle = async (): Promise<void> => {
+      await new Promise((r) => setTimeout(r, 0))
+      await new Promise((r) => setTimeout(r, 0))
+    }
+    try {
+      const t = connectTelemetry({ name: 'x', endpoint: () => `https://x.test/api/log?key=${KEY}`, flushMs: 1000 })
+      // A: the timer batch, left unanswered on the wire.
+      t.log('hit', { i: 1 })
+      captured.flush?.()
+      await settle()
+      // B: the tab is hidden while A is still out, so this one goes keepalive, past the in-flight guard.
+      t.log('hit', { i: 2 })
+      captured.hide?.()
+      await settle()
+      expect(sent).toHaveLength(2)
+      expect(sent[1].body).toContain('"i":2')
+      // B fails; A lands a moment later.
+      sent[1].fail(new Error('Failed to fetch'))
+      await settle()
+      sent[0].settle({ ok: true, status: 200, statusText: 'OK', json: async () => ({}) })
+      await settle()
+      // B is still owed a resend, under B's own id: its lines must not go out as something new.
+      captured.flush?.()
+      await settle()
+      expect(sent).toHaveLength(3)
+      expect(sent[2].id).toBe(sent[1].id)
+      expect(sent[2].body).toContain('"i":2')
+      expect(sent[2].body).toContain('"event":"flush:retry"')
+    } finally {
+      console.error = before.error
+      if (before.window === undefined) delete g.window
+      else g.window = before.window
+      if (before.document === undefined) delete g.document
+      else g.document = before.document
+      if (before.fetch === undefined) delete g.fetch
+      else g.fetch = before.fetch
+    }
+  })
+})

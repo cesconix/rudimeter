@@ -49,6 +49,13 @@ export function apiLogEndpoint(key: string): string {
  */
 export const MAX_QUEUE_LINES = 2000
 
+/** A batch that failed, as its own record: whose failure it is, how big it is, and why. */
+interface Pending {
+  id: string
+  lines: number
+  error: string
+}
+
 export function connectTelemetry(opts: TelemetryOptions): TelemetryHandle {
   const queue: string[] = []
   let name = opts.name
@@ -58,8 +65,6 @@ export function connectTelemetry(opts: TelemetryOptions): TelemetryHandle {
   let closed = false
   /** The batch the timer path has on the wire, so it never puts a second one next to it. */
   let inflight: Promise<void> | null = null
-  /** Why the last batch failed, until a batch gets through and reports it as `flush:retry`. */
-  let failure: string | null = null
   let requeued = 0
   let dropped = 0
   /**
@@ -70,11 +75,19 @@ export function connectTelemetry(opts: TelemetryOptions): TelemetryHandle {
   const pageId = crypto.randomUUID().slice(0, 8)
   let batches = 0
   /**
-   * The failed batch waiting at the head of the queue, and the id it has to keep. It goes back out
-   * exactly as it was: merging the lines logged since into it would put them under an id the store may
+   * The batches that failed and are waiting at the head of the queue, oldest first: each keeps the id it
+   * was sent under, how many of its lines are still queued, and why it failed. A batch goes back out
+   * exactly as it was — merging the lines logged since into it would put them under an id the store may
    * already have, and they would be dropped as a duplicate of lines they were never part of.
+   *
+   * A batch on the wire holds no entry here: `flush()` takes its entry out and `requeue()` puts it back.
+   * That is what keeps one batch from clearing another's failure — the keepalive path bypasses the
+   * in-flight guard, so a hidden tab really can have two batches out at once, and a batch that landed
+   * used to null this slot whoever had filled it. The forgotten batch's lines then went out under a
+   * fresh id, which is by definition not a replay, so the store stored them a second time: the very
+   * duplicate the id exists to prevent, through the one door the id cannot see.
    */
-  let retry: { id: string; lines: number } | null = null
+  const pending: Pending[] = []
 
   function arm(): void {
     if (!closed && timer === null) timer = window.setTimeout(() => flush(), opts.flushMs)
@@ -82,23 +95,35 @@ export function connectTelemetry(opts: TelemetryOptions): TelemetryHandle {
 
   function trim(): void {
     if (queue.length <= MAX_QUEUE_LINES) return
-    const gone = queue.splice(0, queue.length - MAX_QUEUE_LINES).length
+    let gone = queue.splice(0, queue.length - MAX_QUEUE_LINES).length
     dropped += gone
-    // A requeued batch sits at the head, so it is the first thing the eviction eats: shrink the window
-    // with it, and let the id go once none of that batch is left to resend.
-    if (retry === null) return
-    retry.lines -= gone
-    if (retry.lines <= 0) retry = null
+    // The waiting batches lead the queue, oldest first, so the eviction eats them in that order: shrink
+    // each window with it and let a batch go once none of its lines are left to resend.
+    while (gone > 0 && pending.length > 0) {
+      const head = pending[0]
+      const take = Math.min(gone, head.lines)
+      head.lines -= take
+      gone -= take
+      if (head.lines === 0) pending.shift()
+    }
   }
 
-  function requeue(batch: string[], id: string, reason: string): void {
+  function requeue(batch: string[], id: string, error: string): void {
     queue.unshift(...batch)
     requeued += batch.length
-    failure = reason
-    retry = { id, lines: batch.length }
+    // Back to the front of both at once: the batch's lines lead the queue again, so its entry leads the
+    // waiting list, and the windows stay lined up with the queue however many batches are in the air.
+    pending.unshift({ id, lines: batch.length, error })
     trim()
-    console.error(`[remote] log batch failed, requeued: ${reason}`)
+    console.error(`[remote] log batch failed, requeued: ${error}`)
     arm()
+  }
+
+  /** Clears what the counters report, but only once no batch is still waiting to be reported on. */
+  function settleCounters(): void {
+    if (pending.length > 0) return
+    requeued = 0
+    dropped = 0
   }
 
   /**
@@ -108,8 +133,6 @@ export function connectTelemetry(opts: TelemetryOptions): TelemetryHandle {
    * batch go and leave a line behind: the analysis reads a hole it can see, not one it has to infer.
    */
   function drop(batch: string[], reason: string): void {
-    failure = null
-    retry = null
     queue.push(
       JSON.stringify({
         event: 'flush:drop',
@@ -120,8 +143,7 @@ export function connectTelemetry(opts: TelemetryOptions): TelemetryHandle {
         error: reason,
       }),
     )
-    requeued = 0
-    dropped = 0
+    settleCounters()
     trim()
     console.error(`[remote] log batch dropped, it cannot succeed on a resend: ${reason}`)
     arm()
@@ -137,11 +159,18 @@ export function connectTelemetry(opts: TelemetryOptions): TelemetryHandle {
     opts.onName?.(settled)
   }
 
-  function post(batch: string[], id: string, keepalive: boolean, endpoint: string): Promise<void> {
+  function post(
+    batch: string[],
+    id: string,
+    resent: Pending | null,
+    keepalive: boolean,
+    endpoint: string,
+  ): Promise<void> {
     // The gap the retry left in the file is itself a line, so the analysis can see it instead of
-    // reading a session that starts in the middle of nowhere.
+    // reading a session that starts in the middle of nowhere. It reports the failure of the batch being
+    // resent, read off that batch's own record rather than off whatever failed most recently.
     const body =
-      failure === null
+      resent === null
         ? batch
         : [
             JSON.stringify({
@@ -150,7 +179,7 @@ export function connectTelemetry(opts: TelemetryOptions): TelemetryHandle {
               perf: Math.round(performance.now()),
               lines: requeued,
               dropped,
-              error: failure,
+              error: resent.error,
             }),
             ...batch,
           ]
@@ -164,10 +193,9 @@ export function connectTelemetry(opts: TelemetryOptions): TelemetryHandle {
         // are the failures a resend can still fix, including the 503 `api/server.ts` answers while its
         // schema check is still failing.
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
-        failure = null
-        retry = null
-        requeued = 0
-        dropped = 0
+        // Nothing here belongs to this batch alone any more: its entry left `pending` when it was sent,
+        // so a landing batch has nothing of anyone else's to clear.
+        settleCounters()
         // The answer names the device: a tester only has a key, and this is where its name comes from.
         const data = (await res.json().catch(() => ({}))) as { name?: unknown }
         if (typeof data.name === 'string') settle(data.name)
@@ -200,13 +228,14 @@ export function connectTelemetry(opts: TelemetryOptions): TelemetryHandle {
       arm()
       return
     }
-    // Cleared before the batch leaves the queue: while it is on the wire it is not at the head anymore,
-    // so `trim()` must not count evictions against its window.
-    const pending = retry
-    retry = null
+    // The oldest waiting batch goes first, and its entry leaves with it: while it is on the wire it no
+    // longer leads the queue, so `trim()` must not count evictions against its window, and nothing that
+    // lands in the meantime can clear it.
+    const resent = pending.shift() ?? null
     const done = post(
-      queue.splice(0, pending?.lines ?? queue.length),
-      pending?.id ?? `${pageId}-${++batches}`,
+      queue.splice(0, resent?.lines ?? queue.length),
+      resent?.id ?? `${pageId}-${++batches}`,
+      resent,
       keepalive,
       endpoint,
     )
