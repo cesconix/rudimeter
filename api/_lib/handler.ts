@@ -15,6 +15,12 @@ export interface Context {
 
 /** A tester's page sends a batch every 2 s; the biggest single line seen is `session:start` at 21.6 KB. */
 export const MAX_BODY_BYTES = 1024 * 1024
+/**
+ * The ceiling on one batch. The page's own queue cap (`MAX_QUEUE_LINES`, src/telemetry/client.ts) must
+ * stay strictly under it, with room for the `flush:retry` line the retry path prepends — otherwise a
+ * full queue is one line over and gets a 413 it can never get out of. `dev/telemetry-caps.test.ts` pins
+ * the arithmetic; the import rules keep either side from reading the other's constant directly.
+ */
 export const MAX_BATCH_LINES = 5000
 export const MAX_LINE_BYTES = 64 * 1024
 export const DEFAULT_LIMIT = 5000

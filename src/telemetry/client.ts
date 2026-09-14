@@ -38,10 +38,16 @@ export function apiLogEndpoint(key: string): string {
 }
 
 /**
- * A dead server must not grow the queue without bound: 5000 lines is ~8 minutes of the busiest traffic
+ * A dead server must not grow the queue without bound: 2000 lines is ~3 minutes of the busiest traffic
  * seen (~10 `hit`/s plus 1 `output`/s) and a few hundred KB of strings. Past it the oldest go, counted.
+ *
+ * It has to stay strictly below the API's `MAX_BATCH_LINES` with room for the `flush:retry` line `post()`
+ * prepends. Both were 5000, chosen independently, so a full queue shipped 5001 lines and `/api/log`
+ * answered 413 — forever, since the retry path re-prepends the marker on every attempt, destroying the
+ * very session it was retrying. The import rules stop `src/` from reading the API's constant, so
+ * `dev/telemetry-caps.test.ts` — the one root allowed to see both — owns the arithmetic between them.
  */
-const MAX_QUEUE_LINES = 5000
+export const MAX_QUEUE_LINES = 2000
 
 export function connectTelemetry(opts: TelemetryOptions): TelemetryHandle {
   const queue: string[] = []
@@ -74,6 +80,31 @@ export function connectTelemetry(opts: TelemetryOptions): TelemetryHandle {
     arm()
   }
 
+  /**
+   * A 4xx is a verdict on the batch itself — malformed, too big, or a key the store no longer knows —
+   * and no resend can change the answer. Retrying one forever posts the same body every `flushMs` for
+   * the life of the tab while new lines push the session being played out of the queue, so let the
+   * batch go and leave a line behind: the analysis reads a hole it can see, not one it has to infer.
+   */
+  function drop(batch: string[], reason: string): void {
+    failure = null
+    queue.push(
+      JSON.stringify({
+        event: 'flush:drop',
+        at: new Date().toISOString(),
+        perf: Math.round(performance.now()),
+        lines: batch.length,
+        dropped,
+        error: reason,
+      }),
+    )
+    requeued = 0
+    dropped = 0
+    trim()
+    console.error(`[remote] log batch dropped, it cannot succeed on a resend: ${reason}`)
+    arm()
+  }
+
   function settle(settled: string): void {
     // A response can still be in flight when close() runs (close()'s own final drain resolves after
     // `closed = true`, and an earlier timer-path fetch may already be on the wire): without this guard
@@ -103,6 +134,13 @@ export function connectTelemetry(opts: TelemetryOptions): TelemetryHandle {
           ]
     return fetch(endpoint, { method: 'POST', body: body.join('\n'), keepalive })
       .then(async (res) => {
+        if (res.status >= 400 && res.status < 500) {
+          drop(batch, `${res.status} ${res.statusText}`)
+          return
+        }
+        // What is left — a network error or a 5xx — is the server or the radio, not the batch: those
+        // are the failures a resend can still fix, including the 503 `api/server.ts` answers while its
+        // schema check is still failing.
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
         failure = null
         requeued = 0
