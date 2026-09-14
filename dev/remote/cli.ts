@@ -11,7 +11,7 @@
 // bun run remote import <file> --as <name> [--renumber]
 // bun run remote sync
 // Commands to a page need the dev server (`bun run dev`; `RUDIMETER_REMOTE_URL` overrides https://localhost:5173).
-// Reads open `.remote/dev.db` directly; `--remote` reads rudimeter.com (`RUDIMETER_URL`) with `DASHBOARD_TOKEN`,
+// Reads open `.remote/dev.db` directly; `--remote` reads www.rudimeter.com (`RUDIMETER_URL`) with `DASHBOARD_TOKEN`,
 // both from `.env.local`, which Bun loads on its own.
 import { readFile, writeFile } from 'node:fs/promises'
 import { resolve, sep } from 'node:path'
@@ -29,7 +29,10 @@ import { syncDevices } from './sync'
 const args = parseArgs(process.argv.slice(2))
 const client = createClient(process.env.RUDIMETER_REMOTE_URL ?? DEFAULT_URL)
 const deps = { exerciseById: (id: string) => EXERCISES.find((e) => e.id === id) }
-const REMOTE_URL = process.env.RUDIMETER_URL ?? 'https://rudimeter.com'
+// The canonical host, `www`, not the bare domain: that one answers every request with a 308 to this one,
+// and a redirect to another origin makes fetch drop the `Authorization` header — so every `--remote`
+// command arrived at the API unauthenticated and came back "admin token required".
+const REMOTE_URL = process.env.RUDIMETER_URL ?? 'https://www.rudimeter.com'
 
 function remoteSource(): Source {
   const token = process.env.DASHBOARD_TOKEN
