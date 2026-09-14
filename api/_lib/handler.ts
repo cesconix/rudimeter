@@ -23,8 +23,18 @@ export const MAX_BODY_BYTES = 1024 * 1024
  */
 export const MAX_BATCH_LINES = 5000
 export const MAX_LINE_BYTES = 64 * 1024
-export const DEFAULT_LIMIT = 5000
-export const MAX_LIMIT = 20000
+/**
+ * One `/api/lines` page, in rows. Measured against the fixture logs on disk, a line averages 208–436
+ * bytes (`synth2` is the fat one, at 436, and the biggest single line seen is 15.8 KB), so 2000 rows is
+ * 400–900 KB — comfortably under the 4.5 MB Vercel caps a function response at. At 20000 it was 4–9 MB,
+ * and since every fresh dashboard tab asks from `since=0`, a device past 20000 lines became permanently
+ * unreadable: the first page could not be delivered, so the poller could never get past it.
+ *
+ * `lines()` still clamps a bigger `limit` silently, so a client must never read a short page as the end
+ * of the log — see the paging contract there.
+ */
+export const DEFAULT_LIMIT = 2000
+export const MAX_LIMIT = 2000
 /**
  * The `x-batch-id` a page stamps on a batch so a resend can be recognised (see `Store.append`). Loose on
  * purpose — it only has to be storable and bounded — but not absent: garbage here is a client bug, and
@@ -133,6 +143,14 @@ async function createDevice(req: Request, ctx: Context): Promise<Response> {
   }
 }
 
+/**
+ * The paging contract, for all three clients (`dashboard/poller.ts`, `localSource` and `httpSource` in
+ * `dev/remote/source.ts`): **page until a response is empty**, never until one is shorter than the limit
+ * asked for. The server clamps `limit` to `MAX_LIMIT` without saying so, so a short page means "that is
+ * what fits", not "that is all there is" — and a future byte cap here would make short pages the norm.
+ * Reading a short page as the end silently truncates a device's history on a dashboard whose whole job
+ * is to be trusted; it only ever worked because three separate files happened to hold the same constant.
+ */
 async function lines(url: URL, ctx: Context): Promise<Response> {
   const name = url.searchParams.get('device') ?? ''
   const since = Number(url.searchParams.get('since') ?? 0)

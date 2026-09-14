@@ -22,8 +22,12 @@ interface DeviceSummary {
 /** 3 s: a session's notes appear while it is played; the store answers a `since` poll with nothing in a few ms. */
 const LINES_MS = 3000
 const DEVICES_MS = 10000
-/** One `/api/lines` page; a device with a day of `hit` lines takes a few. */
-const PAGE = 20000
+/**
+ * One `/api/lines` page. Kept at the API's own `MAX_LIMIT` (2000 rows ≈ 400–900 KB, under Vercel's 4.5
+ * MB response cap); a device with a day of `hit` lines takes a few pages, and the poller keeps asking
+ * until one comes back empty, so this number is a round-trip cost, never a limit on what is read.
+ */
+const PAGE = 2000
 
 const el = <T extends HTMLElement>(id: string): T => {
   const node = document.getElementById(id)
@@ -73,7 +77,7 @@ async function fetchLines(name: string, since: number): Promise<LogLine[]> {
  * Holds every device's lines and pulls new ones by `seq`, one request in flight per device — see
  * `poller.ts` for why that also keeps an out-of-order or superseded response from rolling the view back.
  */
-const poller = createPoller(fetchLines, PAGE)
+const poller = createPoller(fetchLines)
 
 function current(): DeviceReport | undefined {
   const name = deviceSel.value

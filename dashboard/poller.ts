@@ -16,7 +16,10 @@ export interface Poller {
 }
 
 /**
- * `page`: a response this size or bigger may not be the end, so the poller re-asks immediately.
+ * Pages until the store answers with nothing. It does not compare the size of a response against the
+ * page it asked for: the API clamps `limit` silently (see the paging contract in `api/_lib/handler.ts`),
+ * so a short page means "that is what fits", and stopping there truncated the device's history without
+ * a word. Only an empty response is the end.
  *
  * The in-flight guard already stops two requests for the same device from overlapping, so a response
  * can never legitimately arrive out of order — but it is merged against `held(name)` read fresh at that
@@ -24,7 +27,7 @@ export interface Poller {
  * stale or superseded response safe to apply even so: `mergeLines` only appends lines past the highest
  * `seq` already held, so applying one can add lines or do nothing, never roll the view backward.
  */
-export function createPoller(fetchLines: FetchLines, page: number): Poller {
+export function createPoller(fetchLines: FetchLines): Poller {
   const logs = new Map<string, LogLine[]>()
   const inFlight = new Set<string>()
 
@@ -38,8 +41,8 @@ export function createPoller(fetchLines: FetchLines, page: number): Poller {
     const current = held(name)
     const merged = mergeLines(current, added)
     logs.set(name, merged)
-    if (added.length >= page) await pullOnce(name)
-    return merged !== current
+    const more = await pullOnce(name)
+    return more || merged !== current
   }
 
   async function pull(name: string): Promise<boolean> {

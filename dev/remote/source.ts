@@ -12,8 +12,12 @@ export interface Source {
 }
 
 export const DEV_DB = '.remote/dev.db'
-/** One read per page: the store caps nothing, a day of `hit` lines is tens of thousands. */
-const PAGE = 20000
+/**
+ * One read per page. Matched to the API's `MAX_LIMIT`, which is what `--remote` is really bounded by
+ * (2000 rows ≈ 400–900 KB, under Vercel's 4.5 MB response cap); a day of `hit` lines is tens of
+ * thousands, so both sources below keep asking until a page comes back empty.
+ */
+const PAGE = 2000
 
 /** Opens (and creates) the dev store where the plugin writes it, relative to the repo root. */
 export async function openDevStore(path = DEV_DB): Promise<Store> {
@@ -32,10 +36,12 @@ export function localSource(store: Store, page = PAGE): Source {
       if (!d) return []
       const out: { seq: number; line: string }[] = []
       let from = since
+      // Until a page comes back empty, not until one is short: see the paging contract in
+      // `api/_lib/handler.ts`. The local store never clamps, but both sources answer the same way.
       for (;;) {
         const rows = await store.read(d.id, from, page)
+        if (rows.length === 0) return out
         out.push(...rows)
-        if (rows.length < page) return out
         from = rows[rows.length - 1].seq
       }
     },
@@ -63,9 +69,12 @@ export function httpSource(baseUrl: string, token: string, fetchImpl: typeof fet
         )
         if (res.status === 404) return out
         const raws = (await (await check(res)).text()).split('\n').filter((r) => r.trim())
+        // Empty, not short: `/api/lines` clamps `limit` to its own `MAX_LIMIT` without saying so, so a
+        // page smaller than `page` says nothing about whether the log goes on. `report <name> --remote`
+        // read exactly one page of a long device and called it the whole history.
+        if (raws.length === 0) return out
         // The line carries its own `seq` (stamped by the store): no need for the x-last-seq header here.
         for (const raw of raws) out.push({ seq: Number((JSON.parse(raw) as { seq?: unknown }).seq), line: raw })
-        if (raws.length < page) return out
         from = out[out.length - 1].seq
       }
     },

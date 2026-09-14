@@ -150,14 +150,29 @@ describe('admin routes', () => {
     expect((await call('GET', '/api/lines?device=nobody', { admin: true })).status).toBe(404)
     expect((await call('GET', '/api/lines?device=marco&since=abc', { admin: true })).status).toBe(400)
   })
-  it('defaults the page to DEFAULT_LIMIT and caps an oversized request at MAX_LIMIT instead of rejecting it', async () => {
+  it('defaults the page to DEFAULT_LIMIT and clamps an oversized request to MAX_LIMIT rows instead of rejecting it', async () => {
     const d = await store.createDevice('marco')
-    await store.append(d.id, [{ event: 'a' }, { event: 'b' }], 'now')
+    await store.append(
+      d.id,
+      Array.from({ length: MAX_LIMIT + 1 }, (_, i) => ({ event: 'hit', i })),
+      'now',
+    )
     const noLimit = await call('GET', '/api/lines?device=marco&since=0', { admin: true })
     const atDefault = await call('GET', `/api/lines?device=marco&since=0&limit=${DEFAULT_LIMIT}`, { admin: true })
     expect(await noLimit.text()).toBe(await atDefault.text())
     const overCap = await call('GET', `/api/lines?device=marco&since=0&limit=${MAX_LIMIT + 1}`, { admin: true })
     expect(overCap.status).toBe(200)
+    // The clamp is the load-bearing line of the paging contract: it is why a short page means "that is
+    // what fits" and not "that is all there is", and why a client must page on until one is empty.
+    expect((await overCap.text()).trim().split('\n').length).toBe(MAX_LIMIT)
+  })
+
+  it('keeps a full page under the 4.5 MB a Vercel function response is capped at', () => {
+    // Measured on the fixture logs: 208 bytes a line (iphone), 213 (mac), 436 (synth2, the fat one).
+    // At the old 20000 rows a page was 4–9 MB, so the first page of a long device could not be
+    // delivered — and `since=0` is what every fresh dashboard tab asks for.
+    expect(MAX_LIMIT * 436).toBeLessThan(4.5 * 1024 * 1024)
+    expect(DEFAULT_LIMIT).toBeLessThanOrEqual(MAX_LIMIT)
   })
   it('POST /api/feedback appends a dashboard comment to the named device', async () => {
     const d = await store.createDevice('marco')

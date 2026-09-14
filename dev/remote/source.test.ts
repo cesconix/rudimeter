@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+import { type Context, handle, MAX_LIMIT } from '../../api/_lib/handler'
 import { memoryStore } from '../../api/_lib/store'
 import { DEV_DB, httpSource, localSource } from './source'
 
@@ -41,15 +42,18 @@ describe('httpSource', () => {
     if (url.endsWith('/api/devices')) return Response.json([{ id: 'id1', name: 'a', lines: 3 }])
     if (url.includes('device=nobody')) return Response.json({ error: 'unknown device' }, { status: 404 })
     if (url.includes('since=0')) return new Response(`${line(1)}\n${line(2)}\n`)
+    // A short page, then an empty one: short is what the API sends when it clamps `limit`, so only the
+    // empty response ends the paging.
     if (url.includes('since=2')) return new Response(`${line(3)}\n`)
+    if (url.includes('since=3')) return new Response('')
     return Response.json({ error: 'boom' }, { status: 500 })
   }) as unknown as typeof fetch
   const src = httpSource('https://r.test', 'tok', fake, 2)
 
-  it('sends the bearer token, pages by the last seq, stops on a short page, [] on 404', async () => {
+  it('sends the bearer token, pages by the last seq until a page is empty, [] on 404', async () => {
     calls.length = 0
     expect((await src.lines('a')).map((r) => r.seq)).toEqual([1, 2, 3])
-    expect(calls.map((c) => new URL(c.url).searchParams.get('since'))).toEqual(['0', '2'])
+    expect(calls.map((c) => new URL(c.url).searchParams.get('since'))).toEqual(['0', '2', '3'])
     // biome-ignore lint/correctness/noUnsafeOptionalChaining: fetchImpl always sets init on every call this source makes, so init is never undefined here.
     expect((calls[0].init?.headers as Record<string, string>).authorization).toBe('Bearer tok')
     expect(await src.lines('nobody')).toEqual([])
@@ -58,5 +62,28 @@ describe('httpSource', () => {
     expect((await src.devices()).map((d) => d.name)).toEqual(['a'])
     expect((await src.createDevice('marco')).name).toBe('marco')
     expect(src.lines('a', 7)).rejects.toThrow('boom')
+  })
+})
+
+describe('httpSource against the real handler', () => {
+  it('reads a long device whole even though /api/lines clamps the page it asked for', async () => {
+    const store = memoryStore()
+    await store.ensureSchema()
+    const d = await store.createDevice('marco')
+    const total = MAX_LIMIT + 3
+    await store.append(
+      d.id,
+      Array.from({ length: total }, (_, i) => ({ event: 'hit', i })),
+      'now',
+    )
+    const ctx: Context = { store, adminToken: 'tok' }
+    const fetchImpl = ((input: RequestInfo | URL, init?: RequestInit) =>
+      handle(new Request(String(input), init), ctx)) as unknown as typeof fetch
+    // Asks for more than the API will serve, the way a client whose PAGE drifted above MAX_LIMIT would:
+    // every page comes back short of what was asked, and none of them but the last is the end.
+    const src = httpSource('https://r.test', 'tok', fetchImpl, MAX_LIMIT + 500)
+    const rows = await src.lines('marco')
+    expect(rows.length).toBe(total)
+    expect(rows[rows.length - 1].seq).toBe(total)
   })
 })
