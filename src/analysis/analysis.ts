@@ -219,7 +219,14 @@ const HUMAN_SIGMA_MS = 2
 const SIGMA_MIN_NOTES = 20
 const OUTPUT_GAP_S = 2.5
 
+// The four narrowers every read off a parsed line goes through. A line is whatever JSON a holder of a
+// device key sent (`/api/log` stores any object and `parseLines` only casts), so a field is a claim, not
+// a fact: these turn a malformed one into an absent or empty value instead of letting it reach a numeric
+// method, an iteration or the DOM. `arr` is the one that matters most — a non-array field throws inside
+// the first `.filter`/`.slice` it meets, and that exception blanks the device's whole view.
 const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
+const str = (v: unknown): string => (typeof v === 'string' ? v : '')
+const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : [])
 const obj = (v: unknown): Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : {}
 
@@ -255,9 +262,39 @@ export function parseLines(text: string): LogLine[] {
   return out
 }
 
+/**
+ * The grid a `session:start` claims, narrowed once here so `LoggedSlot` and `LoggedClick` are true from
+ * this point on and nothing downstream has to re-check. Both used to be straight casts: a `slots` or
+ * `clicks` that was not an array threw in the first `.slice`/`.filter` that touched it, and a click whose
+ * `t` was a string threw in `c.t.toFixed(3)` on its way into the timeline SVG. Either one blanked the
+ * device's entire view on every load, from one line written with a tester key.
+ */
+const toLoggedSlots = (raw: unknown): LoggedSlot[] =>
+  arr(raw).map((v, k) => {
+    const s = obj(v)
+    return {
+      i: num(s.i) ?? k,
+      t: num(s.t) ?? 0,
+      dur: num(s.dur) ?? undefined,
+      hand: s.hand === 'L' ? 'L' : 'R',
+      accent: Boolean(s.accent),
+      ornament: typeof s.ornament === 'string' ? s.ornament : null,
+      repeat: num(s.repeat) ?? 0,
+      bar: num(s.bar) ?? undefined,
+      beat: num(s.beat) ?? undefined,
+      sub: num(s.sub) ?? undefined,
+    }
+  })
+
+const toLoggedClicks = (raw: unknown): LoggedClick[] =>
+  arr(raw).map((v) => {
+    const c = obj(v)
+    return { t: num(c.t) ?? 0, kind: str(c.kind), silent: Boolean(c.silent) }
+  })
+
 const gridOf = (l: LogLine): SessionRecord['grid'] => ({
-  slots: (l.slots as LoggedSlot[] | undefined) ?? [],
-  clicks: (l.clicks as LoggedClick[] | undefined) ?? [],
+  slots: toLoggedSlots(l.slots),
+  clicks: toLoggedClicks(l.clicks),
 })
 
 export const feedbackOf = (l: LogLine): Feedback => ({
@@ -429,35 +466,29 @@ export function strayFeedback(lines: LogLine[], records: SessionRecord[]): LogLi
 
 /**
  * Slots as `judge` wants them. Without a logged `dur` (older logs) the gap to the next slot stands in.
- *
- * `LoggedSlot` is a cast over whatever JSON arrived (`gridOf`), so every field here is narrowed: the
- * dashboard prints `bar.beat.sub`, `hand` and `t.toFixed(3)` straight into the DOM, and a string in any
- * of them would render raw or throw inside the render and blank the device's whole view. For a slot the
- * app actually logged, every branch below is the value itself.
+ * Every field is already a number, a boolean or a `Hand`: `toLoggedSlots` narrowed them where the line
+ * was read, so nothing here has to defend itself against what a device key may have written.
  */
 function toSlots(logged: LoggedSlot[]): Slot[] {
   const gaps = logged
     .slice(1)
-    .map((s, k) => (num(s.t) ?? 0) - (num(logged[k].t) ?? 0))
+    .map((s, k) => s.t - logged[k].t)
     .filter((g) => g > 0)
   const minGap = gaps.length ? Math.min(...gaps) : 0.25
-  return logged.map((s, k) => {
-    const t = num(s.t) ?? 0
-    return {
-      index: num(s.i) ?? k,
-      t,
-      dur: num(s.dur) ?? (k + 1 < logged.length ? (num(logged[k + 1].t) ?? t) - t : minGap),
-      step: {
-        hand: s.hand === 'L' ? 'L' : 'R',
-        accent: Boolean(s.accent),
-        ...(s.ornament ? { ornament: s.ornament as Slot['step']['ornament'] } : {}),
-      },
-      repeat: num(s.repeat) ?? 0,
-      bar: num(s.bar) ?? 0,
-      beat: num(s.beat) ?? 0,
-      sub: num(s.sub) ?? 0,
-    }
-  })
+  return logged.map((s, k) => ({
+    index: s.i,
+    t: s.t,
+    dur: s.dur ?? (k + 1 < logged.length ? logged[k + 1].t - s.t : minGap),
+    step: {
+      hand: s.hand,
+      accent: s.accent,
+      ...(s.ornament ? { ornament: s.ornament as Slot['step']['ornament'] } : {}),
+    },
+    repeat: s.repeat,
+    bar: s.bar ?? 0,
+    beat: s.beat ?? 0,
+    sub: s.sub ?? 0,
+  }))
 }
 
 export function analyzeSession(rec: SessionRecord, deps: AnalyzeDeps): SessionAnalysis {
@@ -692,7 +723,13 @@ export function analyzeSession(rec: SessionRecord, deps: AnalyzeDeps): SessionAn
 
   let synthetic: SyntheticBlock | null = null
   if (rec.truth) {
-    let truth = (rec.truth.strokes as TruthStroke[] | undefined) ?? []
+    // `session:truth` is a line like any other — the sim writes it, but so can anyone with a key — so
+    // the strokes are narrowed before the `.filter` and the `for…of` below, and before `s.t`/`s.peakDb`
+    // reach the arithmetic. A null item used to be enough to throw.
+    let truth: TruthStroke[] = arr(rec.truth.strokes).map((v) => {
+      const s = obj(v)
+      return { t: num(s.t) ?? 0, peakDb: num(s.peakDb) ?? 0, slot: num(s.slot) }
+    })
     // A stopped run never played its future: only the strokes up to the last hit count as truth.
     if (stopped && corrected.length) {
       const last = corrected[corrected.length - 1].t + 0.5
@@ -720,7 +757,10 @@ export function analyzeSession(rec: SessionRecord, deps: AnalyzeDeps): SessionAn
     const preset = String(rec.truth.preset) as PlayerPreset
     const seed = Number(rec.truth.seed)
     const ex = deps.exerciseById(String(start.exerciseId))
-    const opts = (start.options ?? {}) as {
+    // `obj`, not a bare cast: `runOracle` reads `metronome` and `autoIncrement` off this, and a string
+    // `options` would hand it a value it has no reason to expect. See `sessionOptions` for the shape the
+    // dashboard gets; the oracle wants the whole `OracleConfig` one, which only a real run ever writes.
+    const opts = obj(start.options) as {
       metronome?: OracleConfig['metronome']
       autoIncrement?: OracleConfig['autoIncrement'] | null
     }
@@ -874,9 +914,10 @@ export function analyzeCalibrations(lines: LogLine[], device: string): Calibrati
     if (l.event === 'engine') engine = l
     else if (l.event === 'calibration:measured') measured = l
     else if (l.event === 'calibration:done') {
-      const offsets = ((measured?.offsetsMs as unknown[] | undefined) ?? []).filter(
-        (x): x is number => typeof x === 'number',
-      )
+      // `arr` before `.filter`: the per-item check below was already right, but it never ran when
+      // `offsetsMs` was not an array at all — the `.filter` itself threw, and took the calibration
+      // panel and every session under it with it.
+      const offsets = arr(measured?.offsetsMs).filter((x): x is number => typeof x === 'number')
       const fit = (measured?.fit as { r2?: unknown } | null | undefined) ?? null
       const latencyMs = Number(l.latencyMs)
       const base = num(engine?.baseLatencyMs)
