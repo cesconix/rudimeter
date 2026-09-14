@@ -84,6 +84,8 @@ describe('connectTelemetry', () => {
 describe('connectTelemetry retry', () => {
   interface Fakes {
     bodies: string[]
+    /** The `x-batch-id` of each POST, in order: the id is what `/api/log` dedupes a resend on. */
+    ids: string[]
     runFlush(): void
     status(code: number): void
   }
@@ -95,6 +97,7 @@ describe('connectTelemetry retry', () => {
     let armed: (() => void) | null = null
     let code = 200
     const bodies: string[] = []
+    const ids: string[] = []
     g.window = {
       setTimeout: (fn: () => void) => {
         armed = fn
@@ -105,8 +108,9 @@ describe('connectTelemetry retry', () => {
       removeEventListener: () => {},
     }
     g.document = { addEventListener: () => {}, removeEventListener: () => {} }
-    g.fetch = ((_url: unknown, init: { body: string }) => {
+    g.fetch = ((_url: unknown, init: { body: string; headers: Record<string, string> }) => {
       bodies.push(init.body)
+      ids.push(init.headers['x-batch-id'])
       return Promise.resolve({
         ok: code < 400,
         status: code,
@@ -121,6 +125,7 @@ describe('connectTelemetry retry', () => {
       await run(
         {
           bodies,
+          ids,
           runFlush: () => armed?.(),
           status: (c) => {
             code = c
@@ -163,6 +168,30 @@ describe('connectTelemetry retry', () => {
       expect(f.bodies[1]).toContain('"i":2')
       expect(f.bodies[1]).not.toContain('"i":1')
       expect(f.bodies[1]).not.toContain('flush:retry')
+    })
+  })
+
+  it('keeps a batch id across its retries and never merges later lines into it', async () => {
+    await withFakes(async (f, t) => {
+      f.status(503)
+      t.log('hit', { i: 1 })
+      f.runFlush()
+      await settle()
+      // Logged while the failed batch waits: it must not ride along under that batch's id, or the store
+      // would recognise the id, skip the whole body, and lose a line it had never seen.
+      t.log('hit', { i: 2 })
+      f.status(200)
+      f.runFlush()
+      await settle()
+      expect(f.ids[1]).toBe(f.ids[0])
+      expect(f.bodies[1]).toContain('"i":1')
+      expect(f.bodies[1]).not.toContain('"i":2')
+      // Through at last: what was logged behind it goes out as a batch of its own, under a new id.
+      f.runFlush()
+      await settle()
+      expect(f.ids[2]).not.toBe(f.ids[0])
+      expect(f.bodies[2]).toContain('"i":2')
+      expect(f.bodies[2]).not.toContain('"i":1')
     })
   })
 

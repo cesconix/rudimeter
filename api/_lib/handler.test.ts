@@ -58,6 +58,29 @@ describe('POST /api/log', () => {
     expect((await call('POST', `/api/log?key=${d.key}`, { body: '\n\n' })).status).toBe(400)
     expect(await store.lastSeq(d.id)).toBe(0)
   })
+  it('stores a resent batch once, so the analysis cannot read it as strokes played twice', async () => {
+    const d = await store.createDevice('marco')
+    const body = '{"event":"session:start","bpm":60}\n{"event":"hit","t":1}'
+    const headers = { 'x-batch-id': 'page7-1' }
+    expect(await (await call('POST', `/api/log?key=${d.key}`, { body, headers })).json()).toEqual({
+      ok: true,
+      name: 'marco',
+      seq: 2,
+    })
+    // Same batch, same id: the store committed it and the answer never made it back to the page.
+    const again = await call('POST', `/api/log?key=${d.key}`, { body, headers })
+    expect(again.status).toBe(200)
+    expect(await again.json()).toEqual({ ok: true, name: 'marco', seq: 2, duplicate: true })
+    expect(await store.lastSeq(d.id)).toBe(2)
+    // A new id is a new batch, and a batch with no id at all still appends.
+    await call('POST', `/api/log?key=${d.key}`, { body, headers: { 'x-batch-id': 'page7-2' } })
+    await call('POST', `/api/log?key=${d.key}`, { body })
+    expect(await store.lastSeq(d.id)).toBe(6)
+    // Garbage in the header is a client bug, and ingesting it would drop the guarantee silently.
+    expect((await call('POST', `/api/log?key=${d.key}`, { body, headers: { 'x-batch-id': 'a b' } })).status).toBe(400)
+    expect(await store.lastSeq(d.id)).toBe(6)
+  })
+
   it('caps the body, the batch and the line with 413', async () => {
     const d = await store.createDevice('marco')
     const many = Array.from({ length: MAX_BATCH_LINES + 1 }, () => '{"event":"hit"}').join('\n')

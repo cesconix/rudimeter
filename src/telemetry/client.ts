@@ -62,19 +62,40 @@ export function connectTelemetry(opts: TelemetryOptions): TelemetryHandle {
   let failure: string | null = null
   let requeued = 0
   let dropped = 0
+  /**
+   * Names a batch across its retries, so `/api/log` can tell "I never saw this" from "I stored it and
+   * the answer was lost". Random per page and counted within it: two tabs of the same device never
+   * collide, and nothing here has to survive a reload — a batch never outlives the page that made it.
+   */
+  const pageId = crypto.randomUUID().slice(0, 8)
+  let batches = 0
+  /**
+   * The failed batch waiting at the head of the queue, and the id it has to keep. It goes back out
+   * exactly as it was: merging the lines logged since into it would put them under an id the store may
+   * already have, and they would be dropped as a duplicate of lines they were never part of.
+   */
+  let retry: { id: string; lines: number } | null = null
 
   function arm(): void {
     if (!closed && timer === null) timer = window.setTimeout(() => flush(), opts.flushMs)
   }
 
   function trim(): void {
-    if (queue.length > MAX_QUEUE_LINES) dropped += queue.splice(0, queue.length - MAX_QUEUE_LINES).length
+    if (queue.length <= MAX_QUEUE_LINES) return
+    const gone = queue.splice(0, queue.length - MAX_QUEUE_LINES).length
+    dropped += gone
+    // A requeued batch sits at the head, so it is the first thing the eviction eats: shrink the window
+    // with it, and let the id go once none of that batch is left to resend.
+    if (retry === null) return
+    retry.lines -= gone
+    if (retry.lines <= 0) retry = null
   }
 
-  function requeue(batch: string[], reason: string): void {
+  function requeue(batch: string[], id: string, reason: string): void {
     queue.unshift(...batch)
     requeued += batch.length
     failure = reason
+    retry = { id, lines: batch.length }
     trim()
     console.error(`[remote] log batch failed, requeued: ${reason}`)
     arm()
@@ -88,6 +109,7 @@ export function connectTelemetry(opts: TelemetryOptions): TelemetryHandle {
    */
   function drop(batch: string[], reason: string): void {
     failure = null
+    retry = null
     queue.push(
       JSON.stringify({
         event: 'flush:drop',
@@ -115,7 +137,7 @@ export function connectTelemetry(opts: TelemetryOptions): TelemetryHandle {
     opts.onName?.(settled)
   }
 
-  function post(batch: string[], keepalive: boolean, endpoint: string): Promise<void> {
+  function post(batch: string[], id: string, keepalive: boolean, endpoint: string): Promise<void> {
     // The gap the retry left in the file is itself a line, so the analysis can see it instead of
     // reading a session that starts in the middle of nowhere.
     const body =
@@ -132,7 +154,7 @@ export function connectTelemetry(opts: TelemetryOptions): TelemetryHandle {
             }),
             ...batch,
           ]
-    return fetch(endpoint, { method: 'POST', body: body.join('\n'), keepalive })
+    return fetch(endpoint, { method: 'POST', headers: { 'x-batch-id': id }, body: body.join('\n'), keepalive })
       .then(async (res) => {
         if (res.status >= 400 && res.status < 500) {
           drop(batch, `${res.status} ${res.statusText}`)
@@ -143,6 +165,7 @@ export function connectTelemetry(opts: TelemetryOptions): TelemetryHandle {
         // schema check is still failing.
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
         failure = null
+        retry = null
         requeued = 0
         dropped = 0
         // The answer names the device: a tester only has a key, and this is where its name comes from.
@@ -150,7 +173,7 @@ export function connectTelemetry(opts: TelemetryOptions): TelemetryHandle {
         if (typeof data.name === 'string') settle(data.name)
       })
       .catch((err: unknown) => {
-        requeue(batch, (err as Error).message)
+        requeue(batch, id, (err as Error).message)
       })
   }
 
@@ -161,6 +184,11 @@ export function connectTelemetry(opts: TelemetryOptions): TelemetryHandle {
    * the wire the fetch rejects outright and the whole batch is gone — which is how `.remote/synth.ndjson`
    * ended up with a `session:done` and no `session:start`. So the timer path sends a plain fetch and keeps
    * a single batch in flight; only the hide/close path, which cannot wait for anything, asks for keepalive.
+   *
+   * A batch that failed goes back out alone, under its own id, even on the keepalive path: whatever was
+   * logged after it waits for the next flush rather than riding along under an id the store may already
+   * hold. On close that means a pending retry is all that leaves — the connection was already broken,
+   * and one keepalive body is all Chrome's 64 KiB budget reliably allows anyway.
    */
   function flush(keepalive = false): void {
     timer = null
@@ -172,7 +200,16 @@ export function connectTelemetry(opts: TelemetryOptions): TelemetryHandle {
       arm()
       return
     }
-    const done = post(queue.splice(0), keepalive, endpoint)
+    // Cleared before the batch leaves the queue: while it is on the wire it is not at the head anymore,
+    // so `trim()` must not count evictions against its window.
+    const pending = retry
+    retry = null
+    const done = post(
+      queue.splice(0, pending?.lines ?? queue.length),
+      pending?.id ?? `${pageId}-${++batches}`,
+      keepalive,
+      endpoint,
+    )
     if (keepalive) return
     inflight = done.then(() => {
       inflight = null

@@ -116,9 +116,11 @@ export function remotePlugin(): Plugin {
       // posts to `/api/log`, the comments the dashboard posts to `/api/feedback` and the `audio` line below.
       const store: Store = {
         ...base,
-        async append(deviceId, fields, receivedAt) {
-          const out = await base.append(deviceId, fields, receivedAt)
-          await observe(deviceId, out)
+        async append(deviceId, fields, receivedAt, batchId) {
+          const out = await base.append(deviceId, fields, receivedAt, batchId)
+          // A duplicate appended nothing: observing it would roll the per-device `seq` back to the range
+          // the first delivery got, and `remote ls` and `/wait` read that number.
+          if (!out.duplicate) await observe(deviceId, out)
           return out
         },
       }

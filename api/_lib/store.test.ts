@@ -62,6 +62,27 @@ for (const [label, make] of backends) {
       expect(await store.read(a.id, 3, 10)).toEqual([])
     })
 
+    it('stores a batch once per id: a resend appends nothing and reports the range the first one got', async () => {
+      const d = await store.createDevice('marco')
+      const batch = [{ event: 'session:start' }, { event: 'hit', t: 1 }]
+      expect(await store.append(d.id, batch, 'r1', 'page7-1')).toMatchObject({ first: 1, last: 2, duplicate: false })
+      // The delivery landed; its answer did not. The page sends the identical batch again.
+      const again = await store.append(d.id, batch, 'r2', 'page7-1')
+      expect(again).toMatchObject({ first: 1, last: 2, duplicate: true })
+      expect(again.raws).toEqual([])
+      expect(await store.lastSeq(d.id)).toBe(2)
+      expect((await store.read(d.id, 0, 10)).length).toBe(2)
+      // The id is scoped to the device, and a new id is a new batch.
+      expect(await store.append(d.id, batch, 'r3', 'page7-2')).toMatchObject({ first: 3, last: 4 })
+      const other = await store.createDevice('ipad')
+      expect(await store.append(other.id, batch, 'r4', 'page7-1')).toMatchObject({ first: 1, last: 2 })
+      // Without an id there is nothing to dedupe on: `/api/feedback` and the dev channel's audio line
+      // append blindly, and must keep doing so.
+      await store.append(d.id, [{ event: 'session:feedback' }], 'r5')
+      await store.append(d.id, [{ event: 'session:feedback' }], 'r6')
+      expect(await store.lastSeq(d.id)).toBe(6)
+    })
+
     it('refuses an unknown device and an empty batch', async () => {
       expect(store.append('nope', [{ event: 'x' }], 'now')).rejects.toBeInstanceOf(UnknownDeviceError)
       expect(store.lastSeq('nope')).rejects.toBeInstanceOf(UnknownDeviceError)

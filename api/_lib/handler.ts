@@ -25,6 +25,12 @@ export const MAX_BATCH_LINES = 5000
 export const MAX_LINE_BYTES = 64 * 1024
 export const DEFAULT_LIMIT = 5000
 export const MAX_LIMIT = 20000
+/**
+ * The `x-batch-id` a page stamps on a batch so a resend can be recognised (see `Store.append`). Loose on
+ * purpose — it only has to be storable and bounded — but not absent: garbage here is a client bug, and
+ * silently ingesting it would mean silently giving up the at-most-once guarantee the header is for.
+ */
+const BATCH_ID = /^[A-Za-z0-9_-]{1,64}$/
 
 const json = (status: number, data: unknown, headers: Record<string, string> = {}): Response =>
   new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json', ...headers } })
@@ -73,6 +79,8 @@ async function log(req: Request, url: URL, ctx: Context): Promise<Response> {
   // One answer for a malformed and for an unknown key: the response must not say which names exist.
   const device = isKey(key) ? await ctx.store.deviceByKey(key) : null
   if (!device) return json(403, { error: 'unknown device key' })
+  const batchId = req.headers.get('x-batch-id')
+  if (batchId !== null && !BATCH_ID.test(batchId)) return json(400, { error: 'malformed x-batch-id' })
   const text = await bodyText(req, MAX_BODY_BYTES)
   if (text === null) return json(413, { error: `body over ${MAX_BODY_BYTES} bytes` })
   const raws = text.split('\n').filter((r) => r.trim())
@@ -96,8 +104,10 @@ async function log(req: Request, url: URL, ctx: Context): Promise<Response> {
     const f = parsed as Record<string, unknown>
     fields.push(typeof f.event === 'string' ? f : { ...f, event: 'unknown' })
   }
-  const { last } = await ctx.store.append(device.id, fields, new Date().toISOString())
-  return json(200, { ok: true, name: device.name, seq: last })
+  // A batch whose answer was lost comes back identical under the same id: store it once, and say so, so
+  // the resend reads as the no-op it is instead of strokes the drummer never played.
+  const { last, duplicate } = await ctx.store.append(device.id, fields, new Date().toISOString(), batchId ?? undefined)
+  return json(200, { ok: true, name: device.name, seq: last, ...(duplicate ? { duplicate: true } : {}) })
 }
 
 async function login(req: Request, ctx: Context): Promise<Response> {

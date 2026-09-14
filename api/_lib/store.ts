@@ -33,8 +33,14 @@ export interface NumberedLine {
 export interface Appended {
   first: number
   last: number
-  /** The lines as stored, `seq` and `receivedAt` inside, in order. */
+  /** The lines as stored, `seq` and `receivedAt` inside, in order. Empty on a `duplicate`. */
   raws: string[]
+  /**
+   * The `batchId` was already stored for this device, so nothing was appended and the range is the one
+   * the first delivery got. Delivery is at least once — a batch the store committed can still lose its
+   * answer on the way back — and without this the analysis reads the resend as strokes that were played.
+   */
+  duplicate: boolean
 }
 
 export class NameTakenError extends Error {
@@ -58,8 +64,12 @@ export interface Store {
   devices(): Promise<DeviceSummary[]>
   /** The highest `seq` handed out for the device: 0 before its first line. */
   lastSeq(deviceId: string): Promise<number>
-  /** Numbers and stores: stamps `seq` and `receivedAt` into every object, in order. Atomic per device. */
-  append(deviceId: string, fields: Record<string, unknown>[], receivedAt: string): Promise<Appended>
+  /**
+   * Numbers and stores: stamps `seq` and `receivedAt` into every object, in order. Atomic per device.
+   * With a `batchId`, at most once: a second call under the same id for the same device stores nothing
+   * and reports the first one's range. The id and the lines commit together.
+   */
+  append(deviceId: string, fields: Record<string, unknown>[], receivedAt: string, batchId?: string): Promise<Appended>
   /** For `sync` and `import`: lines already numbered, stored byte for byte. `seq` must climb strictly and start above `lastSeq`. */
   appendNumbered(deviceId: string, rows: NumberedLine[]): Promise<void>
   read(deviceId: string, since: number, limit: number): Promise<{ seq: number; line: string }[]>
@@ -81,6 +91,17 @@ const DDL = [
     received_at TEXT NOT NULL,
     line TEXT NOT NULL,
     PRIMARY KEY (device_id, seq)
+  )`,
+  // What a batch got the first time it landed, so a resend can be answered instead of appended. The
+  // primary key is the uniqueness constraint; it needs no dialect-specific syntax and it is also the
+  // index the lookup uses.
+  `CREATE TABLE IF NOT EXISTS batches (
+    device_id TEXT NOT NULL,
+    batch_id TEXT NOT NULL,
+    first_seq INTEGER NOT NULL,
+    last_seq INTEGER NOT NULL,
+    received_at TEXT NOT NULL,
+    PRIMARY KEY (device_id, batch_id)
   )`,
 ]
 
@@ -161,9 +182,16 @@ export function sqlStore(url: string): Store {
       if (!r) throw new UnknownDeviceError(deviceId)
       return Number(r.next_seq)
     },
-    async append(deviceId, fields, receivedAt) {
+    async append(deviceId, fields, receivedAt, batchId) {
       if (fields.length === 0) throw new Error('append needs at least one line')
       return sql.begin(async (tx) => {
+        // Same transaction as the append below: a crash between the two would otherwise leave the store
+        // holding lines it no longer recognises on the resend, or an id with nothing behind it.
+        if (batchId !== undefined) {
+          const [seen] = await tx`
+            SELECT first_seq, last_seq FROM batches WHERE device_id = ${deviceId} AND batch_id = ${batchId}`
+          if (seen) return { first: Number(seen.first_seq), last: Number(seen.last_seq), raws: [], duplicate: true }
+        }
         // The reservation is the lock: two batches for one device serialise on this row and each gets
         // its own range. No `max(seq)` read that a concurrent writer could make stale.
         const [r] =
@@ -178,7 +206,13 @@ export function sqlStore(url: string): Store {
           line: JSON.stringify({ ...f, seq: first + i, receivedAt }),
         }))
         await tx`INSERT INTO lines ${tx(rows)}`
-        return { first, last, raws: rows.map((x) => x.line) }
+        // Two copies of one batch arriving at once both miss the SELECT above; the primary key stops the
+        // second and rolls its whole transaction back, lines included, so the client's next attempt finds
+        // the winner's range here. The client keeps one batch in flight, so this is the rare path.
+        if (batchId !== undefined)
+          await tx`INSERT INTO batches (device_id, batch_id, first_seq, last_seq, received_at)
+            VALUES (${deviceId}, ${batchId}, ${first}, ${last}, ${receivedAt})`
+        return { first, last, raws: rows.map((x) => x.line), duplicate: false }
       })
     },
     async appendNumbered(deviceId, rows) {
@@ -206,6 +240,8 @@ export function sqlStore(url: string): Store {
 export function memoryStore(): Store {
   const devices = new Map<string, DeviceRow & { nextSeq: number }>()
   const lines = new Map<string, NumberedLine[]>()
+  /** `<device id> <batch id>` → the range that batch got: the `batches` table, in a Map. */
+  const batches = new Map<string, { first: number; last: number }>()
   const get = (id: string) => {
     const d = devices.get(id)
     if (!d) throw new UnknownDeviceError(id)
@@ -257,14 +293,18 @@ export function memoryStore(): Store {
     async lastSeq(id) {
       return get(id).nextSeq
     },
-    async append(id, fields, receivedAt) {
+    async append(id, fields, receivedAt, batchId) {
       if (fields.length === 0) throw new Error('append needs at least one line')
       const d = get(id)
+      const key = batchId === undefined ? null : `${id} ${batchId}`
+      const seen = key === null ? undefined : batches.get(key)
+      if (seen) return { ...seen, raws: [], duplicate: true }
       const first = d.nextSeq + 1
       d.nextSeq += fields.length
       const raws = fields.map((f, i) => JSON.stringify({ ...f, seq: first + i, receivedAt }))
       linesOf(id).push(...raws.map((line, i) => ({ seq: first + i, receivedAt, line })))
-      return { first, last: d.nextSeq, raws }
+      if (key !== null) batches.set(key, { first, last: d.nextSeq })
+      return { first, last: d.nextSeq, raws, duplicate: false }
     },
     async appendNumbered(id, rows) {
       if (rows.length === 0) return

@@ -73,7 +73,12 @@ describe('applyHeaders', () => {
 
 describe('linesFrom', () => {
   it('numbers from `first` and reads the event back, unknown when missing', () => {
-    const lines = linesFrom({ first: 5, last: 6, raws: ['{"event":"hit","seq":5}', '{"seq":6}'] })
+    const lines = linesFrom({
+      first: 5,
+      last: 6,
+      raws: ['{"event":"hit","seq":5}', '{"seq":6}'],
+      duplicate: false,
+    })
     expect(lines).toEqual([
       { seq: 5, event: 'hit', raw: '{"event":"hit","seq":5}' },
       { seq: 6, event: 'unknown', raw: '{"seq":6}' },
