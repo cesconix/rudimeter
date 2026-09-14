@@ -356,6 +356,10 @@ export function splitSessions(lines: LogLine[], device: string): SessionRecord[]
       // A log batch the page had to send again (src/dev/remote.ts): the lines around it reached the
       // file out of their original order, and whatever the bound dropped never reached it at all.
       case 'flush:retry':
+      // A batch the API refused with a 4xx, which no resend could have changed: those lines are gone
+      // for good. It is the hole itself, and it belongs where the retry marker goes — a session judged
+      // on lines that never arrived must say so rather than read as a quiet one.
+      case 'flush:drop':
         open?.errors.push(l)
         break
       case 'session:feedback':
