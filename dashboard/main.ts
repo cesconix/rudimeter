@@ -12,7 +12,8 @@ import {
 import { type DeviceReport, deviceReportFromLines } from '../src/analysis/device-report'
 import { EXERCISES } from '../src/data/exercises'
 import { cleanFeedback, MAX_FEEDBACK_CHARS } from '../src/telemetry/feedback-text'
-import { mergeLines } from './merge-lines'
+import { createPoller } from './poller'
+import { saveFeedback } from './save-feedback'
 import { esc, histogramSvg, offsetsSvg, sparklineSvg, timelineSvg } from './svg'
 
 interface DeviceSummary {
@@ -46,8 +47,6 @@ const mainBox = el<HTMLDivElement>('main')
 
 const deps = { exerciseById: (id: string) => EXERCISES.find((e) => e.id === id) }
 let devices: DeviceSummary[] = []
-/** Every line held per device name, in seq order: the analysis runs on these at each render. */
-const logs = new Map<string, LogLine[]>()
 let selected: string | null = null
 let pxPerSec = 60
 
@@ -79,26 +78,25 @@ async function refreshDevices(): Promise<void> {
   deviceSel.value = names.includes(current) ? current : (names[0] ?? '')
 }
 
-/** Lines past the last held one; true when something new arrived. A full page may not be the end. */
-async function pull(name: string): Promise<boolean> {
-  const held = logs.get(name) ?? []
-  const since = held.length ? held[held.length - 1].seq : 0
+async function fetchLines(name: string, since: number): Promise<LogLine[]> {
   const res = await api(`/api/lines?device=${encodeURIComponent(name)}&since=${since}&limit=${PAGE}`)
-  const added = parseLines(await res.text())
-  if (!added.length) return false
-  logs.set(name, mergeLines(held, added))
-  if (added.length >= PAGE) await pull(name)
-  return true
+  return parseLines(await res.text())
 }
+
+/**
+ * Holds every device's lines and pulls new ones by `seq`, one request in flight per device — see
+ * `poller.ts` for why that also keeps an out-of-order or superseded response from rolling the view back.
+ */
+const poller = createPoller(fetchLines, PAGE)
 
 function current(): DeviceReport | undefined {
   const name = deviceSel.value
-  return name ? deviceReportFromLines(name, logs.get(name) ?? [], deps, 50) : undefined
+  return name ? deviceReportFromLines(name, poller.held(name), deps, 50) : undefined
 }
 
 function setStatus(): void {
   const bytes = devices.reduce((n, d) => n + d.bytes, 0)
-  const lines = (logs.get(deviceSel.value) ?? []).length
+  const lines = poller.held(deviceSel.value).length
   status.textContent = `live · ${new Date().toLocaleTimeString()} · ${lines} lines · storage ${(bytes / 1048576).toFixed(1)} MB`
 }
 
@@ -124,7 +122,10 @@ function showLogin(): void {
 
 async function tick(): Promise<void> {
   if (document.hidden || !deviceSel.value) return
-  const changed = await pull(deviceSel.value)
+  const name = deviceSel.value
+  const changed = await poller.pull(name)
+  // A poll that outlives a device switch answers a question nobody is asking anymore: drop it.
+  if (deviceSel.value !== name) return
   setStatus()
   if (changed && !drafting()) renderDevice()
 }
@@ -134,7 +135,7 @@ async function boot(): Promise<void> {
   await refreshDevices()
   loginBox.hidden = true
   mainBox.hidden = false
-  if (deviceSel.value) await pull(deviceSel.value)
+  if (deviceSel.value) await poller.pull(deviceSel.value)
   setStatus()
   renderDevice()
 }
@@ -267,22 +268,28 @@ function wireDetail(a: SessionAnalysis): void {
       save.disabled = true
       fstatus.textContent = 'saving…'
       try {
-        const res = await fetch('/api/feedback', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ device: a.device, sessionId: a.id, text: clean }),
-        })
-        if (res.status === 401) throw new Unauthorized('token required')
-        if (!res.ok) {
-          const { error } = (await res.json().catch(() => ({}))) as { error?: string }
-          throw new Error(error ?? `server said ${res.status}`)
+        const outcome = await saveFeedback(
+          () =>
+            fetch('/api/feedback', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ device: a.device, sessionId: a.id, text: clean }),
+            }),
+          () => poller.pull(a.device),
+        )
+        if (!outcome.ok) {
+          if (outcome.unauthorized) showLogin()
+          fstatus.textContent = `save failed: ${outcome.message}`
+          save.disabled = false
+          return
         }
-        // Pull rather than patch the DOM: the store is the truth, and the render keeps the selection.
+        // Saved: clear the box and re-render regardless of whether the refresh inside saveFeedback
+        // landed — the store already has the comment, so a refresh problem is a stale view, not this.
         text.value = ''
-        await pull(a.device)
         renderDevice()
       } catch (err) {
-        if (err instanceof Unauthorized) showLogin()
+        // The POST itself never completed (e.g. the network dropped): saveFeedback swallows a refresh
+        // failure internally, so only a save that truly never got a response reaches this catch.
         fstatus.textContent = `save failed: ${(err as Error).message}`
         save.disabled = false
       }
@@ -328,7 +335,8 @@ function calibrationPanel(cal: CalibrationAnalysis, budget: Budget): string {
 
 deviceSel.addEventListener('change', () => {
   selected = null
-  pull(deviceSel.value)
+  poller
+    .pull(deviceSel.value)
     .then(() => {
       setStatus()
       renderDevice()
