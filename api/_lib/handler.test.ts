@@ -81,6 +81,36 @@ describe('POST /api/log', () => {
     expect(await store.lastSeq(d.id)).toBe(6)
   })
 
+  it('answers a store failure with a fixed message and an id, never the error text', async () => {
+    const d = await store.createDevice('marco')
+    const secret = 'relation "lines_device_id_seq" does not exist at 10.0.0.4:5432'
+    const before = console.error
+    const logged: string[] = []
+    console.error = (...args: unknown[]) => {
+      logged.push(args.map(String).join(' '))
+    }
+    ctx = {
+      ...ctx,
+      store: {
+        ...store,
+        append: () => Promise.reject(new Error(secret)),
+      },
+    }
+    try {
+      const res = await call('POST', `/api/log?key=${d.key}`, { body: '{"event":"hit"}' })
+      expect(res.status).toBe(500)
+      const body = (await res.json()) as { error: string; id: string }
+      expect(body.error).toBe('internal error')
+      expect(body.id).toMatch(/^[0-9a-f]{8}$/)
+      // The text stays server-side, findable by the id the caller was given.
+      expect(JSON.stringify(body)).not.toContain('lines_device_id_seq')
+      expect(logged.join('\n')).toContain(secret)
+      expect(logged.join('\n')).toContain(body.id)
+    } finally {
+      console.error = before
+    }
+  })
+
   it('caps the body, the batch and the line with 413', async () => {
     const d = await store.createDevice('marco')
     const many = Array.from({ length: MAX_BATCH_LINES + 1 }, () => '{"event":"hit"}').join('\n')

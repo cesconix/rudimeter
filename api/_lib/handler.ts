@@ -80,7 +80,13 @@ export async function handle(req: Request, ctx: Context): Promise<Response> {
     if (req.method === 'POST' && path === '/api/feedback') return await feedback(req, ctx)
     return json(404, { error: `unknown route ${req.method} ${path}` })
   } catch (err) {
-    return json(500, { error: (err as Error).message })
+    // `POST /api/log` is the one route an unauthenticated caller reaches, and this catch is behind it.
+    // The message of a store error names tables, columns and Bun internals, and answers reliably enough
+    // to be a liveness oracle for the database: reconnaissance, freely available. Keep it in Vercel's
+    // log under an id the caller can quote, and hand back nothing else.
+    const id = crypto.randomUUID().slice(0, 8)
+    console.error(`[api] ${id}`, err)
+    return json(500, { error: 'internal error', id })
   }
 }
 
