@@ -40,8 +40,15 @@ describe('stepsFlat / slotsPerRepeat', () => {
 })
 
 describe('built-in exercises', () => {
-  it('the three from Stick Control plus the reading study, all valid', () => {
-    expect(EXERCISES.map((e) => e.id)).toEqual(['stone-1', 'stone-3', 'stone-5', 'reading-4-4'])
+  it('the three from Stick Control, the reading study and the two pyramids, all valid', () => {
+    expect(EXERCISES.map((e) => e.id)).toEqual([
+      'stone-1',
+      'stone-3',
+      'stone-5',
+      'reading-4-4',
+      'pyramid-singles',
+      'pyramid-doubles',
+    ])
     expect(
       stepsFlat(EXERCISES[2])
         .map((f) => f.step.hand)

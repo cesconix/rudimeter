@@ -1,8 +1,16 @@
 import { useState } from 'react'
 import { EXERCISES } from '../data/exercises'
+import { barsOf } from '../engine/exercise'
 import { DEFAULT_AUTO_INCREMENT } from '../engine/progression'
 import type { Exercise } from '../engine/types'
 import type { SessionOptions } from './options'
+
+/**
+ * The whole sticking identifies a short exercise at a glance, which is why it is here. Past a few bars
+ * it stops identifying anything and becomes a wall of letters — the pyramid is thirty bars — so there
+ * the count is what the line has to say. The score below shows the notes either way.
+ */
+const stickingLabel = (ex: Exercise): string => (barsOf(ex) > 4 ? `${barsOf(ex)} bars` : ex.sticking)
 
 interface Props {
   /** Last bpm chosen (or the default): seed of the local state, not a controlled value. */
@@ -38,7 +46,7 @@ export function ExercisePicker({ previousBpm, previousOptions, onPick, onRecalib
         ))}
       </select>
       <p>
-        <code>{exercise.sticking}</code> · {exercise.timeSignature.join('/')} · {exercise.repeats} repeats
+        <code>{stickingLabel(exercise)}</code> · {exercise.timeSignature.join('/')} · {exercise.repeats} repeats
       </p>
       <div className="row">
         <button type="button" className="secondary" onClick={() => setBpm((b) => Math.max(30, b - 5))}>
