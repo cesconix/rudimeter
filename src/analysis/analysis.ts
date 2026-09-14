@@ -131,7 +131,11 @@ export interface SessionAnalysis {
   /** first slot time on the audio clock, and the span to the end of the last slot */
   t0: number
   durationS: number
-  options: Record<string, unknown>
+  /** Narrowed off the raw `session:start.options`, which any holder of a device key can write. */
+  options: {
+    metronome: { clickSubdivision: number; guide: boolean; gap: boolean }
+    autoIncrement: boolean
+  }
   calibration: { latencyMs: number; slope: number | null; r2: number | null; deviceLabel: string }
   engine: {
     deviceLabel: string
@@ -216,6 +220,22 @@ const SIGMA_MIN_NOTES = 20
 const OUTPUT_GAP_S = 2.5
 
 const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
+const obj = (v: unknown): Record<string, unknown> =>
+  typeof v === 'object' && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : {}
+
+/**
+ * `session:start.options` as the dashboard may render it. A device key is enough to write a log line, so
+ * the raw object is untrusted input, not app state: narrow it here — the way `bpm`, `deviceLabel` and
+ * `sampleRate` already are — rather than letting an un-narrowed value reach a template.
+ */
+function sessionOptions(raw: unknown): SessionAnalysis['options'] {
+  const o = obj(raw)
+  const m = obj(o.metronome)
+  return {
+    metronome: { clickSubdivision: num(m.clickSubdivision) ?? 1, guide: Boolean(m.guide), gap: Boolean(m.gap) },
+    autoIncrement: Boolean(o.autoIncrement),
+  }
+}
 const spread = (xs: number[]): Spread => ({
   mean: mean(xs),
   sd: sd(xs),
@@ -403,27 +423,37 @@ export function strayFeedback(lines: LogLine[], records: SessionRecord[]): LogLi
   return lines.filter((l) => l.event === 'session:feedback' && !attached.has(l))
 }
 
-/** Slots as `judge` wants them. Without a logged `dur` (older logs) the gap to the next slot stands in. */
+/**
+ * Slots as `judge` wants them. Without a logged `dur` (older logs) the gap to the next slot stands in.
+ *
+ * `LoggedSlot` is a cast over whatever JSON arrived (`gridOf`), so every field here is narrowed: the
+ * dashboard prints `bar.beat.sub`, `hand` and `t.toFixed(3)` straight into the DOM, and a string in any
+ * of them would render raw or throw inside the render and blank the device's whole view. For a slot the
+ * app actually logged, every branch below is the value itself.
+ */
 function toSlots(logged: LoggedSlot[]): Slot[] {
   const gaps = logged
     .slice(1)
-    .map((s, k) => s.t - logged[k].t)
+    .map((s, k) => (num(s.t) ?? 0) - (num(logged[k].t) ?? 0))
     .filter((g) => g > 0)
   const minGap = gaps.length ? Math.min(...gaps) : 0.25
-  return logged.map((s, k) => ({
-    index: s.i,
-    t: s.t,
-    dur: s.dur ?? (k + 1 < logged.length ? logged[k + 1].t - s.t : minGap),
-    step: {
-      hand: s.hand,
-      accent: s.accent,
-      ...(s.ornament ? { ornament: s.ornament as Slot['step']['ornament'] } : {}),
-    },
-    repeat: s.repeat,
-    bar: s.bar ?? 0,
-    beat: s.beat ?? 0,
-    sub: s.sub ?? 0,
-  }))
+  return logged.map((s, k) => {
+    const t = num(s.t) ?? 0
+    return {
+      index: num(s.i) ?? k,
+      t,
+      dur: num(s.dur) ?? (k + 1 < logged.length ? (num(logged[k + 1].t) ?? t) - t : minGap),
+      step: {
+        hand: s.hand === 'L' ? 'L' : 'R',
+        accent: Boolean(s.accent),
+        ...(s.ornament ? { ornament: s.ornament as Slot['step']['ornament'] } : {}),
+      },
+      repeat: num(s.repeat) ?? 0,
+      bar: num(s.bar) ?? 0,
+      beat: num(s.beat) ?? 0,
+      sub: num(s.sub) ?? 0,
+    }
+  })
 }
 
 export function analyzeSession(rec: SessionRecord, deps: AnalyzeDeps): SessionAnalysis {
@@ -759,7 +789,7 @@ export function analyzeSession(rec: SessionRecord, deps: AnalyzeDeps): SessionAn
     replans: rec.replans,
     t0: first?.t ?? 0,
     durationS: last && first ? last.t + last.dur - first.t : 0,
-    options: (start.options as Record<string, unknown> | undefined) ?? {},
+    options: sessionOptions(start.options),
     calibration: { latencyMs, slope, r2, deviceLabel: String(rec.calibration?.deviceLabel ?? '') },
     engine: {
       deviceLabel: String(eng?.deviceLabel ?? ''),

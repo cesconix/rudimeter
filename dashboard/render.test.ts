@@ -1,0 +1,131 @@
+// The dashboard is the one place an append-only device key met an admin session. `detail()` interpolated
+// `options.metronome.clickSubdivision` — raw, unvalidated JSON off a `session:start` line — into the
+// fragment `main.ts` assigns to `innerHTML`, and `when()` did the same with `at`. A tester key was
+// therefore script execution in the admin's browser, same-origin, with `/api/lines?device=*` for every
+// device behind it. These tests feed the builders what a hostile key would write and demand markup.
+
+import { describe, expect, it } from 'bun:test'
+import { readFileSync } from 'node:fs'
+import type { CalibrationAnalysis, SessionAnalysis } from '../src/analysis/analysis'
+import { analyzeSession, splitSessions } from '../src/analysis/analysis'
+import { calibrationPanel, detail, sessionsTable } from './render'
+
+const PAYLOAD = '<img src=x onerror=alert(1)>'
+
+/** A session the analysis would produce, with only the fields these builders read filled in. */
+const session = (over: Partial<SessionAnalysis> = {}): SessionAnalysis =>
+  ({
+    id: 'marco@2026-09-13T10:00:00.000Z',
+    device: 'marco',
+    exerciseId: 'singles',
+    bpm: 60,
+    startedAt: '2026-09-13T10:00:00.000Z',
+    endedAt: null,
+    complete: true,
+    stopped: false,
+    aborted: false,
+    orphan: false,
+    replans: 0,
+    t0: 0,
+    durationS: 10,
+    options: { metronome: { clickSubdivision: 1, guide: false, gap: false }, autoIncrement: false },
+    calibration: { latencyMs: 70, slope: 1, r2: 1, deviceLabel: 'mic' },
+    engine: { deviceLabel: 'mic', sampleRate: 48000, outputLatencyMs: 10, synth: false, settings: {} },
+    stats: null,
+    regrade: { good: 1, ok: 0, off: 0, miss: 0, extras: 0, absorbed: 0, matchesApp: true },
+    notes: [],
+    extras: [],
+    clicks: [],
+    outputSeries: [],
+    trust: {
+      hits: 1,
+      echo: 0,
+      echoCandidates: 0,
+      echoResidualSdMs: null,
+      countInClicks: 0,
+      countInEchoes: 0,
+      doubles: 0,
+      floor: 0,
+      sigmaMs: null,
+      output: { mean: null, sd: null, max: null },
+      gaps: 0,
+      outputGapIndices: [],
+      notRunning: 0,
+      verdicts: [],
+    },
+    synthetic: null,
+    feedback: [],
+    markdown: null,
+    ...over,
+  }) as SessionAnalysis
+
+describe('the builders that reach innerHTML', () => {
+  it('renders no tag from a hostile options, at or exerciseId', () => {
+    const hostile = session({
+      exerciseId: PAYLOAD,
+      startedAt: `2026${PAYLOAD}`,
+      // Past the narrowing on purpose: the builder has to hold on its own, whatever it is handed.
+      options: { metronome: { clickSubdivision: PAYLOAD } } as unknown as SessionAnalysis['options'],
+      feedback: [{ at: `2026${PAYLOAD}`, text: PAYLOAD, source: PAYLOAD } as unknown as SessionAnalysis['feedback'][0]],
+    })
+    const html = `${detail(hostile, 60)}${sessionsTable([hostile], null)}`
+    expect(html).toContain('&lt;img src=x')
+    expect(html).not.toContain(PAYLOAD)
+    // Nothing log-derived may open a tag: the only `<` left are the ones these builders wrote.
+    expect(html.replace(/<\/?[a-z][a-z0-9-]*(\s[^<>]*)?\/?>/gi, '')).not.toContain('<')
+  })
+
+  it('renders a device whose `at` is not a string at all, instead of throwing and blanking it', () => {
+    const broken = session({ startedAt: 123 as unknown as string })
+    expect(() => detail(broken, 60)).not.toThrow()
+    expect(sessionsTable([broken], null)).toContain('—')
+    const row = {
+      at: 123,
+      latencyMs: 70,
+      offsetSdMs: null,
+      offsetMinMs: null,
+      offsetMaxMs: null,
+      n: 8,
+      slope: null,
+      r2: null,
+      deviceLabel: 'mic',
+      contextMs: null,
+      deltaMs: null,
+      processing: {},
+    }
+    const cal = { rows: [row], verdicts: [], driftSdMs: null } as unknown as CalibrationAnalysis
+    expect(() => calibrationPanel(cal, { terms: [], totalMs: null, goodMs: 15, okMs: 40 })).not.toThrow()
+  })
+
+  it('narrows a hostile `session:start.options` before it ever reaches a builder', () => {
+    const lines = [
+      {
+        event: 'session:start',
+        at: '2026-09-13T10:00:00.000Z',
+        seq: 1,
+        exerciseId: 'singles',
+        bpm: 60,
+        options: PAYLOAD,
+      },
+      { event: 'session:done', at: '2026-09-13T10:01:00.000Z', seq: 2 },
+    ]
+    const [record] = splitSessions(lines, 'marco')
+    const a = analyzeSession(record, { exerciseById: () => undefined })
+    expect(a.options).toEqual({
+      metronome: { clickSubdivision: 1, guide: false, gap: false },
+      autoIncrement: false,
+    })
+  })
+})
+
+describe('the dashboard document', () => {
+  it('ships a CSP that keeps an injected script from running as the admin', () => {
+    const csp = /<meta http-equiv="Content-Security-Policy" content="([^"]+)"/.exec(
+      readFileSync(new URL('index.html', import.meta.url), 'utf8'),
+    )?.[1]
+    expect(csp).toContain("default-src 'self'")
+    // 'unsafe-inline' is granted to style-src only: widening it to scripts would undo the whole point.
+    expect(csp).not.toMatch(/script-src[^;]*unsafe-(inline|eval)/)
+    expect(csp?.replace(/style-src[^;]*/, '')).not.toContain('unsafe-inline')
+  })
+})

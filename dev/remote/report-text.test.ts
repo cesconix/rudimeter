@@ -17,7 +17,7 @@ const session = (over: Partial<SessionAnalysis> = {}): SessionAnalysis => ({
   replans: 0,
   t0: 1,
   durationS: 80,
-  options: {},
+  options: { metronome: { clickSubdivision: 1, guide: false, gap: false }, autoIncrement: false },
   calibration: { latencyMs: 73.3, slope: 1.02, r2: 0.9999, deviceLabel: 'iPhone Microphone' },
   engine: { deviceLabel: 'iPhone Microphone', sampleRate: 48000, outputLatencyMs: 12.6, synth: false, settings: {} },
   stats: null,

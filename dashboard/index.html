@@ -3,6 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Second line of defence behind the escaping in dashboard/render.ts: this page renders strings that
+      came off a log line, and a device key — append-only, one device — is enough to write one. With
+      script-src at 'self' an injected tag cannot execute, so it cannot call /api/devices and /api/lines
+      with the admin's cookie. Delivered as a meta tag rather than a header because the page is a static
+      file on Vercel and vercel.json is not this branch's to change; a meta CSP is enforced the same way.
+      'unsafe-inline' is for style only — the stylesheet below is inline, and img-src 'self' leaves CSS
+      no way out either. Scripts stay 'self': the bundle is the only one this page loads.
+    -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'" />
     <title>rudimeter · session dashboard</title>
     <style>
       body { font: 15px/1.4 system-ui, sans-serif; margin: 1rem; background: #fff; color: #000; }
