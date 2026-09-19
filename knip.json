@@ -5,7 +5,6 @@
     "dev/**/*.test.ts",
     "dev/gallery.ts",
     "dev/lab.ts",
-    "dev/import-musicxml.ts",
     "dev/scenarios/*.ts",
     "api/**/*.test.ts",
     "dashboard/main.ts",
