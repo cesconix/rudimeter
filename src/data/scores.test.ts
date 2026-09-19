@@ -50,6 +50,9 @@ describe('SCORES', () => {
   })
 })
 
+// The pyramid rows are the output of a rule — each row adds a quartina to the one before — run
+// once and committed as JSON, not a hand transcription of thirty bars, where a single wrong
+// letter would be invisible. These tests read the JSON back as the sticking it came from.
 describe('stroke pyramid', () => {
   it('is fifteen rows: up to the longest and back down, the apex played once', () => {
     const s = byId('pyramid-singles')

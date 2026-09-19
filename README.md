@@ -52,7 +52,7 @@ src/audio      Web Audio: click scheduling, microphone capture, onset-detection 
 src/notation   VexFlow rendering: exercise → staff, cursor geometry, per-note colouring.
 src/session    the runner that ties grid, judge and progression together while you play.
 src/ui         React screens.
-src/data       the exercise library.
+src/data       the score library: JSON pieces and the sticking exercises compiled into them.
 dev/           notation gallery: every figure the renderer can draw, for a manual visual check.
 ```
 
