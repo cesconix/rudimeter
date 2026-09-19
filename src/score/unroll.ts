@@ -73,6 +73,10 @@ export function unroll(score: Score): PlaybackBar[] {
       if (pass < (bar.repeat.end.times ?? 2)) {
         i = start
         pass++
+        // An earlier bracket of the same section may have closed it on the way here (its own
+        // `repeat.end` was skipped); this jump reopens it, or the first bar would restart the
+        // section from pass 1 for ever.
+        closed = false
         continue
       }
       closed = true

@@ -50,6 +50,16 @@ describe('unroll', () => {
     ]
     expect(walk(bars)).toEqual(['0@1', '1@1', '0@2', '1@2', '0@3', '2@3', '3@1'])
   })
+  it('plays three brackets in turn, the repeat sign on the first two', () => {
+    const bars = [
+      bar({ repeat: { start: true } }),
+      bar({ ending: [1], repeat: { end: { times: 3 } } }),
+      bar({ ending: [2], repeat: { end: { times: 3 } } }),
+      bar({ ending: [3] }),
+      bar(),
+    ]
+    expect(walk(bars)).toEqual(['0@1', '1@1', '0@2', '2@2', '0@3', '3@3', '4@1'])
+  })
   it('goes back to the bar after the previous section when a repeat.end has no repeat.start', () => {
     // 50 Workout #43: bars 1–4 repeat, then 5–16 repeat with no sign at bar 5.
     const bars = [bar({ repeat: { start: true } }), bar({ repeat: { end: {} } }), bar(), bar({ repeat: { end: {} } })]
