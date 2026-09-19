@@ -16,13 +16,19 @@ Options: click subdivision, gap training (bars with and without click), guide so
 
 ## Exercises
 
-An exercise is one object in `src/data/exercises.ts`:
+A piece is a JSON file in `src/data/scores/` — bars, parts, voices, events with their written value — loaded through `src/data/scores.ts` and validated by its test. The format is `src/score/types.ts`; `src/score/validate.ts` lists what a valid piece is. A drum-kit piece is written in MuseScore and imported:
+
+```bash
+bun run import path/to/piece.musicxml --id my-piece --title "My piece" --source "Book, p. 12"
+```
+
+The importer reads the first part of a partwise MusicXML file, maps MuseScore's drumset names to the catalogue in `src/score/instruments.ts` (PAS / Weinberg positions), and refuses a file that does not validate. What it cannot place it writes as a snare with a warning, never drops.
+
+Pad exercises can still be written in the sticking language of `src/data/exercises.ts`; they are compiled into the same model by `src/score/sticking.ts`:
 
 ```ts
 { id: 'reading-4-4', name: 'Mixed reading', source: 'study', timeSignature: [4, 4], steps: '>R LR LRLR L- | >RLR -L R-LR -', repeats: 8 }
 ```
-
-`steps` is a tiny sticking language:
 
 | token | meaning |
 |---|---|
@@ -35,12 +41,13 @@ An exercise is one object in `src/data/exercises.ts`:
 | `z` `t` prefix | buzz roll / tremolo (measured roll) |
 | `(L)` `(R)` | hand of the grace notes; default is the opposite hand |
 
-A beat is split evenly among its tokens: `RL` is two eighths, `RLRL` four sixteenths, `RLR` a triplet, `RLRLRLRL` eight thirty-seconds. Only x/4 time signatures, 1 to 8 tokens per beat. Tempo is not part of the exercise: the same score runs at any bpm.
+A beat is split evenly among its tokens: `RL` is two eighths, `RLRL` four sixteenths, `RLR` a triplet, `RLRLRLRL` eight thirty-seconds. Only x/4 time signatures, 1 to 8 tokens per beat. `repeats` becomes a repeat sign around the piece. Tempo is not part of the piece: the same score runs at any bpm.
 
 ## Architecture
 
 ```
 src/engine     pure domain: sticking DSL, time grid, judging, stats, report. No DOM, no dependencies.
+src/score      pure model of a piece: written durations, drum-kit catalogue, voices, repeats; validation, playback unrolling, time map. No DOM, no dependencies.
 src/audio      Web Audio: click scheduling, microphone capture, onset-detection worklet, calibration.
 src/notation   VexFlow rendering: exercise → staff, cursor geometry, per-note colouring.
 src/session    the runner that ties grid, judge and progression together while you play.
@@ -49,7 +56,7 @@ src/data       the exercise library.
 dev/           notation gallery: every figure the renderer can draw, for a manual visual check.
 ```
 
-Imports flow one way: `engine` ← `audio` | `notation` | `session` ← `ui`. Tests run with `bun test` and no DOM.
+Imports flow one way: `engine` ← `score` | `audio` | `notation` | `session` ← `ui`. Tests run with `bun test` and no DOM.
 
 Timing lives on the `AudioContext` clock. The cursor follows the *audible* clock (`src/audio/clock.ts`), and hits are corrected by the calibrated latency before they are judged.
 
@@ -70,6 +77,8 @@ bun run check      # biome + tsc + knip + tests, the same gate as CI
 HTTPS is mandatory: `getUserMedia` needs a secure context, and the iPad reaches your Mac over the LAN. Chrome on the same machine can use `https://localhost:5173`.
 
 Notation gallery: with the dev server running, open `/dev/gallery.html`.
+
+MusicXML import: `bun run import <file> --id <id>` writes `src/data/scores/<id>.json`; the fixtures under `dev/fixtures/musicxml/` show what the importer reads.
 
 Synthetic input (no microphone, no sound): open `/?synth=42&player=human` and keep the tab in the foreground — the page is muted, so Chrome throttles its timers to one tick per second as soon as it is hidden and the drummer falls behind. A virtual drummer plays the exercise through a simulated 35 ms speaker → microphone path, seeded so the run is reproducible; `&player=steady|human|sloppy` picks the drummer. `&headphones=off` feeds the app's own click and guide back into the input at full level: with the guide on, the detector hears the guide on every slot and the report describes a flawless run that never happened — the case its ⚠️ line exists for. `bun run sim --seed 42 --player human --exercise stone-1 --bpm 120` prints the report that run must produce: miss and extra counts exact, ms and dB within ±0.5. A stroke sitting on a judge boundary may still land one class, or one slot, away — the detector sees it a few hundredths of a millisecond off the oracle — and the hand and repeat tables move with it. The `Calibration:` line differs by design.
 
