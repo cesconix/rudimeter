@@ -59,7 +59,11 @@ function validateItems(voice: Voice, path: string, catalogue: Catalogue, bad: Ba
         bad(`${p}.tuplet`, 'actual and normal must be positive integers')
         sound = false
       }
-      if (item.items.length === 0) bad(`${p}.items`, 'a tuplet needs at least one event')
+      if (item.items.length === 0) {
+        bad(`${p}.items`, 'a tuplet needs at least one event')
+        // The voice's sum is short by whatever the group was meant to hold: one mistake, one path.
+        sound = false
+      }
       item.items.forEach((e, k) => {
         if (isTuplet(e as TupletGroup | Event)) {
           bad(`${p}.items[${k}]`, 'tuplets do not nest')
@@ -149,6 +153,8 @@ export function validate(score: Score, catalogue: Catalogue = resolveInstruments
       if (!(bar.tempo.bpm > 0)) bad(`${path}.tempo.bpm`, 'must be positive')
       if (bar.tempo.unit !== undefined && !BASES.includes(bar.tempo.unit))
         bad(`${path}.tempo.unit`, 'must be 1, 2, 4, 8, 16 or 32')
+      if (bar.tempo.dotted !== undefined && bar.tempo.dotted !== true)
+        bad(`${path}.tempo.dotted`, 'must be true when present')
     }
     if (bar.repeat?.start) {
       if (openStart !== null) bad(`${path}.repeat.start`, 'repeats do not nest')
@@ -173,6 +179,9 @@ export function validate(score: Score, catalogue: Catalogue = resolveInstruments
       }
     }
     if (bar.simile) {
+      // A "%" replays the bar before it, note for note: a meter change on it would pour those
+      // notes into a slot of another length.
+      if (bar.meter) bad(`${path}.meter`, 'a simile bar keeps the meter of the bar it repeats')
       if (bar.parts) bad(`${path}.parts`, 'a simile bar has no parts')
       return
     }

@@ -57,7 +57,8 @@ describe('validate', () => {
     expect(paths(noMeter)).toEqual(['bars[0].meter'])
     expect(paths(withBars({ ...twoFour([snare(), snare()]), meter: [3, 6] }))).toEqual(['bars[0].meter'])
     expect(paths(withBars({ ...twoFour([snare(), snare()]), meter: [0, 4] }))).toContain('bars[0].meter')
-    expect(paths(withBars({ meter: [2, 4], simile: true }))).toEqual(['bars[0].simile'])
+    expect(paths(withBars({ meter: [2, 4], simile: true }))).toEqual(['bars[0].simile', 'bars[0].meter'])
+    expect(paths(withBars(twoFour([snare(), snare()]), { simile: true, meter: [3, 4] }))).toEqual(['bars[1].meter'])
     expect(paths(withBars({ ...twoFour([snare(), snare()]), beams: [1, 2] }))).toEqual(['bars[0].beams'])
   })
 
@@ -127,6 +128,9 @@ describe('validate', () => {
     expect(paths(withBars(twoFour([snare(4, { duration: { base: 3 as never } }), snare()])))).toEqual([
       'bars[0].parts.kit.voices[0].items[0].duration.base',
     ])
+    expect(paths(withBars(twoFour([snare(4, { duration: { base: 4, dots: 3 as never } }), snare()])))).toEqual([
+      'bars[0].parts.kit.voices[0].items[0].duration.dots',
+    ])
     expect(paths(withBars(twoFour([snare(4, { roll: { kind: 'tremolo', slashes: 4 as never } }), snare()])))).toEqual([
       'bars[0].parts.kit.voices[0].items[0].roll.slashes',
     ])
@@ -145,6 +149,8 @@ describe('validate', () => {
     expect(paths(withBars(twoFour([snare(), nested as never])))).toEqual([
       'bars[0].parts.kit.voices[0].items[1].items[2]',
     ])
+    const empty = { tuplet: { actual: 3, normal: 2 }, items: [] }
+    expect(paths(withBars(twoFour([snare(), empty as never])))).toEqual(['bars[0].parts.kit.voices[0].items[1].items'])
   })
 
   it('checks ties, hairpins and explicit beams along the voice', () => {
@@ -220,6 +226,9 @@ describe('validate', () => {
     expect(paths(withBars({ ...twoFour([snare(), snare()]), tempo: { bpm: 0 } }))).toEqual(['bars[0].tempo.bpm'])
     expect(paths(withBars({ ...twoFour([snare(), snare()]), tempo: { bpm: 100, unit: 3 as never } }))).toEqual([
       'bars[0].tempo.unit',
+    ])
+    expect(paths(withBars({ ...twoFour([snare(), snare()]), tempo: { bpm: 100, dotted: false as never } }))).toEqual([
+      'bars[0].tempo.dotted',
     ])
   })
 })
