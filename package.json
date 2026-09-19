@@ -16,6 +16,7 @@
     "sim": "bun dev/sim.ts",
     "remote": "NODE_TLS_REJECT_UNAUTHORIZED=0 bun dev/remote/cli.ts",
     "scenario": "NODE_TLS_REJECT_UNAUTHORIZED=0 bun dev/remote/run-scenario.ts",
+    "import": "bun dev/import-musicxml.ts",
     "check": "bun run lint && bun run typecheck && bun run knip && bun test"
   },
   "author": "Francesco Pasqua",
@@ -36,6 +37,7 @@
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-basic-ssl": "^2.3.0",
     "@vitejs/plugin-react": "^6.1.1",
+    "fast-xml-parser": "^5.11.1",
     "knip": "^6.35.1",
     "typescript": "^7.0.2",
     "vite": "^8.2.2"
