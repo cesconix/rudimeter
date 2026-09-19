@@ -60,7 +60,12 @@ export function fromSticking(json: ExerciseJson): Score {
     out.parts = { pad: { voices: [{ stem: 'up', items }] } }
     return out
   })
-  const score: Score = { id: json.id, title: json.name, parts: [{ id: 'pad', kind: 'drumset' }], bars }
-  if (json.source) score.source = json.source
-  return score
+  // Keys in the order the hand-written JSON files use, so a compiled score reads like one of them.
+  return {
+    id: json.id,
+    title: json.name,
+    ...(json.source ? { source: json.source } : {}),
+    parts: [{ id: 'pad', kind: 'drumset' }],
+    bars,
+  }
 }
