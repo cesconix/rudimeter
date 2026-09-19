@@ -50,26 +50,7 @@ export function fit(availW: number, availH: number, prefs: Prefs, score: Score):
   const h = Number.isFinite(availH) ? Math.max(0, availH) : 0
   const bars = pref(prefs.barsPerRow)
   const rows = pref(prefs.rowsPerViewport)
-  // Effective bar count considering repeats: repeat blocks multiply the bars in their range
-  let total = 0
-  let i = 0
-  while (i < score.bars.length) {
-    const bar = score.bars[i]
-    if (bar.repeat?.start) {
-      // Find the end of the repeat block
-      let j = i
-      while (j < score.bars.length && !score.bars[j].repeat?.end) {
-        j++
-      }
-      const times = score.bars[j]?.repeat?.end?.times ?? 1
-      total += (j - i + 1) * times
-      i = j + 1
-    } else {
-      total++
-      i++
-    }
-  }
-  total = Math.max(1, total)
+  const total = Math.max(1, score.bars.length)
   const gridX0 = HEAD_PX + (hasGrace(score) ? GRACE_GUTTER : 0)
   // `|| PX_PER_WHOLE`: a piece with no bars has no meter; it does not happen past `parseScore`, but the function is exported.
   const widestBar = Math.max(0, ...metersOf(score).map((m) => toNumber(barLength(m)))) * PX_PER_WHOLE || PX_PER_WHOLE

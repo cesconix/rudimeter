@@ -1,13 +1,8 @@
 import { describe, expect, it } from 'bun:test'
-import { fromSticking } from '../score/sticking'
 import type { Bar, Item, Score } from '../score/types'
 import { fit, type Prefs } from './fit'
 import { MIN_NOTEHEAD_PX, NOTEHEAD_PX, SYSTEM_H } from './layout'
 
-/** Stick Control #1 as the library compiles it: 2/4, 40 bars, no grace notes. */
-const STONE = fromSticking({ id: 's', name: 's', timeSignature: [2, 4], steps: 'RL RL | RL RL', repeats: 20 })
-/** The same with a flam on the first beat: the grace gutter is paid. */
-const STONE_FLAM = fromSticking({ id: 'f', name: 'f', timeSignature: [2, 4], steps: 'fRL RL | RL RL', repeats: 20 })
 const AUTO: Prefs = { barsPerRow: 'auto', rowsPerViewport: 'auto' }
 /** Notehead the user sees, rounded to the tenth like the on-screen measurements. */
 const notehead = (scale: number) => Math.round(NOTEHEAD_PX * scale * 10) / 10
@@ -26,6 +21,15 @@ const piece = (beats: number, bars: number): Score => ({
     }),
   ),
 })
+
+/** 40 written bars of 2/4, no grace notes. */
+const STONE = piece(2, 40)
+/** The same with a flam on the first beat: the grace gutter is paid. */
+const STONE_FLAM = (() => {
+  const s = piece(2, 40)
+  ;(s.bars[0].parts?.pad.voices[0].items[0] as any).grace = { kind: 'flam' }
+  return s
+})()
 
 describe('fit: bars per row', () => {
   // The widths of the old `fitLayout` table, measured on real devices (iPhone portrait and
@@ -56,12 +60,7 @@ describe('fit: bars per row', () => {
 
   it('the row is never longer than the piece', () => {
     // Two bars of 2/4 on 928 px: a row of 8 would draw the music at natural size with three quarters of the staff empty — and the number would reach the UI as "8".
-    const f = fit(
-      928,
-      600,
-      AUTO,
-      fromSticking({ id: 't', name: 't', timeSignature: [2, 4], steps: 'RL RL | RL RL', repeats: 1 }),
-    )
+    const f = fit(928, 600, AUTO, piece(2, 2))
     expect(f.barsPerRow).toBe(2)
     expect(f.scale).toBe(1)
   })
