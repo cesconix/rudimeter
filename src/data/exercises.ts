@@ -18,7 +18,7 @@ const PYRAMID_ROWS = [1, 2, 3, 4, 5, 6, 7, 8, 7, 6, 5, 4, 3, 2, 1]
 
 const pyramid = (quartina: string): string => PYRAMID_ROWS.map((n) => pyramidRow(n, quartina)).join(' | ')
 
-const EXERCISES_JSON: ExerciseJson[] = [
+export const EXERCISES_JSON: ExerciseJson[] = [
   {
     id: 'stone-1',
     name: 'Stick Control #1',
