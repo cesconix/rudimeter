@@ -31,41 +31,70 @@ const beamable = (f: FlatEvent): boolean => f.event.duration.base >= 8 && !f.eve
  * note too long to carry a beam splits the group into runs instead of just trimming: it draws
  * nothing (or nothing short), so a beam crossing it would join notes across a gap the other voice
  * fills, or a note that was never eligible in the first place.
+ *
+ * A tuplet is a run of its own, whole, whatever the beat groups say: the bracket already reads as
+ * one unit, so cutting it on a beat line — or letting its notes beam to the neighbours outside it —
+ * would draw a group the music does not have. Its items are beamed together only when every one of
+ * them could carry a beam; one quarter inside (a quarter-note triplet) leaves the whole group
+ * unbeamed rather than half beamed.
  */
 export function resolveBeams(meter: Meter, beams: number[] | undefined, flat: FlatEvent[]): (BeamMark | null)[] {
   if (flat.some((f) => f.event.beam !== undefined)) return flat.map((f) => f.event.beam ?? null)
   const marks: (BeamMark | null)[] = flat.map(() => null)
-  let start = ZERO
+
+  // The end offset of every beat group; `groupOf` is the index of the group an offset falls in, −1
+  // past the last one (a voice that overflows the bar — validation reports it — beams nothing there).
+  const ends: Fraction[] = []
+  let edge = ZERO
   for (const group of beamGroups(meter, beams)) {
-    const end = add(start, group)
-    const inside = flat.map((_f, i) => i).filter((i) => cmp(flat[i].offset, start) >= 0 && cmp(flat[i].offset, end) < 0)
+    edge = add(edge, group)
+    ends.push(edge)
+  }
+  const groupOf = (offset: Fraction): number => ends.findIndex((e) => cmp(offset, e) < 0)
 
-    // Split the group at every event that cannot carry a beam; each run is beamed on its own.
-    const runs: number[][] = []
-    let run: number[] = []
-    for (const i of inside) {
-      if (beamable(flat[i])) {
-        run.push(i)
-      } else {
-        if (run.length) runs.push(run)
-        run = []
-      }
-    }
+  const runs: number[][] = []
+  let run: number[] = []
+  const close = () => {
     if (run.length) runs.push(run)
-
-    for (const r of runs) {
-      let a = 0
-      let b = r.length - 1
-      while (a <= b && flat[r[a]].event.rest) a++
-      while (b >= a && flat[r[b]].event.rest) b--
-      const trimmed = r.slice(a, b + 1)
-      if (trimmed.filter((i) => !flat[i].event.rest).length >= 2) {
-        trimmed.forEach((i, k) => {
-          marks[i] = k === 0 ? 'begin' : k === trimmed.length - 1 ? 'end' : 'continue'
-        })
-      }
+    run = []
+  }
+  // −2 is "no group open": it matches neither a group index nor the −1 of an overflowing event.
+  let group = -2
+  let i = 0
+  while (i < flat.length) {
+    const f = flat[i]
+    if (f.tuplet) {
+      close()
+      let j = i
+      while (j < flat.length && flat[j].tuplet === f.tuplet) j++
+      const items = Array.from({ length: j - i }, (_x, k) => i + k)
+      if (items.every((k) => beamable(flat[k]))) runs.push(items)
+      group = -2
+      i = j
+      continue
     }
-    start = end
+    const g = groupOf(f.offset)
+    if (g !== group) {
+      close()
+      group = g
+    }
+    if (g >= 0 && beamable(f)) run.push(i)
+    else close()
+    i++
+  }
+  close()
+
+  for (const r of runs) {
+    let a = 0
+    let b = r.length - 1
+    while (a <= b && flat[r[a]].event.rest) a++
+    while (b >= a && flat[r[b]].event.rest) b--
+    const trimmed = r.slice(a, b + 1)
+    if (trimmed.filter((k) => !flat[k].event.rest).length >= 2) {
+      trimmed.forEach((k, pos) => {
+        marks[k] = pos === 0 ? 'begin' : pos === trimmed.length - 1 ? 'end' : 'continue'
+      })
+    }
   }
   return marks
 }
