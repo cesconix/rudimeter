@@ -81,7 +81,7 @@ describe('validate', () => {
     expect(paths(withBars({ meter: [2, 4], parts: {} }))).toEqual(['bars[0].parts.kit'])
     expect(paths(withBars({ meter: [2, 4], parts: { kit: { voices: [] } } }))).toEqual(['bars[0].parts.kit.voices'])
     const three = twoFour([snare(), snare()])
-    three.parts!.kit.voices.push({ stem: 'down', items: [kick(), kick()] }, { stem: 'down', items: [kick(), kick()] })
+    three.parts?.kit.voices.push({ stem: 'down', items: [kick(), kick()] }, { stem: 'down', items: [kick(), kick()] })
     expect(paths(withBars(three))).toEqual(['bars[0].parts.kit.voices'])
     expect(
       paths(
