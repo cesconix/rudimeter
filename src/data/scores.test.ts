@@ -91,3 +91,66 @@ describe('stroke pyramid', () => {
     expect(sounding(doubles).some((f) => f.event.accent)).toBe(false)
   })
 })
+
+describe('50 Workout #43', () => {
+  const s = byId('workout-43')
+  /** The bar's onsets on the sixteenth grid, beat by beat: what the rhythm is, whatever the spelling. */
+  const grid = (bar: Bar): string => {
+    const voice = bar.parts?.pad.voices[0]
+    if (!voice) throw new Error('not a pad bar')
+    const cells = Array.from({ length: 16 }, () => '-')
+    for (const f of flattenVoice(voice)) if (!f.event.rest) cells[(f.offset.num * 16) / f.offset.den] = 'x'
+    return cells.join('').replace(/(.{4})(?=.)/g, '$1 ')
+  }
+  it('is the sixteen patterns of the page, two repeated sections, two bars per row', () => {
+    expect(s.bars).toHaveLength(16)
+    expect(s.bars.map(grid)).toEqual([
+      'x--- x--- x--- x---',
+      '-x-- -x-- -x-- -x--',
+      '--x- --x- --x- --x-',
+      '---x ---x ---x ---x',
+      'xx-- xx-- xx-- xx--',
+      '--xx --xx --xx --xx',
+      '-xx- -xx- -xx- -xx-',
+      'x--x x--x x--x x--x',
+      'x-x- x-x- x-x- x-x-',
+      '-x-x -x-x -x-x -x-x',
+      'xxx- xxx- xxx- xxx-',
+      '-xxx -xxx -xxx -xxx',
+      'x-xx x-xx x-xx x-xx',
+      'xx-x xx-x xx-x xx-x',
+      'xxxx ---- xxxx ----',
+      '---- xxxx ---- xxxx',
+    ])
+    expect(s.bars[0].repeat).toEqual({ start: true })
+    expect(s.bars[3].repeat).toEqual({ end: { times: 2 } })
+    expect(s.bars[15].repeat).toEqual({ end: { times: 2 } })
+    expect(s.bars.map((b) => b.newRow === true)).toEqual(s.bars.map((_, i) => i > 0 && i % 2 === 0))
+  })
+  it("uses the book's spellings, not the grid's", () => {
+    const spell = (bar: Bar) =>
+      flattenVoice(bar.parts?.pad.voices[0] ?? { stem: 'up', items: [] })
+        .slice(0, 4)
+        .map((f) => `${f.event.rest ? 'r' : 'n'}${f.event.duration.base}${f.event.duration.dots ? '.' : ''}`)
+    expect(spell(s.bars[1]).slice(0, 2)).toEqual(['r16', 'n8.'])
+    expect(spell(s.bars[3]).slice(0, 2)).toEqual(['r8.', 'n16'])
+    expect(spell(s.bars[7]).slice(0, 2)).toEqual(['n8.', 'n16'])
+    expect(spell(s.bars[13]).slice(0, 3)).toEqual(['n16', 'n8', 'n16'])
+    expect(spell(s.bars[14]).slice(0, 4)).toEqual(['n16', 'n16', 'n16', 'n16'])
+    expect(sounding(s)).toHaveLength(4 + 4 + 4 + 4 + 8 + 8 + 8 + 8 + 8 + 8 + 12 + 12 + 12 + 12 + 8 + 8)
+  })
+})
+
+describe('kit-ending', () => {
+  const s = byId('kit-ending')
+  it('has two voices, a chord, a triplet and a simile bar', () => {
+    expect(s.bars).toHaveLength(4)
+    expect(s.bars[0].parts?.kit.voices.map((v) => v.stem)).toEqual(['up', 'down'])
+    expect(s.bars[0].parts?.kit.voices[0].items[2]).toMatchObject({
+      notes: [{ instrument: 'hihat' }, { instrument: 'snare' }],
+      accent: true,
+    })
+    expect(s.bars[1].parts?.kit.voices[0].items[4]).toMatchObject({ tuplet: { actual: 3, normal: 2 } })
+    expect(s.bars[3]).toEqual({ simile: true })
+  })
+})
