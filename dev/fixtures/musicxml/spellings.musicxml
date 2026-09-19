@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="4.0">
+  <part-list><score-part id="P1"><part-name>Drums</part-name></score-part></part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes><divisions>24</divisions><time><beats>3</beats><beat-type>4</beat-type></time><clef><sign>percussion</sign></clef></attributes>
+      <direction><sound tempo="90"/></direction>
+      <note><unpitched><display-step>C</display-step><display-octave>5</display-octave></unpitched><duration>18</duration><voice>1</voice><type>eighth</type><dot/><beam number="1">begin</beam><notations><tied type="start"/></notations><lyric><text>R</text></lyric></note>
+      <note><unpitched><display-step>C</display-step><display-octave>5</display-octave></unpitched><duration>6</duration><voice>1</voice><type>16th</type><beam number="1">end</beam><beam number="2">backward hook</beam><notations><tied type="stop"/></notations></note>
+      <note><unpitched><display-step>G</display-step><display-octave>5</display-octave></unpitched><duration>3</duration><voice>1</voice><type>32nd</type><notehead>x</notehead><beam number="1">begin</beam><notations><technical><stopped/></technical></notations></note>
+      <note><unpitched><display-step>G</display-step><display-octave>5</display-octave></unpitched><duration>3</duration><voice>1</voice><type>32nd</type><notehead>x</notehead><beam number="1">continue</beam></note>
+      <note><unpitched><display-step>G</display-step><display-octave>5</display-octave></unpitched><duration>3</duration><voice>1</voice><type>32nd</type><notehead>x</notehead><beam number="1">continue</beam></note>
+      <note><unpitched><display-step>G</display-step><display-octave>5</display-octave></unpitched><duration>3</duration><voice>1</voice><type>32nd</type><notehead>x</notehead><beam number="1">continue</beam></note>
+      <note><unpitched><display-step>G</display-step><display-octave>5</display-octave></unpitched><duration>3</duration><voice>1</voice><type>32nd</type><notehead>x</notehead><beam number="1">continue</beam></note>
+      <note><unpitched><display-step>G</display-step><display-octave>5</display-octave></unpitched><duration>3</duration><voice>1</voice><type>32nd</type><notehead>x</notehead><beam number="1">continue</beam></note>
+      <note><unpitched><display-step>G</display-step><display-octave>5</display-octave></unpitched><duration>3</duration><voice>1</voice><type>32nd</type><notehead>x</notehead><beam number="1">continue</beam></note>
+      <note><unpitched><display-step>G</display-step><display-octave>5</display-octave></unpitched><duration>3</duration><voice>1</voice><type>32nd</type><notehead>x</notehead><beam number="1">end</beam></note>
+      <note><unpitched><display-step>F</display-step><display-octave>5</display-octave></unpitched><duration>24</duration><voice>1</voice><type>quarter</type><notehead>diamond</notehead><notations><ornaments><tremolo type="single">2</tremolo></ornaments><fermata/></notations></note>
+    </measure>
+    <measure number="2">
+      <attributes><time><beats>4</beats><beat-type>4</beat-type></time></attributes>
+      <note><unpitched><display-step>C</display-step><display-octave>5</display-octave></unpitched><duration>48</duration><voice>1</voice><type>half</type><notehead>x</notehead></note>
+      <note><unpitched><display-step>B</display-step><display-octave>3</display-octave></unpitched><duration>24</duration><voice>1</voice><type>quarter</type></note>
+      <note><rest/><duration>24</duration><voice>1</voice><type>quarter</type></note>
+    </measure>
+  </part>
+</score-partwise>

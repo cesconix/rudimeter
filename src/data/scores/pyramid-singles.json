@@ -1,0 +1,4466 @@
+{
+  "id": "pyramid-singles",
+  "title": "Stroke pyramid — singles",
+  "parts": [
+    {
+      "id": "pad",
+      "kind": "drumset"
+    }
+  ],
+  "bars": [
+    {
+      "meter": [4, 4],
+      "parts": {
+        "pad": {
+          "voices": [
+            {
+              "stem": "up",
+              "items": [
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "parts": {
+        "pad": {
+          "voices": [
+            {
+              "stem": "up",
+              "items": [
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "newRow": true,
+      "parts": {
+        "pad": {
+          "voices": [
+            {
+              "stem": "up",
+              "items": [
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "parts": {
+        "pad": {
+          "voices": [
+            {
+              "stem": "up",
+              "items": [
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "newRow": true,
+      "parts": {
+        "pad": {
+          "voices": [
+            {
+              "stem": "up",
+              "items": [
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "parts": {
+        "pad": {
+          "voices": [
+            {
+              "stem": "up",
+              "items": [
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "newRow": true,
+      "parts": {
+        "pad": {
+          "voices": [
+            {
+              "stem": "up",
+              "items": [
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "parts": {
+        "pad": {
+          "voices": [
+            {
+              "stem": "up",
+              "items": [
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "newRow": true,
+      "parts": {
+        "pad": {
+          "voices": [
+            {
+              "stem": "up",
+              "items": [
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "parts": {
+        "pad": {
+          "voices": [
+            {
+              "stem": "up",
+              "items": [
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "newRow": true,
+      "parts": {
+        "pad": {
+          "voices": [
+            {
+              "stem": "up",
+              "items": [
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "parts": {
+        "pad": {
+          "voices": [
+            {
+              "stem": "up",
+              "items": [
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "newRow": true,
+      "parts": {
+        "pad": {
+          "voices": [
+            {
+              "stem": "up",
+              "items": [
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "parts": {
+        "pad": {
+          "voices": [
+            {
+              "stem": "up",
+              "items": [
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "newRow": true,
+      "parts": {
+        "pad": {
+          "voices": [
+            {
+              "stem": "up",
+              "items": [
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "parts": {
+        "pad": {
+          "voices": [
+            {
+              "stem": "up",
+              "items": [
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "newRow": true,
+      "parts": {
+        "pad": {
+          "voices": [
+            {
+              "stem": "up",
+              "items": [
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "parts": {
+        "pad": {
+          "voices": [
+            {
+              "stem": "up",
+              "items": [
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "newRow": true,
+      "parts": {
+        "pad": {
+          "voices": [
+            {
+              "stem": "up",
+              "items": [
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "parts": {
+        "pad": {
+          "voices": [
+            {
+              "stem": "up",
+              "items": [
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "newRow": true,
+      "parts": {
+        "pad": {
+          "voices": [
+            {
+              "stem": "up",
+              "items": [
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "parts": {
+        "pad": {
+          "voices": [
+            {
+              "stem": "up",
+              "items": [
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "newRow": true,
+      "parts": {
+        "pad": {
+          "voices": [
+            {
+              "stem": "up",
+              "items": [
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "parts": {
+        "pad": {
+          "voices": [
+            {
+              "stem": "up",
+              "items": [
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "newRow": true,
+      "parts": {
+        "pad": {
+          "voices": [
+            {
+              "stem": "up",
+              "items": [
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "parts": {
+        "pad": {
+          "voices": [
+            {
+              "stem": "up",
+              "items": [
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "newRow": true,
+      "parts": {
+        "pad": {
+          "voices": [
+            {
+              "stem": "up",
+              "items": [
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "parts": {
+        "pad": {
+          "voices": [
+            {
+              "stem": "up",
+              "items": [
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "newRow": true,
+      "parts": {
+        "pad": {
+          "voices": [
+            {
+              "stem": "up",
+              "items": [
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 16
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "parts": {
+        "pad": {
+          "voices": [
+            {
+              "stem": "up",
+              "items": [
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "R"
+                },
+                {
+                  "duration": {
+                    "base": 8
+                  },
+                  "notes": [
+                    {
+                      "instrument": "snare"
+                    }
+                  ],
+                  "sticking": "L"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "source": "50 Workout #3, p. 9"
+}

@@ -7,7 +7,8 @@
 ## Invariants
 
 - `src/engine` never imports the DOM, React, VexFlow or Web Audio. It must keep running under `bun test` with no DOM.
-- Imports flow one way: `engine` ← `audio` | `notation` | `session` ← `sim` ← `ui`. Nothing outside `src/ui` imports from it (the entry point `src/main.tsx` excepted).
+- `src/score` is the model of a piece — durations written as data, instruments, two voices, repeats — and imports nothing but `src/engine/dsl.ts` and `src/engine/types.ts` (the sticking compiler reuses the tokenizer). It runs under `bun test`. `src/data/scores/*.json` are the library and `src/data/scores.test.ts` validates every one of them; a JSON that fails `parseScore` never reaches `SCORES`. `dev/import-musicxml.ts` is a dev tool: the app bundles JSON, never XML. A change to what an `Event`, a `Bar` or the catalogue means is a change to `validate.ts` and its tests.
+- Imports flow one way: `engine` ← `score` | `audio` | `notation` | `session` ← `sim` ← `ui`. Nothing outside `src/ui` imports from it (the entry point `src/main.tsx` excepted).
 - Every value export has an importer; knip enforces it. Tests count as importers.
 - Comments explain *why*, not *what*, and keep measured numbers with their units. Do not delete a comment you did not understand.
 - Everything in the repo is English. UI copy lives in the component that shows it.
