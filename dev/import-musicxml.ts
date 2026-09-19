@@ -58,16 +58,41 @@ const DYNAMICS = new Set<string>(['pp', 'p', 'mp', 'mf', 'f', 'ff'])
 const WEDGES: Record<string, Hairpin> = { crescendo: 'cresc', diminuendo: 'dim', stop: 'stop' }
 /** Notations we read or knowingly skip; anything else is worth a warning. */
 const KNOWN_NOTATIONS = new Set(['tied', 'tuplet', 'articulations', 'technical', 'ornaments'])
-const KNOWN_MEASURE_CHILDREN = new Set([
-  'attributes',
-  'barline',
-  'print',
-  'backup',
-  'forward',
-  'sound',
-  'direction',
-  'note',
-])
+/** Measure children read by a pass of their own before the music walk; the rest are handled there or warned about. */
+const KNOWN_MEASURE_CHILDREN = new Set(['attributes', 'barline', 'print'])
+
+/** A whole note in 128ths: the smallest unit in which every written value below, dotted or not, is a whole number. */
+const WHOLE_UNITS = 128
+/** Written rest values, longest first: every base with one dot then none. */
+const REST_VALUES: { base: NoteBase; dots?: Dots; units: number }[] = ([1, 2, 4, 8, 16, 32] as NoteBase[]).flatMap(
+  (base) => [
+    { base, dots: 1 as Dots, units: (WHOLE_UNITS / base) * 1.5 },
+    { base, units: WHOLE_UNITS / base },
+  ],
+)
+
+/**
+ * A bar filled with hidden rests, in the largest written values that fit. A bar whose only MusicXML
+ * voice is 2 still has to produce two voices, because everything downstream pairs voices across
+ * bars by index (`validate` walks voice 0 then voice 1; the layout will too): emitted alone, the
+ * feet of that bar would sit in the hands' slot and a tie into the next bar's kick would be
+ * reported against the wrong voice. Single dots only — 7/8 is written dotted half + eighth, not
+ * double-dotted half.
+ */
+function fillBar(meter: Meter): Item[] {
+  let left = (meter[0] * WHOLE_UNITS) / meter[1]
+  const out: Item[] = []
+  while (left > 0) {
+    const value = REST_VALUES.find((v) => v.units <= left)
+    // Unreachable for a meter `validate` accepts (a 32nd is 4 units, every bar length a multiple of
+    // 4); the guard is there so a meter it would refuse cannot spin this loop for ever.
+    if (!value) break
+    const duration = value.dots ? { base: value.base, dots: value.dots } : { base: value.base }
+    out.push({ duration, rest: true, hidden: true })
+    left -= value.units
+  }
+  return out
+}
 
 /** MuseScore's drumset names → ours. Order matters: "Ride Bell" before "Ride", "Pedal Hi-Hat" before "Hi-Hat", "Low Floor Tom" before "Floor". */
 const NAMES: [RegExp, InstrumentId, Partial<Note>?][] = [
@@ -207,12 +232,17 @@ export function importMusicXml(
       }
       const en = child(bl, 'ending')
       if (en) {
-        const numbers = attrs(en)
-          .number.split(/[,\s]+/)
+        const spelled = attrs(en).number
+        if (spelled === undefined) throw new Error(`measure ${number}: <ending> without a number`)
+        const numbers = spelled
+          .split(/[,\s]+/)
           .filter(Boolean)
           .map(Number)
-        if (attrs(en).type === 'start') ending = numbers
-        else {
+        const type = attrs(en).type
+        if (type === 'start') ending = numbers
+        // "continue" sits on the right barline of a bracket's intermediate bars: the bracket is
+        // still open, and closing it here would leave the bars after it outside the volta.
+        else if (type !== 'continue') {
           bar.ending = ending ?? numbers
           ending = null
         }
@@ -236,8 +266,27 @@ export function importMusicXml(
       return v
     }
     let pending: Pending = {}
+    // Divisions the notes read since the bar start (or since the last `<backup>`) account for: what
+    // a `<backup>` is expected to give back.
+    let consumed = 0
     for (const el of kids(m)) {
       const tag = tagOf(el)
+      if (tag === 'backup') {
+        const d = Number(textOf(el, 'duration') || '0')
+        if (d !== consumed) warn(`<backup> of ${d} divisions does not return to the bar start (${consumed} consumed)`)
+        consumed = 0
+        continue
+      }
+      if (tag === 'forward') {
+        // Nothing in the model stands for an empty stretch of a voice, so the bar comes out short
+        // and `validate` refuses it: better a named error than a hole nobody sees.
+        warn(`<forward> of ${textOf(el, 'duration')} divisions ignored`)
+        continue
+      }
+      if (tag === 'sound') {
+        if (attrs(el).tempo && !bar.tempo) bar.tempo = { bpm: Number(attrs(el).tempo) }
+        continue
+      }
       if (tag === 'direction') {
         for (const dt of children(el, 'direction-type')) {
           const met = child(dt, 'metronome')
@@ -255,7 +304,11 @@ export function importMusicXml(
             else warn(`dynamic "${d}" ignored`)
           }
           const wedge = child(dt, 'wedge')
-          if (wedge) pending.hairpin = WEDGES[attrs(wedge).type]
+          if (wedge) {
+            const w = WEDGES[attrs(wedge).type]
+            if (w) pending.hairpin = w
+            else warn(`wedge "${attrs(wedge).type}" ignored`)
+          }
           const words = child(dt, 'words')
           if (words) pending.text = text(words)
         }
@@ -273,6 +326,7 @@ export function importMusicXml(
         v.graces.push(el)
         continue
       }
+      if (!has(el, 'chord')) consumed += Number(textOf(el, 'duration') || '0')
       const rest = has(el, 'rest')
       const note = rest ? null : noteOf(el, names, warn)
       if (has(el, 'chord') && v.last) {
@@ -347,7 +401,15 @@ export function importMusicXml(
       if (tupletStop) v.open = null
       v.last = e
     }
+    if (voices.has(2) && !voices.has(1)) {
+      warn('no voice 1, filled with hidden rests')
+      voices.set(1, { items: fillBar(meter ?? [4, 4]), open: null, graces: [], last: null })
+    }
     const numbers = [...voices.keys()].sort((a, b) => a - b)
+    for (const k of numbers) {
+      const left = voices.get(k)?.graces.length ?? 0
+      if (left > 0) warn(`${left} grace note(s) before the bar line dropped`)
+    }
     if (numbers.length > 2) warn(`${numbers.length} voices, only the first two kept`)
     const voiceList: Voice[] = numbers
       .slice(0, 2)
