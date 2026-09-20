@@ -43,6 +43,12 @@ const H = (base: NoteBase, dots?: 1 | 2): Event => ({
   rest: true,
   hidden: true,
 })
+/** A ghost note (parenthesised head). */
+const G = (base: NoteBase, id: InstrumentId = 'snare', extra: Partial<Event> = {}): Event => ({
+  duration: { base },
+  notes: [{ instrument: id, ghost: true }],
+  ...extra,
+})
 const T = (actual: number, normal: number, items: Event[]): Item => ({ tuplet: { actual, normal }, items })
 /** A bar of the `kit` part: hands up, feet (when given) down. */
 const bar = (up: Item[], down?: Item[], extra: Partial<Bar> = {}): Bar => ({
@@ -125,7 +131,7 @@ export const GALLERY: Figure[] = [
   figure(
     'tuplets',
     'Tuplets: 3:2 eighths, 5:4 / 6:4 / 7:4 sixteenths, a quarter-note triplet, a rest inside a triplet',
-    'A plain "3" over each eighth triplet (no ratio), "5", "6", "7" over the sixteenth groups, each group beamed as one unit inside its quarter and never joined to the neighbours; the quarter triplet bracketed with no beam; the rest inside the last triplet keeps its place under the bracket.',
+    'A plain "3" over each eighth triplet (no ratio), "5", "6", "7" over the sixteenth groups, each group beamed as one unit inside its quarter and never joined to the neighbours; the quarter triplet bracketed with no beam; the rest inside the last triplet keeps its place under the bracket; a sextuplet of eighths spanning two beats, one bracket and one beam over the six.',
     [
       bar([T(3, 2, [N(8), N(8), N(8)]), N(4), T(3, 2, [N(8), N(8), N(8)]), N(4)]),
       bar([
@@ -148,12 +154,21 @@ export const GALLERY: Figure[] = [
       ]),
       bar([T(3, 2, [N(4), N(4), N(4)]), N(2)]),
       bar([T(3, 2, [N(8), R(8), N(8)]), N(4), N(8), N(8), T(3, 2, [N(8), N(8), N(8)])]),
+      bar([
+        T(
+          6,
+          4,
+          times(6, () => N(8)),
+        ),
+        N(4),
+        N(4),
+      ]),
     ],
   ),
   figure(
     'voices',
     'Two voices: hands up, feet down, sharing instants',
-    'Stems up for the hands, down for the feet. Bar 1: hi-hat eighths with the snare on 2 and 4 as chords; kick on 1 and 3 below, with quarter rests below the middle line on 2 and 4. Bar 2: ride eighths with the bell on 3; kick and hi-hat foot alternating. Bar 3: snare, high tom, mid tom, floor tom going down the staff; two half-note kicks. Bar 4: crash + snare, a rest above the middle line, hi-hat + snare half; a whole-note kick. A kick under a hi-hat eighth sits on the same x.',
+    'Stems up for the hands, down for the feet. Bar 1: hi-hat eighths with the snare on 2 and 4 as chords; kick on 1 and 3 below, with quarter rests below the middle line on 2 and 4. Bar 2: ride eighths with the bell on 3; kick and hi-hat foot alternating. Bar 3: snare, high tom above it, mid tom, floor tom below; two half-note kicks. Bar 4: crash + snare, a rest above the middle line, hi-hat + snare + floor tom as a three-note chord, a half; a whole-note kick. A kick under a hi-hat eighth sits on the same x.',
     [
       bar(
         [
@@ -182,7 +197,7 @@ export const GALLERY: Figure[] = [
         [N(4, 'kick'), N(4, 'hihat-pedal'), N(4, 'kick'), N(4, 'hihat-pedal')],
       ),
       bar([N(4, 'snare'), N(4, 'tom-high'), N(4, 'tom-mid'), N(4, 'tom-floor')], [N(2, 'kick'), N(2, 'kick')]),
-      bar([N(4, ['crash', 'snare']), R(4), N(2, ['hihat', 'snare'])], [N(1, 'kick')]),
+      bar([N(4, ['crash', 'snare']), R(4), N(2, ['hihat', 'snare', 'tom-floor'])], [N(1, 'kick')]),
     ],
   ),
   figure(
@@ -215,6 +230,169 @@ export const GALLERY: Figure[] = [
       bar(q4()),
       bar(q4(), undefined, { newRow: true }),
       bar(q4()),
+    ],
+  ),
+  figure(
+    'ghost',
+    'Ghost notes: parenthesised heads, alone and inside a chord',
+    'Eighths alternating plain and parenthesised on the snare; then a hi-hat + snare chord where ONLY the snare head is in parentheses; then a plain quarter. The parentheses hug the head and never touch the neighbour.',
+    [
+      bar([
+        N(8),
+        G(8),
+        N(8),
+        G(8),
+        { duration: { base: 4 }, notes: [{ instrument: 'hihat' }, { instrument: 'snare', ghost: true }] },
+        N(4),
+      ]),
+    ],
+  ),
+  figure(
+    'accents',
+    'Accents above the note, in both voices',
+    'A ">" above the first eighth of each beat pair (over the beam, not under it), above the accented quarter; below, a kick with an accent — above its head, inside the staff — then a rest and a half-note kick without one.',
+    [
+      bar(
+        [
+          N(8, 'snare', { accent: true }),
+          N(8),
+          N(8, 'snare', { accent: true }),
+          N(8),
+          N(4, 'snare', { accent: true }),
+          N(4),
+        ],
+        [N(4, 'kick', { accent: true }), R(4), N(2, 'kick')],
+      ),
+    ],
+  ),
+  figure(
+    'open-closed',
+    'Open and closed hi-hat: "o" and "+" above the note',
+    'Hi-hat eighths: a small circle above the 2nd and 6th, a plus above the 4th and 8th, sitting above the stem end; a kick under each beat below. The symbols stay put when the note also carries an accent (the 6th).',
+    [
+      bar(
+        [
+          N(8, 'hihat'),
+          { duration: { base: 8 }, notes: [{ instrument: 'hihat', open: true }] },
+          N(8, 'hihat'),
+          { duration: { base: 8 }, notes: [{ instrument: 'hihat', closed: true }] },
+          N(8, 'hihat'),
+          { duration: { base: 8 }, notes: [{ instrument: 'hihat', open: true }], accent: true },
+          N(8, 'hihat'),
+          { duration: { base: 8 }, notes: [{ instrument: 'hihat', closed: true }] },
+        ],
+        [N(4, 'kick'), N(4, 'kick'), N(4, 'kick'), N(4, 'kick')],
+      ),
+    ],
+  ),
+  figure(
+    'grace',
+    'Flam and drag: grace notes before the note; the gutter at a row start',
+    'Bar 1: a slashed grace eighth before the first quarter (flam), two beamed grace sixteenths before the second (drag), a flam with the sticking R under the main note, a flam on the high tom whose grace note is on the snare. Bar 2 starts a new row with a flam on beat 1: the grace note sits in the gutter, clear of the clef, and the first note of both rows is on the same x.',
+    [
+      bar([
+        N(4, 'snare', { grace: { kind: 'flam' } }),
+        N(4, 'snare', { grace: { kind: 'drag' } }),
+        N(4, 'snare', { grace: { kind: 'flam', sticking: 'L' }, sticking: 'R' }),
+        N(4, 'tom-high', { grace: { kind: 'flam', instrument: 'snare' } }),
+      ]),
+      bar([N(4, 'snare', { grace: { kind: 'flam' } }), N(4), N(4), N(4)], undefined, { newRow: true }),
+    ],
+  ),
+  figure(
+    'rolls',
+    'Rolls: one, two, three tremolo slashes, a buzz; on a half note and with an accent',
+    'Bar 1: quarters with 1, 2 and 3 slashes across the stem, then the buzz "z" on the stem. Bar 2: a half note with two slashes, an accented buzz quarter (accent above the z), a quarter.',
+    [
+      bar([
+        N(4, 'snare', { roll: { kind: 'tremolo', slashes: 1 } }),
+        N(4, 'snare', { roll: { kind: 'tremolo', slashes: 2 } }),
+        N(4, 'snare', { roll: { kind: 'tremolo', slashes: 3 } }),
+        N(4, 'snare', { roll: { kind: 'buzz' } }),
+      ]),
+      bar([
+        N(2, 'snare', { roll: { kind: 'tremolo', slashes: 2 } }),
+        N(4, 'snare', { roll: { kind: 'buzz' }, accent: true }),
+        N(4),
+      ]),
+    ],
+  ),
+  figure(
+    'sticking',
+    'Sticking under the staff: a paradiddle',
+    'R L R R L R L L under the eighths, one letter under each head, the accents above the first of each group; the letters are on one line, none drops lower than its neighbour.',
+    [
+      bar([
+        N(8, 'snare', { accent: true, sticking: 'R' }),
+        N(8, 'snare', { sticking: 'L' }),
+        N(8, 'snare', { sticking: 'R' }),
+        N(8, 'snare', { sticking: 'R' }),
+        N(8, 'snare', { accent: true, sticking: 'L' }),
+        N(8, 'snare', { sticking: 'R' }),
+        N(8, 'snare', { sticking: 'L' }),
+        N(8, 'snare', { sticking: 'L' }),
+      ]),
+    ],
+  ),
+  figure(
+    'dynamics',
+    'Dynamics pp → ff under the note, in the music font; under the sticking when both are there',
+    'Bar 1: pp, p, mp, mf under four quarters; bar 2: f, ff under two halves — the real glyphs, bold and italic, not typed letters. Bar 3: R and L under the snare quarters with mf under the L, below the letter; below the feet, f under the first kick, under its stem; then a dotted quarter rest below the staff, an eighth kick, a quarter rest.',
+    [
+      bar([
+        N(4, 'snare', { dynamic: 'pp' }),
+        N(4, 'snare', { dynamic: 'p' }),
+        N(4, 'snare', { dynamic: 'mp' }),
+        N(4, 'snare', { dynamic: 'mf' }),
+      ]),
+      bar([N(2, 'snare', { dynamic: 'f' }), N(2, 'snare', { dynamic: 'ff' })]),
+      bar(
+        [
+          N(4, 'snare', { sticking: 'R' }),
+          N(4, 'snare', { sticking: 'L', dynamic: 'mf' }),
+          N(4, 'snare', { sticking: 'R' }),
+          N(4, 'snare', { sticking: 'L' }),
+        ],
+        [N(4, 'kick', { dynamic: 'f' }), R(4, 1), N(8, 'kick'), R(4)],
+      ),
+    ],
+  ),
+  figure(
+    'hairpins',
+    'Hairpins: inside a bar, across a bar, across a row end',
+    'Bar 1: a crescendo from beat 1 to beat 4, below the staff. Bar 2: a diminuendo opening on beat 1 that closes on beat 2 of bar 3; then a crescendo opening on beat 3 of bar 3. Bar 4 starts a new row: the crescendo continues from its first note to beat 4, where it stops — so the first row ends with the open wedge reaching the last note of bar 3 and the second row starts with it.',
+    [
+      bar([N(4, 'snare', { hairpin: 'cresc' }), N(4), N(4), N(4, 'snare', { hairpin: 'stop' })]),
+      bar([N(4, 'snare', { hairpin: 'dim' }), N(4), N(4), N(4)]),
+      bar([N(4), N(4, 'snare', { hairpin: 'stop' }), N(4, 'snare', { hairpin: 'cresc' }), N(4)]),
+      bar([N(4), N(4), N(4), N(4, 'snare', { hairpin: 'stop' })], undefined, { newRow: true }),
+    ],
+  ),
+  figure(
+    'ties',
+    'Ties: inside a bar, across a bar, across a row end, on one note of a chord',
+    'Bar 1: quarter tied to quarter, then two quarters. Bar 2 ends on a quarter tied into bar 3: the tie crosses the barline. Bar 3 ends on a half tied into bar 4, which starts a new row: a half tie leaves the first row to the right edge and a half tie enters the second row from the left. Bar 5: hi-hat + snare chords where only the snare is tied — one tie, on the snare head.',
+    [
+      bar([{ duration: { base: 4 }, notes: [{ instrument: 'snare', tie: true }] }, N(4), N(4), N(4)]),
+      bar([N(4), N(4), N(4), { duration: { base: 4 }, notes: [{ instrument: 'snare', tie: true }] }]),
+      bar([N(4), N(4), { duration: { base: 2 }, notes: [{ instrument: 'snare', tie: true }] }]),
+      bar([N(2), N(4), N(4)], undefined, { newRow: true }),
+      bar([
+        { duration: { base: 2 }, notes: [{ instrument: 'hihat' }, { instrument: 'snare', tie: true }] },
+        N(2, ['hihat', 'snare']),
+      ]),
+    ],
+  ),
+  figure(
+    'text',
+    'Text above the note, above an accent, on a two-voice bar',
+    '"Groove" above beat 1 and "Fill" above beat 3, above the stems; on beat 3 the note is accented and the text sits above the accent. Bar 2: "Solo" above a kick + snare bar, above the hands.',
+    [
+      bar([N(4, 'snare', { text: 'Groove' }), N(4), N(4, 'snare', { text: 'Fill', accent: true }), N(4)]),
+      bar(
+        [N(4, 'snare', { text: 'Solo' }), N(4), N(4), N(4)],
+        [N(4, 'kick'), N(4, 'kick'), N(4, 'kick'), N(4, 'kick')],
+      ),
     ],
   ),
 ]

@@ -12,7 +12,24 @@ describe('gallery scores', () => {
     }
   })
 
-  it('covers the six rows of the table this task draws', () => {
-    expect(GALLERY.map((f) => f.id)).toEqual(['values', 'rests', 'tuplets', 'voices', 'noteheads', 'head'])
+  it('covers the rows of the table drawn so far', () => {
+    expect(GALLERY.map((f) => f.id)).toEqual([
+      'values',
+      'rests',
+      'tuplets',
+      'voices',
+      'noteheads',
+      'head',
+      'ghost',
+      'accents',
+      'open-closed',
+      'grace',
+      'rolls',
+      'sticking',
+      'dynamics',
+      'hairpins',
+      'ties',
+      'text',
+    ])
   })
 })

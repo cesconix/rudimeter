@@ -1,16 +1,28 @@
-import {
+import VexFlow, {
+  Annotation,
+  AnnotationVerticalJustify,
+  Articulation,
   BarlineType,
   Beam,
   Dot,
+  type Element,
   Formatter,
   GhostNote,
+  GraceNote,
+  GraceNoteGroup,
+  Metrics,
+  ModifierPosition,
+  Parenthesis,
   type RenderContext,
   Renderer,
   RendererBackends,
   Stave,
+  StaveHairpin,
   StaveNote,
+  StaveTie,
   Stem,
   type StemmableNote,
+  Tremolo,
   Tuplet,
   Voice,
   VoiceMode,
@@ -19,7 +31,18 @@ import { resolveBeams } from '../score/beaming'
 import { type FlatEvent, flattenVoice, metersOf } from '../score/events'
 import { type EventId, keyOf } from '../score/ids'
 import type { Catalogue } from '../score/instruments'
-import type { Event, Meter, Note, Notehead, Part, Score, Voice as ScoreVoice } from '../score/types'
+import type {
+  Dynamic,
+  Event,
+  InstrumentId,
+  Meter,
+  Note,
+  Notehead,
+  Part,
+  Score,
+  Voice as ScoreVoice,
+} from '../score/types'
+import { BuzzRoll } from './buzz-roll'
 import {
   type BarLayout,
   type EventBox,
@@ -64,15 +87,61 @@ export function keyForLine(line: number, head: Notehead = 'normal'): string {
  */
 const REST_KEY = { single: 'b/4', up: 'd/5', down: 'g/4' } as const
 
+// `Glyphs` (the SMuFL enum) is not a named export of 'vexflow/bravura' — only the default `VexFlow`
+// object carries it (`VexFlow.Glyphs`) — so it is read off the default export once, here.
+const Glyphs = VexFlow.Glyphs
+
+const DYNAMIC_GLYPHS: Record<Dynamic, string> = {
+  pp: Glyphs.dynamicPP,
+  p: Glyphs.dynamicPiano,
+  mp: Glyphs.dynamicMP,
+  mf: Glyphs.dynamicMF,
+  f: Glyphs.dynamicForte,
+  ff: Glyphs.dynamicFF,
+}
+
+/**
+ * A SMuFL glyph as an annotation, in the music font at the size the noteheads use, so a dynamic or
+ * an open-hi-hat circle prints like the rest of the staff and not like a 10 pt label. An annotation
+ * and not a `TextDynamics`: that one is a Note, it would need a voice and a tick of its own, while
+ * an annotation rides the event's modifier context and stacks under the sticking by itself.
+ */
+function glyph(text: string, where: 'above' | 'below'): Annotation {
+  return new Annotation(text)
+    .setFont(Metrics.get('fontFamily'), Metrics.get('fontSize'))
+    .setVerticalJustification(where === 'above' ? AnnotationVerticalJustify.TOP : AnnotationVerticalJustify.BOTTOM)
+}
+
+/**
+ * Below the staff, under the feet's stems: a kick's stem ends 35 px below its head, and the sticking
+ * sits under that. 30 px is the estimate until the gallery's worst-case row (Task 8) says otherwise.
+ */
+const HAIRPIN_Y_SHIFT = 30
+
+function hairpin(from: StemmableNote, to: StemmableNote, kind: 'cresc' | 'dim'): StaveHairpin {
+  // `StaveHairpin.type` is `{ CRESC: 1, DECRESC: 2 }` in stavehairpin.js; the literals stand in if the typings hide it.
+  return new StaveHairpin(
+    { firstNote: from, lastNote: to },
+    kind === 'cresc' ? StaveHairpin.type.CRESC : StaveHairpin.type.DECRESC,
+  ).setRenderOptions({
+    height: 10,
+    yShift: HAIRPIN_Y_SHIFT,
+    leftShiftPx: 0,
+    rightShiftPx: 0,
+    leftShiftTicks: 0,
+    rightShiftTicks: 0,
+  })
+}
+
 export interface EngravedRow {
   el: SVGSVGElement
   dispose(): void
 }
 
 /**
- * One event as VexFlow holds it, with the box the time grid puts it in. `keyIndex` and `notes` are
- * unread here: the next task's ties and per-note modifiers (accent, sticking, open/closed) key off
- * them to find which VexFlow key on a chord is which instrument.
+ * One event as VexFlow holds it, with the box the time grid puts it in. `keyIndex` and `notes` let
+ * `decorate` and `spanVoice` find which VexFlow key on a chord is which instrument (ties, and the
+ * per-note modifiers: ghost, open/closed).
  */
 interface Placed {
   note: StemmableNote
@@ -84,7 +153,7 @@ interface Placed {
   notes: Note[]
 }
 
-/** `part`, `index` and `flat` are unread here: the next task's ties and hairpins need the voice they belong to and its flat events to find a run's start and end. */
+/** `part`, `index` and `flat` are read by `spanVoice`: the voice they belong to and its flat events find a tie or a hairpin's run start and end. */
 interface BuiltVoice {
   part: Part
   index: number
@@ -116,7 +185,44 @@ function buildNote(event: Event, dir: number, catalogue: Catalogue, restKey: str
   const note = new StaveNote({ keys, duration, dots, stemDirection: dir })
   // One `buildAndAttach` call draws one dot: the struct's `dots` only set the ticks, so a double dot needs two calls.
   for (let i = 0; i < dots; i++) Dot.buildAndAttach([note], { all: true })
+  decorate(note, event, notes, dir, catalogue)
   return { note, keyIndex, notes }
+}
+
+/**
+ * Everything that hangs on a sounding event. Order matters where modifiers stack in the same
+ * direction: the sticking is added before the dynamic so the letter sits nearer the note and the
+ * dynamic below it, as books print them.
+ */
+function decorate(note: StaveNote, event: Event, notes: Note[], dir: number, catalogue: Catalogue): void {
+  notes.forEach((n, i) => {
+    if (n.ghost) {
+      note.addModifier(new Parenthesis(ModifierPosition.LEFT), i)
+      note.addModifier(new Parenthesis(ModifierPosition.RIGHT), i)
+    }
+    // VexFlow 5 has no `ah` articulation: the open circle and the plus are the brass-mute glyphs, the ones MuseScore prints on a hi-hat.
+    if (n.open) note.addModifier(glyph(Glyphs.brassMuteOpen, 'above'), i)
+    if (n.closed) note.addModifier(glyph(Glyphs.brassMuteClosed, 'above'), i)
+  })
+  if (event.accent) note.addModifier(new Articulation('a>').setPosition(ModifierPosition.ABOVE), 0)
+  if (event.sticking)
+    note.addModifier(new Annotation(event.sticking).setVerticalJustification(AnnotationVerticalJustify.BOTTOM), 0)
+  if (event.dynamic) note.addModifier(glyph(DYNAMIC_GLYPHS[event.dynamic], 'below'), 0)
+  if (event.text)
+    note.addModifier(new Annotation(event.text).setVerticalJustification(AnnotationVerticalJustify.TOP), 0)
+  if (event.grace) {
+    // The grace note takes the event's first instrument unless the piece says otherwise; a flam is one slashed eighth, a drag two beamed sixteenths.
+    const instrument = event.grace.instrument ?? notes[0].instrument
+    const key = keyForLine(catalogue[instrument].line, catalogue[instrument].head)
+    const flam = event.grace.kind === 'flam'
+    const graces = Array.from(
+      { length: flam ? 1 : 2 },
+      () => new GraceNote({ keys: [key], duration: flam ? '8' : '16', slash: flam, stemDirection: dir }),
+    )
+    note.addModifier(new GraceNoteGroup(graces, true).beamNotes(), 0)
+  }
+  if (event.roll?.kind === 'tremolo') note.addModifier(new Tremolo(event.roll.slashes), 0)
+  if (event.roll?.kind === 'buzz') note.addModifier(new BuzzRoll(), 0)
 }
 
 function buildVoice(
@@ -217,13 +323,107 @@ function label(ctx: RenderContext, stave: Stave, text: string, x: number): void 
   ctx.restore()
 }
 
+/** What a voice carries from one bar of the row to the next. Keyed `${part}/${voice}` in `engraveRow`. */
+interface VoiceSpan {
+  /** ties leaving the previous bar of this row: the note and the key index of each tied instrument */
+  ties: { note: StaveNote; index: number; instrument: InstrumentId }[]
+  /** a hairpin opened in this row (or arriving from the previous one) and not yet stopped */
+  hairpin?: { note: StemmableNote; kind: 'cresc' | 'dim' }
+  /** the voice's last note in this row so far: an open hairpin at the row end stops here */
+  last?: StemmableNote
+}
+
+/** The instruments tied into the first event of bar `b` of a voice from the bar before it. At a row start they arrive as half ties. */
+function tiedInto(score: Score, b: number, partId: string, voice: number): InstrumentId[] {
+  const previous = score.bars[b - 1]?.parts?.[partId]?.voices[voice]
+  if (!previous) return []
+  const flat = flattenVoice(previous)
+  const last = flat[flat.length - 1]?.event
+  return (last?.notes ?? []).filter((n) => n.tie).map((n) => n.instrument)
+}
+
+/** Whether a hairpin is still open when bar `b` starts: the voice's last mark before it. Read from the score, never from the previous row's DOM. */
+function hairpinInto(score: Score, b: number, partId: string, voice: number): 'cresc' | 'dim' | undefined {
+  let open: 'cresc' | 'dim' | undefined
+  for (let i = 0; i < b; i++) {
+    const v = score.bars[i].parts?.[partId]?.voices[voice]
+    if (!v) continue
+    for (const f of flattenVoice(v)) {
+      const h = f.event.hairpin
+      if (h === 'stop') open = undefined
+      else if (h) open = h
+    }
+  }
+  return open
+}
+
+/**
+ * The ties and hairpins of one voice in one bar, as elements to draw after the voice. A tie to the
+ * next event stays in the bar; to the next bar it waits in `span` for that bar's first note, or —
+ * on the row's last bar — is drawn as a half tie to the stave end. A hairpin runs from its start to
+ * its stop, across bars; one still open at the row end stops at the voice's last note of the row,
+ * and the next row picks it up from its first note (`StaveHairpin` needs both notes).
+ */
+function spanVoice(score: Score, row: RowLayout, bar: BarLayout, v: BuiltVoice, span: VoiceSpan): Element[] {
+  const out: Element[] = []
+  const first = bar === row.bars[0]
+  const lastBar = bar === row.bars[row.bars.length - 1]
+  const head = v.placed[0]
+  if (first) {
+    if (head?.note instanceof StaveNote) {
+      for (const instrument of tiedInto(score, bar.barIndex, v.part.id, v.index)) {
+        const k = head.keyIndex.get(instrument)
+        if (k !== undefined) out.push(new StaveTie({ lastNote: head.note, lastIndexes: [k] }))
+      }
+    }
+    const open = head && hairpinInto(score, bar.barIndex, v.part.id, v.index)
+    if (open && head) span.hairpin = { note: head.note, kind: open }
+  } else if (head?.note instanceof StaveNote) {
+    for (const t of span.ties) {
+      const k = head.keyIndex.get(t.instrument)
+      if (k !== undefined)
+        out.push(new StaveTie({ firstNote: t.note, lastNote: head.note, firstIndexes: [t.index], lastIndexes: [k] }))
+    }
+  }
+  span.ties = []
+  v.placed.forEach((p, i) => {
+    const event = v.flat[i].event
+    if (p.note instanceof StaveNote) {
+      for (const n of p.notes) {
+        if (!n.tie) continue
+        const k = p.keyIndex.get(n.instrument) as number
+        const next = v.placed[i + 1]
+        if (next) {
+          const kn = next.keyIndex.get(n.instrument)
+          if (kn !== undefined && next.note instanceof StaveNote)
+            out.push(new StaveTie({ firstNote: p.note, lastNote: next.note, firstIndexes: [k], lastIndexes: [kn] }))
+        } else if (lastBar) out.push(new StaveTie({ firstNote: p.note, firstIndexes: [k] }))
+        else span.ties.push({ note: p.note, index: k, instrument: n.instrument })
+      }
+    }
+    if (event.hairpin === 'cresc' || event.hairpin === 'dim') span.hairpin = { note: p.note, kind: event.hairpin }
+    else if (event.hairpin === 'stop' && span.hairpin) {
+      out.push(hairpin(span.hairpin.note, p.note, span.hairpin.kind))
+      span.hairpin = undefined
+    }
+    span.last = p.note
+  })
+  if (lastBar && span.hairpin && span.last && span.hairpin.note !== span.last) {
+    out.push(hairpin(span.hairpin.note, span.last, span.hairpin.kind))
+    span.hairpin = undefined
+  }
+  return out
+}
+
 function engraveBar(
   ctx: RenderContext,
   score: Score,
   catalogue: Catalogue,
   layout: Layout,
+  row: RowLayout,
   bar: BarLayout,
   meters: Meter[],
+  spans: Map<string, VoiceSpan>,
 ): void {
   const written = score.bars[bar.barIndex]
   const meter = meters[bar.barIndex]
@@ -266,11 +466,23 @@ function engraveBar(
   const formatter = new Formatter().joinVoices(vf)
   formatter.formatToStave(vf, stave)
   placeOnGrid(formatter, voices)
+  // Spans are collected before drawing — a tie reads its notes' x at draw time — and drawn after
+  // the voices so they sit over the noteheads, not under them.
+  const spanned = voices.flatMap((v) => {
+    const key = `${v.part.id}/${v.index}`
+    let span = spans.get(key)
+    if (!span) {
+      span = { ties: [] }
+      spans.set(key, span)
+    }
+    return spanVoice(score, row, bar, v, span)
+  })
   for (const v of voices) v.vf.draw(ctx, stave)
   for (const v of voices) {
     for (const b of v.beams) b.setContext(ctx).draw()
     for (const t of v.tuplets) t.setContext(ctx).draw()
   }
+  for (const s of spanned) s.setContext(ctx).draw()
 }
 
 /**
@@ -298,7 +510,8 @@ export function engraveRow(
   // bars alone would leave the glyphs at their size and put the noteheads on top of each other on a packed row.
   ctx.scale(scale, scale)
   const meters = metersOf(score)
-  for (const bar of row.bars) engraveBar(ctx, score, catalogue, layout, bar, meters)
+  const spans = new Map<string, VoiceSpan>()
+  for (const bar of row.bars) engraveBar(ctx, score, catalogue, layout, row, bar, meters, spans)
   const el = mount.querySelector('svg') as SVGSVGElement
   el.style.position = 'absolute'
   el.style.left = '0'
