@@ -56,6 +56,13 @@ export const NOTEHEAD_PX = 11.8
 /** Below this the notehead is no longer readable: the constraint that limits how many bars a row takes. */
 export const MIN_NOTEHEAD_PX = 8
 
+/**
+ * Where a rest sits, in staff lines from the bottom. Alone in the bar, on the middle line; with a
+ * second voice the hands' rests move up and the feet's down, so the two never print on top of each
+ * other. The engraver turns these into VexFlow keys; the overlay reads them for a rest's highlight.
+ */
+export const REST_LINE = { single: 2, up: 3, down: 1 } as const
+
 export interface ViewSpec {
   barsPerRow: number
   /** automatic layout: a bar marked `newRow` starts a row. A user-fixed bars-per-row ignores the mark. */

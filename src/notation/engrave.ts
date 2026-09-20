@@ -50,6 +50,7 @@ import {
   type EventBox,
   type Layout,
   LINE_PX,
+  REST_LINE,
   type RowLayout,
   STAFF_H,
   STAFF_LINES,
@@ -84,11 +85,12 @@ export function keyForLine(line: number, head: Notehead = 'normal'): string {
   return code ? `${name}/${octave}/${code}` : `${name}/${octave}`
 }
 
-/**
- * Where a rest sits. Alone in the bar, on the middle line; with a second voice the hands' rests
- * move up and the feet's down, so the two never print on top of each other.
- */
-const REST_KEY = { single: 'b/4', up: 'd/5', down: 'g/4' } as const
+/** The rest lines of the layout as VexFlow keys: `keyForLine(2)` is b/4, the middle line. */
+const REST_KEY = {
+  single: keyForLine(REST_LINE.single),
+  up: keyForLine(REST_LINE.up),
+  down: keyForLine(REST_LINE.down),
+} as const
 
 // `Glyphs` (the SMuFL enum) is not a named export of 'vexflow/bravura' — only the default `VexFlow`
 // object carries it (`VexFlow.Glyphs`) — so it is read off the default export once, here.
