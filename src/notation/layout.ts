@@ -43,7 +43,8 @@ export const STAFF_H = (STAFF_LINES - 1) * 10
  * Measured on the worst-case row (gallery, "Measure band"): ink from −7.5 to 242 px in a 190 px
  * band with the top line at 70 → 78 px above the top line, 132 below the bottom one; above that,
  * 24 px for the tempo mark and the volta bracket, which VexFlow would otherwise draw inside the
- * stack.
+ * stack: 78 + 24 = 102 → 110. Below: 80 + 52 + 4 = 136 → 140 (next multiple of 10: VexFlow reads
+ * `spaceAboveStaffLn` in line spaces).
  */
 export const STAFF_TOP = 110
 export const STAFF_BELOW = 140

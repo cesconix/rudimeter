@@ -355,10 +355,12 @@ const VOLTA_Y_SHIFT = 4 - (STAFF_TOP - 60)
 /**
  * VexFlow draws the tempo mark at `stave.getYForTopText(1) + shift`, i.e. `(STAFF_TOP − 20) + shift`.
  * The gallery's worst-case row ("♩ = 100" over "Groove") showed it sitting on a text above the first
- * note and on the bar number: STAFF_TOP grew a 24 px top layer for exactly this, so the mark's
- * baseline is put at y = 20 from the band top, clear of both.
+ * note and on the bar number: STAFF_TOP grew a 24 px top layer for exactly this. A first pass put
+ * the baseline at y = 20, but the re-measurement found the glyph's ≈23.5 px ascent then overflowed
+ * the band by 3.5 px above (ink top at y = −3.5 in the [0, 290] band); the baseline is put at y = 24
+ * instead, using the full top layer — the glyph's top then sits ≈0.5 px inside the band.
  */
-const TEMPO_Y_SHIFT = 20 - (STAFF_TOP - 20)
+const TEMPO_Y_SHIFT = 24 - (STAFF_TOP - 20)
 
 /** What a voice carries from one bar of the row to the next. Keyed `${part}/${voice}` in `engraveRow`. */
 interface VoiceSpan {
