@@ -30,6 +30,11 @@ describe('gallery scores', () => {
       'hairpins',
       'ties',
       'text',
+      'repeats',
+      'endings',
+      'simile',
+      'tempo',
+      'meters',
     ])
   })
 })

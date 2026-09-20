@@ -1,6 +1,8 @@
 // Dev page: one section per notation the engraver draws, each a small score that isolates what its
 // title promises — the manual check of `src/notation/engrave.ts`, which `bun test` cannot run (no
 // DOM). Tasks 6 and 7 add the library and the measurements the layout constants come from.
+
+import { SCORES } from '../src/data/scores'
 import { engraveRow } from '../src/notation/engrave'
 import { fit } from '../src/notation/fit'
 import { buildLayout, type Layout, SYSTEM_H } from '../src/notation/layout'
@@ -67,3 +69,20 @@ for (const fig of GALLERY) {
     console.error(fig.id, err)
   }
 }
+
+const pick = document.getElementById('pick') as HTMLSelectElement
+for (const score of SCORES) {
+  const option = document.createElement('option')
+  option.value = score.id
+  option.textContent = score.source ? `${score.title} — ${score.source}` : score.title
+  pick.appendChild(option)
+}
+const library = document.getElementById('library') as HTMLElement
+const showPicked = () => {
+  const score = SCORES.find((s) => s.id === pick.value) ?? SCORES[0]
+  show(library, score)
+}
+pick.addEventListener('change', showPicked)
+// The kit groove first: the one piece with two voices and an ending, the spec's "full two-voice kit exercise".
+pick.value = 'kit-ending'
+showPicked()

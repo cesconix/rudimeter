@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
-import { keyForLine } from './engrave'
+import { VoltaType } from 'vexflow/bravura'
+import { keyForLine, voltaType } from './engrave'
 
 // `engraveRow` needs a DOM (VexFlow measures glyphs by reading it): it is checked in the gallery.
 // The key mapping is arithmetic, and a wrong line here is every note on the wrong space.
@@ -28,5 +29,14 @@ describe('keyForLine', () => {
     expect(keyForLine(4, 'diamond')).toBe('f/5/di')
     expect(keyForLine(2.5, 'triangle')).toBe('c/5/tu')
     expect(keyForLine(2.5, 'slash')).toBe('c/5/s')
+  })
+})
+
+describe('voltaType', () => {
+  it('opens on the first bar of a bracket, closes on the last, both on a one-bar bracket, runs through the middle', () => {
+    expect(voltaType({ first: true, last: false })).toBe(VoltaType.BEGIN)
+    expect(voltaType({ first: false, last: true })).toBe(VoltaType.END)
+    expect(voltaType({ first: true, last: true })).toBe(VoltaType.BEGIN_END)
+    expect(voltaType({ first: false, last: false })).toBe(VoltaType.MID)
   })
 })

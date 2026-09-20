@@ -16,6 +16,7 @@ import VexFlow, {
   type RenderContext,
   Renderer,
   RendererBackends,
+  RepeatNote,
   Stave,
   StaveHairpin,
   StaveNote,
@@ -26,6 +27,7 @@ import VexFlow, {
   Tuplet,
   Voice,
   VoiceMode,
+  VoltaType,
 } from 'vexflow/bravura'
 import { resolveBeams } from '../score/beaming'
 import { type FlatEvent, flattenVoice, metersOf } from '../score/events'
@@ -323,6 +325,19 @@ function label(ctx: RenderContext, stave: Stave, text: string, x: number): void 
   ctx.restore()
 }
 
+export function voltaType(bracket: { first: boolean; last: boolean }): number {
+  if (bracket.first && bracket.last) return VoltaType.BEGIN_END
+  if (bracket.first) return VoltaType.BEGIN
+  if (bracket.last) return VoltaType.END
+  return VoltaType.MID
+}
+
+/**
+ * VexFlow puts the metronome mark 20 px above the top line; −20 px lifts it clear of the bar number
+ * that shares the row start. The estimate until the gallery's worst-case row (Task 8) says otherwise.
+ */
+const TEMPO_Y_SHIFT = -20
+
 /** What a voice carries from one bar of the row to the next. Keyed `${part}/${voice}` in `engraveRow`. */
 interface VoiceSpan {
   /** ties leaving the previous bar of this row: the note and the key index of each tied instrument */
@@ -436,12 +451,37 @@ function engraveBar(
   })
   if (bar.showClef) stave.addClef('percussion')
   if (bar.showMeter) stave.addTimeSignature(`${meter[0]}/${meter[1]}`)
-  if (bar.barIndex === score.bars.length - 1) stave.setEndBarType(BarlineType.END)
+  if (written.repeat?.start) stave.setBegBarType(BarlineType.REPEAT_BEGIN)
+  if (written.repeat?.end) stave.setEndBarType(BarlineType.REPEAT_END)
+  else if (bar.barIndex === score.bars.length - 1) stave.setEndBarType(BarlineType.END)
+  // "1." / "1. 2." at the bracket start; VexFlow draws the line to the bar's end and the hook where the bracket closes.
+  if (bar.bracket) stave.setVoltaType(voltaType(bar.bracket), bar.bracket.numbers.map((n) => `${n}.`).join(' '), 0)
+  if (written.tempo)
+    stave.setTempo(
+      { bpm: written.tempo.bpm, duration: String(written.tempo.unit ?? 4), dots: written.tempo.dotted ? 1 : 0 },
+      TEMPO_Y_SHIFT,
+    )
   stave.setContext(ctx).draw()
   // Only at the start of the row: with twenty identical repeats it is the only thing that says WHERE
   // you are. Above the staff, not to the left — the left has the clef. Written bar numbers, 1-based.
   if (bar.showClef) label(ctx, stave, String(bar.barIndex + 1), 0)
-  if (written.simile) return
+  // A repeat played more than twice: the sign cannot say it, the text above its end barline does.
+  const times = written.repeat?.end?.times ?? 0
+  if (times > 2) label(ctx, stave, `×${times}`, bar.x + bar.width - 24)
+  if (written.simile) {
+    // One "%" centred on the bar: a note in a voice that asks for no time (SOFT), whose tick context
+    // is then put at the bar's centre by hand — the grid has nothing to say about a bar that repeats another.
+    const sign = new RepeatNote('1')
+    const vf = new Voice({ numBeats: meter[0], beatValue: meter[1] }).setMode(VoiceMode.SOFT).addTickables([sign])
+    vf.setStave(stave)
+    sign.setStave(stave)
+    const formatter = new Formatter().joinVoices([vf])
+    formatter.formatToStave([vf], stave)
+    const tc = sign.getTickContext()
+    tc.setX(tc.getX() + (bar.x + bar.width / 2 - sign.getAbsoluteX()))
+    vf.draw(ctx, stave)
+    return
+  }
 
   const voices: BuiltVoice[] = []
   for (const part of score.parts) {
@@ -466,8 +506,7 @@ function engraveBar(
   const formatter = new Formatter().joinVoices(vf)
   formatter.formatToStave(vf, stave)
   placeOnGrid(formatter, voices)
-  // Spans are collected before drawing — a tie reads its notes' x at draw time — and drawn after
-  // the voices so they sit over the noteheads, not under them.
+  // Spans are drawn after the voices so they sit over the noteheads, not under them.
   const spanned = voices.flatMap((v) => {
     const key = `${v.part.id}/${v.index}`
     let span = spans.get(key)
