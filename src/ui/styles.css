@@ -258,3 +258,26 @@ main.score-screen .score-frame--pages .score-viewport {
   top: 0;
   will-change: transform;
 }
+
+/* The transport bar: one row of big controls at the bottom, the settings folded under "View". */
+.transport-bar {
+  border-top: 1px solid #8884;
+  padding: 8px 0 0;
+  margin-top: 8px;
+}
+.transport-bar button {
+  margin: 2px 4px 2px 0;
+  padding: 10px 16px;
+}
+.transport-bar input[type="number"] {
+  width: 4.5em;
+}
+.transport-bar__position {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+.transport-bar__settings label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

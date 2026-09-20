@@ -1,6 +1,6 @@
 # Rudimeter
 
-Practice-pad coach for drummers. It plays a metronome, shows the exercise on a staff with a moving cursor, listens to your strokes through the microphone and grades every one of them for timing and dynamics.
+Drum-kit and practice-pad scores with a moving cursor. Pick a piece, set the tempo, press Play: the score is drawn the way the book prints it and a cursor glides over it at constant speed while the notes under it light up. The metronome and the microphone grading are coming back on top of it.
 
 Runs in the browser as a PWA. Built for an iPad on a music stand (Safari); works on desktop Chrome too.
 
@@ -8,11 +8,11 @@ Live: https://rudimeter.com
 
 ## How it works
 
-1. **Calibrate once.** The app plays clicks through the speaker and listens for them, measuring the speaker → microphone round trip.
-2. **Put headphones on**, pick an exercise and a tempo. Without headphones the click itself gets counted as a stroke.
-3. **Play.** Each note lights up as you hit it (good / ok / off). The summary gives per-hand offsets, consistency, accent dynamics, and copies as Markdown for your practice log.
+1. **Pick a piece** from the library: pad exercises written in the sticking language, drum-kit pieces imported from MusicXML.
+2. **Set the tempo** (the piece's own tempo marks scale with it) and choose how the page follows the cursor — scrolling, or turning pages — and how many bars fit on a row and rows on the screen. Both default to automatic.
+3. **Play.** The cursor moves at constant speed on a time grid; every sounding event lights up as it passes; a tap on a bar starts from there.
 
-Options: click subdivision, gap training (bars with and without click), guide sound on every note, auto-increment of the tempo after clean repeats.
+The practice-pad session — calibration, click, and every stroke graded from the microphone — is parked on the dev page `/dev/session.html` while the score is rebuilt; it comes back as another layer on this score.
 
 ## Exercises
 
@@ -48,12 +48,12 @@ A beat is split evenly among its tokens: `RL` is two eighths, `RLRL` four sixtee
 ```
 src/engine     pure domain: sticking DSL, time grid, judging, stats, report. No DOM, no dependencies.
 src/score      pure model of a piece: written durations, drum-kit catalogue, voices, repeats; validation, playback unrolling, time map. No DOM, no dependencies.
-src/audio      Web Audio: click scheduling, microphone capture, onset-detection worklet, calibration.
-src/notation   the score on screen: rows on a time grid and the fit to the viewport (pure), VexFlow engraving one SVG per row through a pool; plus the old exercise renderer the session flow still uses.
+src/audio      Web Audio: the transport on the audio clock; click scheduling, microphone capture, onset-detection worklet, calibration (the session flow).
+src/notation   the score on screen: rows on a time grid, the fit to the viewport, the cursor and highlight geometry (pure); VexFlow engraving one SVG per row through a pool; plus the old exercise renderer the session flow still uses.
 src/session    the runner that ties grid, judge and progression together while you play.
-src/ui         React screens.
+src/ui         React: the score screen (viewport, transport bar, picker, preferences); the session screens, mounted by dev/session.html.
 src/data       the score library: JSON pieces and the sticking exercises compiled into them.
-dev/           notation gallery: one section per notation the engraver draws, the whole library, and the measurements the layout constants come from.
+dev/           notation gallery, the old session flow (dev/session.html), the audio lab, the MusicXML importer, the remote debug CLI.
 ```
 
 Imports flow one way: `engine` ← `score` | `audio` | `notation` | `session` ← `ui`. Tests run with `bun test` and no DOM.
@@ -78,11 +78,13 @@ HTTPS is mandatory: `getUserMedia` needs a secure context, and the iPad reaches 
 
 Notation gallery: with the dev server running, open `/dev/gallery.html` — one section per notation with the sentence it must match, every piece of the library whole, and a Measurements block (head widths, the band, ms per engraved row, dropped frames over 30 s of motion) that the constants in `src/notation/layout.ts` are set from.
 
+Old session flow: `/dev/session.html` is the microphone app as it was — start, calibration, exercise picker, session, summary — kept running on the dev server until the judge comes back on top of the score. Everything below that mentions a session (synthetic input, the remote `arm`/`calibrate`/`start` commands, scenarios, testers' session sharing) runs on that page now: `/dev/session.html?synth=42&player=human`, `/dev/session.html?remote`. The app page (`/`) answers `ping` and `say` on the remote channel and, with a tester key, logs `hello`.
+
 MusicXML import: `bun run import <file> --id <id>` writes `src/data/scores/<id>.json`; the fixtures under `dev/fixtures/musicxml/` show what the importer reads.
 
-Synthetic input (no microphone, no sound): open `/?synth=42&player=human` and keep the tab in the foreground — the page is muted, so Chrome throttles its timers to one tick per second as soon as it is hidden and the drummer falls behind. A virtual drummer plays the exercise through a simulated 35 ms speaker → microphone path, seeded so the run is reproducible; `&player=steady|human|sloppy` picks the drummer. `&headphones=off` feeds the app's own click and guide back into the input at full level: with the guide on, the detector hears the guide on every slot and the report describes a flawless run that never happened — the case its ⚠️ line exists for. `bun run sim --seed 42 --player human --exercise stone-1 --bpm 120` prints the report that run must produce: miss and extra counts exact, ms and dB within ±0.5. A stroke sitting on a judge boundary may still land one class, or one slot, away — the detector sees it a few hundredths of a millisecond off the oracle — and the hand and repeat tables move with it. The `Calibration:` line differs by design.
+Synthetic input (no microphone, no sound): open `/dev/session.html?synth=42&player=human` and keep the tab in the foreground — the page is muted, so Chrome throttles its timers to one tick per second as soon as it is hidden and the drummer falls behind. A virtual drummer plays the exercise through a simulated 35 ms speaker → microphone path, seeded so the run is reproducible; `&player=steady|human|sloppy` picks the drummer. `&headphones=off` feeds the app's own click and guide back into the input at full level: with the guide on, the detector hears the guide on every slot and the report describes a flawless run that never happened — the case its ⚠️ line exists for. `bun run sim --seed 42 --player human --exercise stone-1 --bpm 120` prints the report that run must produce: miss and extra counts exact, ms and dB within ±0.5. A stroke sitting on a judge boundary may still land one class, or one slot, away — the detector sees it a few hundredths of a millisecond off the oracle — and the hand and repeat tables move with it. The `Calibration:` line differs by design.
 
-Remote debug layer (dev server only): open the app or `/dev/lab.html` with `?remote` (or `?remote=<name>`) on any device on the LAN, then give it the one tap iOS needs to open the microphone — "Start" in the app, "Enable microphone" in the lab — and drive it from the terminal: `bun run remote ls`, `bun run remote calibrate`, `bun run remote start '{"exercise":"stone-1","bpm":60}'`, `bun run remote record '{"seconds":20,"label":"strokes"}'`. Everything the page does goes to `/api/log` and lands in the dev store, `.remote/dev.db` (raw hits, calibration, session grids and reports, output latency once a second); recordings land next to it as WAV; a batch the page could not ship at the first attempt is sent again behind a `flush:retry` line. `.remote/` is git-ignored and nothing prunes it. `bun run scenario <name>` runs a scripted sequence from `dev/scenarios/` with instructions shown on the device. With several devices connected, pass `--to <name>`. None of the command channel is in the production bundle.
+Remote debug layer (dev server only): open `/dev/session.html` or `/dev/lab.html` with `?remote` (or `?remote=<name>`) on any device on the LAN, then give it the one tap iOS needs to open the microphone — "Start" on the session page, "Enable microphone" in the lab — and drive it from the terminal: `bun run remote ls`, `bun run remote calibrate`, `bun run remote start '{"exercise":"stone-1","bpm":60}'`, `bun run remote record '{"seconds":20,"label":"strokes"}'`. Everything the page does goes to `/api/log` and lands in the dev store, `.remote/dev.db` (raw hits, calibration, session grids and reports, output latency once a second); recordings land next to it as WAV; a batch the page could not ship at the first attempt is sent again behind a `flush:retry` line. `.remote/` is git-ignored and nothing prunes it. `bun run scenario <name>` runs a scripted sequence from `dev/scenarios/` with instructions shown on the device. With several devices connected, pass `--to <name>`. None of the command channel is in the production bundle.
 
 Sharing sessions from anywhere: `bun run remote devices add <name> --remote` prints a link, `https://www.rudimeter.com/?tester=<key>`. A page opened with it shares every session with the store behind rudimeter.com — stroke timing and levels, the session grid, the calibration, the output latency, the app version and the comments typed in the "How did it go?" box at the end of each session; never audio — and shows a badge saying so, with a Stop. The key stays in the browser's storage and leaves the address bar at once. The same link on `https://localhost:5173` (without `--remote`) writes to the dev store.
 
