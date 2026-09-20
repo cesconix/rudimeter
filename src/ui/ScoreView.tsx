@@ -152,6 +152,13 @@ export function ScoreView({ score, transport, now, mode, prefs, onBar }: Props) 
         vp.style.height = mode === 'pages' ? `${f.rowsVisible * rowH}px` : ''
         cur.style.width = `${NOTEHEAD_PX * f.scale}px`
         cur.style.height = `${(STAFF_H + CURSOR_ABOVE + CURSOR_BELOW) * f.scale}px`
+        // A new geometry: every slot forgets its key, so the loop re-places it at the new scale.
+        for (const el of highlightRefs.current) {
+          if (el) {
+            el.dataset.key = ''
+            el.hidden = true
+          }
+        }
         const pool = new RowPool(layout.rows.length, (r) =>
           engraveRow(host, score, catalogue, layout, layout.rows[r], f.scale),
         )

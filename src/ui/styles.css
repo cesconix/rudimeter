@@ -238,7 +238,7 @@ main.score-screen .score-viewport {
 }
 /* Pages: the viewport is exactly `rowsVisible` rows tall (set by ScoreView) and never scrolls by
    hand; the page turns with the cursor and a tap seeks. */
-.score-frame--pages .score-viewport {
+main.score-screen .score-frame--pages .score-viewport {
   flex: none;
   overflow-y: hidden;
 }
