@@ -64,7 +64,14 @@ export function ScoreScreen() {
       ctxRef.current = c
       setCtx(c)
     }
-    await ensureRunning(c)
+    try {
+      await ensureRunning(c)
+    } catch {
+      // Safari rejects `resume()` when it decides the call falls outside the gesture: surface the
+      // same banner a later suspend shows, instead of leaving an unhandled rejection and a silent Play.
+      setSuspended(true)
+      return
+    }
     transport.play()
   }
 

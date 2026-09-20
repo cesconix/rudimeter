@@ -1,6 +1,6 @@
 // Prints the report the browser must produce for the same seed:
 //   bun run sim --seed 42 --player human --exercise stone-1 --bpm 120 [--auto]
-// Compare with the summary of https://localhost:5173/?synth=42&player=human (tab in the foreground: a hidden
+// Compare with the summary of https://localhost:5173/dev/session.html?synth=42&player=human (tab in the foreground: a hidden
 // muted tab is throttled to one timer tick per second) after the same exercise at the same tempo: miss and
 // extra counts exact, ms and dB within ±0.5; a stroke on a judge boundary may land one class or one slot away,
 // and the hand and repeat tables move with it. The `Calibration:` line differs by design.

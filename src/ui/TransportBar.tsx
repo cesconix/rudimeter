@@ -33,7 +33,10 @@ export function TransportBar({ transport, bar, bars, prefs, onPlay, onPrefs }: P
   const setBpm = (b: number) => onPrefs({ bpm: clampBpm(b) })
   const commit = () => {
     const n = Number(draft)
-    setBpm(Number.isFinite(n) && draft.trim() !== '' ? n : prefs.bpm)
+    const next = Number.isFinite(n) && draft.trim() !== '' ? clampBpm(n) : prefs.bpm
+    // Echoed back on purpose: a clamped or unchanged value leaves prefs.bpm as it was, and the effect above would not resync the field.
+    setDraft(String(next))
+    onPrefs({ bpm: next })
   }
 
   return (

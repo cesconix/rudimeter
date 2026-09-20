@@ -225,6 +225,8 @@ main.score-screen {
   display: flex;
   flex-direction: column;
   max-width: none;
+  /* The base `main` rule's `margin: 0 auto` shrinks a column-flex item to its content's width. */
+  margin: 0;
   padding: 8px 12px;
 }
 main.score-screen .score-frame {
@@ -236,10 +238,9 @@ main.score-screen .score-frame {
 main.score-screen .score-viewport {
   flex: 1;
 }
-/* Pages: the viewport is exactly `rowsVisible` rows tall (set by ScoreView) and never scrolls by
-   hand; the page turns with the cursor and a tap seeks. */
+/* Pages: the viewport keeps the frame's width; its height is set by ScoreView; it never scrolls by
+   hand — the page turns with the cursor and a tap seeks. */
 main.score-screen .score-frame--pages .score-viewport {
-  flex: none;
   overflow-y: hidden;
 }
 /* A highlight box: the event's slice of the time grid around its heads, translucent so the heads
