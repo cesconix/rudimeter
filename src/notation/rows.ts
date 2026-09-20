@@ -40,3 +40,40 @@ export class RowPool<T extends { dispose(): void }> {
     return this.rows.get(row)
   }
 }
+
+/**
+ * `ensure` off the frame step. A row engraves in 3 ms alone on the iPad and 9–12 ms inside a rAF
+ * step (the gallery's motion lines, plan 10), which is the whole budget at 60 Hz: every frame that
+ * carried an engrave was a dropped frame. Deferred to its own task the engrave runs between frames,
+ * and the pool's ±1 margin means the row was asked for a whole row of music before it is needed.
+ * Calls made before the task runs collapse into the last one; `cancel` drops a pending window —
+ * a re-layout replaces the pool, and a task queued for the old one must not draw into it.
+ * `schedule` is injectable for the tests; the default is a 0 ms timer, which the browser runs
+ * after the current frame's rendering, not inside it.
+ */
+export function deferEnsure<T extends { dispose(): void }>(
+  pool: RowPool<T>,
+  schedule: (run: () => void) => void = (run) => {
+    setTimeout(run, 0)
+  },
+): { ensure(first: number, last: number): void; cancel(): void } {
+  let wanted: [number, number] | null = null
+  let cancelled = false
+  return {
+    ensure(first, last) {
+      if (cancelled) return
+      const pending = wanted !== null
+      wanted = [first, last]
+      if (pending) return
+      schedule(() => {
+        const w = wanted
+        wanted = null
+        if (w && !cancelled) pool.ensure(w[0], w[1])
+      })
+    },
+    cancel() {
+      cancelled = true
+      wanted = null
+    },
+  }
+}

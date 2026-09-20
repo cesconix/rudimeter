@@ -2,13 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import type { Grid } from '../engine/grid'
 import type { Exercise, Grade, Judged } from '../engine/types'
 import { type CursorPoint, cursorAt } from '../notation/cursor'
+import { notationFontsReady } from '../notation/fonts'
 import { paintDiff } from '../notation/paint'
 import { planExercise } from '../notation/plan'
 import {
   NATURAL_NOTEHEAD_PX,
   NATURAL_STAFF_H,
   NATURAL_STAFF_TOP,
-  notationFontsReady,
   type RenderedScore,
   renderScore,
 } from '../notation/render'

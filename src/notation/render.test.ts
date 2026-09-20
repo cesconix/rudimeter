@@ -1,26 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { fitLayout, MIN_NOTEHEAD_PX, NATURAL_NOTEHEAD_PX, notationFontsReady } from './render'
-
-// `document.fonts` does not exist (`bun test` runs without a DOM, no jsdom), so the real race with
-// the Bravura font in the browser cannot be verified here — that stays a manual check (see
-// `dev/gallery.html`). This test covers only the function's plumbing with a fake
-// `document.fonts.ready`: that it delegates to that promise and resolves to `undefined` instead of
-// returning the `FontFaceSet` (so as not to leak the type, as the contract requires).
-describe('notationFontsReady', () => {
-  it("resolves to undefined, without leaking document.fonts.ready's FontFaceSet", async () => {
-    const fakeFontFaceSet = { fake: true }
-    const g = globalThis as { document?: unknown }
-    const previous = g.document
-    g.document = { fonts: { ready: Promise.resolve(fakeFontFaceSet) } }
-    try {
-      const result = await notationFontsReady()
-      expect(result).toBeUndefined()
-    } finally {
-      if (previous === undefined) delete g.document
-      else g.document = previous
-    }
-  })
-})
+import { fitLayout, MIN_NOTEHEAD_PX, NATURAL_NOTEHEAD_PX } from './render'
 
 // `fitLayout` is pure (no DOM, no VexFlow): it is the only part of the render verifiable here.
 // The tests pin down the layout's PROPERTIES — musical anchoring, scale ceiling, readability

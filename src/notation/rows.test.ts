@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { RowPool } from './rows'
+import { deferEnsure, RowPool } from './rows'
 
 /** A pool over fake rows that record their life: `engraved` in order of creation, `disposed` in order of disposal. */
 function pool(count: number) {
@@ -67,5 +67,45 @@ describe('RowPool', () => {
     const { p } = pool(3)
     p.ensure(5, 9)
     expect(p.alive()).toEqual([])
+  })
+})
+
+describe('deferEnsure', () => {
+  it('runs one ensure per scheduled task, with the last window asked for', () => {
+    const { p, engraved } = pool(10)
+    const queue: (() => void)[] = []
+    const d = deferEnsure(p, (run) => queue.push(run))
+    d.ensure(0, 1)
+    d.ensure(2, 3)
+    expect(queue.length).toBe(1)
+    expect(engraved).toEqual([])
+    queue.shift()?.()
+    expect(p.alive()).toEqual([1, 2, 3, 4])
+    // a new call after the task ran schedules again
+    d.ensure(5, 5)
+    expect(queue.length).toBe(1)
+    queue.shift()?.()
+    expect(p.alive()).toEqual([4, 5, 6])
+  })
+
+  it('cancel drops the pending window: a pool that was invalidated is not drawn into again', () => {
+    const { p, engraved } = pool(10)
+    const queue: (() => void)[] = []
+    const d = deferEnsure(p, (run) => queue.push(run))
+    d.ensure(0, 1)
+    d.cancel()
+    queue.shift()?.()
+    expect(engraved).toEqual([])
+    d.ensure(3, 3)
+    expect(queue.length).toBe(0)
+  })
+
+  it('schedules on a timer by default', async () => {
+    const { p } = pool(10)
+    const d = deferEnsure(p)
+    d.ensure(2, 2)
+    expect(p.alive()).toEqual([])
+    await new Promise((r) => setTimeout(r, 5))
+    expect(p.alive()).toEqual([1, 2, 3])
   })
 })
