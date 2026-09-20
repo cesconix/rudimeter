@@ -21,7 +21,9 @@ function show(host: HTMLElement, score: Score, barsPerRow: Pref = 'auto'): RowPo
   // 0 while the host is not in layout yet: a wide fallback rather than one bar per row.
   const availW = host.clientWidth || 1200
   const f = fit(availW, Number.POSITIVE_INFINITY, { barsPerRow, rowsPerViewport: 'auto' }, score)
-  const layout = buildLayout(score, { barsPerRow: f.barsPerRow, auto: barsPerRow === 'auto' })
+  // A pin fixes the row's WIDTH (how many bars fit), never its row breaks: only a user's saved
+  // preference in the app may drop a figure's `newRow` marks, so the gallery always honours them.
+  const layout = buildLayout(score, { barsPerRow: f.barsPerRow, auto: true })
   host.replaceChildren()
   host.style.height = `${layout.rows.length * SYSTEM_H * f.scale}px`
   const catalogue = resolveInstruments(score)
@@ -198,24 +200,31 @@ function motion(mode: 'scroll' | 'pages'): void {
   let prev = t0
   pool.ensure(0, f.rowsVisible - 1)
   const step = () => {
-    const now = performance.now()
-    frames++
-    if (now - prev > 20) dropped++
-    prev = now
-    const s = (now - t0) / 1000
-    const row = rowAt(s)
-    if (mode === 'scroll') {
-      viewport.scrollTop = row * rowH
-      deferred.ensure(row, Math.min(last, row + f.rowsVisible - 1))
-    } else {
-      const first = Math.floor(row / f.rowsVisible) * f.rowsVisible
-      viewport.scrollTop = first * rowH
-      deferred.ensure(first, Math.min(last, first + 2 * f.rowsVisible - 1))
-    }
-    if (s < 30 && s < map.end) requestAnimationFrame(step)
-    else {
+    // `running` must clear on every exit, not just the normal one: a throw here (a bad row index,
+    // say) would otherwise leave it stuck at true and both buttons would log "a run is in progress" forever.
+    try {
+      const now = performance.now()
+      frames++
+      if (now - prev > 20) dropped++
+      prev = now
+      const s = (now - t0) / 1000
+      const row = rowAt(s)
+      if (mode === 'scroll') {
+        viewport.scrollTop = row * rowH
+        deferred.ensure(row, Math.min(last, row + f.rowsVisible - 1))
+      } else {
+        const first = Math.floor(row / f.rowsVisible) * f.rowsVisible
+        viewport.scrollTop = first * rowH
+        deferred.ensure(first, Math.min(last, first + 2 * f.rowsVisible - 1))
+      }
+      if (s < 30 && s < map.end) requestAnimationFrame(step)
+      else {
+        running = false
+        log(`${mode}: ${s.toFixed(1)} s, ${frames} frames, ${dropped} intervals > 20 ms; engraved ${stats(times)}`)
+      }
+    } catch (err) {
       running = false
-      log(`${mode}: ${s.toFixed(1)} s, ${frames} frames, ${dropped} intervals > 20 ms; engraved ${stats(times)}`)
+      throw err
     }
   }
   requestAnimationFrame(step)
