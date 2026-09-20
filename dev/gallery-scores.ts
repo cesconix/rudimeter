@@ -478,7 +478,7 @@ export const GALLERY: Figure[] = [
   figure(
     'meters',
     'Meter changes: 4/4, 3/4, 6/8, 7/8 (2+2+3 and 3+2+2), 2/4, 12/8 at a row start, back to 4/4',
-    'Bar 1 in 4/4, then "3/4" drawn inside the row before three quarters (the bar is three quarters wide), "6/8" before six eighths beamed 3+3, "7/8" before seven eighths beamed 2+2+3, then seven eighths beamed 3+2+2 with no new signature (explicit groups), "2/4" before two quarters. Row 2 opens with the clef and "12/8" before twelve eighths beamed in threes, four groups; then "4/4" again.',
+    'Bar 1 in 4/4; "3/4" drawn before three quarters (the bar is three quarters wide); "6/8" before six eighths beamed 3+3; "7/8" before seven eighths beamed 2+2+3; then seven eighths beamed 3+2+2 with no new signature (explicit groups); "2/4" before two quarters; "12/8" at a row start before twelve eighths beamed in threes, four groups; then "4/4" again. Every signature that is not the first of a row sits in its own gutter before the bar\'s first note.',
     [
       bar(q4()),
       bar([N(4), N(4), N(4)], undefined, { meter: [3, 4] }),
@@ -507,3 +507,40 @@ export const GALLERY: Figure[] = [
     ],
   ),
 ]
+
+/**
+ * Everything the band must hold at once: above — accent, tuplet number, text, a volta bracket, a
+ * tempo mark; below — feet stems, sticking, a dynamic, a hairpin. `SYSTEM_H` is measured on it.
+ */
+export const WORST_CASE: Figure = figure(
+  'worst-case',
+  'Worst case for the band',
+  'Nothing drawn above the top of the band or below its bottom: the Measurements block prints the overflow, if any.',
+  [
+    bar(
+      [N(4, 'snare', { text: 'Groove' }), N(4), N(4), N(4)],
+      [N(4, 'kick'), N(4, 'kick'), N(4, 'kick'), N(4, 'kick')],
+      { repeat: { start: true }, tempo: { bpm: 100 } },
+    ),
+    bar(
+      [
+        T(3, 2, [
+          N(8, 'snare', { accent: true, text: 'Fill', sticking: 'R' }),
+          N(8, 'snare', { sticking: 'L' }),
+          N(8, 'snare', { sticking: 'R' }),
+        ]),
+        { duration: { base: 4 }, notes: [{ instrument: 'hihat', open: true }], accent: true },
+        N(4, 'snare', { dynamic: 'ff', hairpin: 'cresc', sticking: 'R' }),
+        N(4, 'snare', { hairpin: 'stop', accent: true, sticking: 'L' }),
+      ],
+      [
+        N(4, 'kick', { sticking: 'R', dynamic: 'f' }),
+        N(4, 'hihat-pedal', { sticking: 'L' }),
+        N(4, 'kick'),
+        N(4, 'kick'),
+      ],
+      { ending: [1], repeat: { end: {} } },
+    ),
+    bar(q4(), undefined, { ending: [2] }),
+  ],
+)

@@ -3,14 +3,17 @@
 // DOM). Tasks 6 and 7 add the library and the measurements the layout constants come from.
 
 import { SCORES } from '../src/data/scores'
-import { engraveRow } from '../src/notation/engrave'
+import { engraveRow, measureHead, measureInk } from '../src/notation/engrave'
 import { fit } from '../src/notation/fit'
-import { buildLayout, type Layout, SYSTEM_H } from '../src/notation/layout'
+import { buildLayout, HEAD_PX, type Layout, METER_PX, STAFF_TOP, SYSTEM_H } from '../src/notation/layout'
 import { notationFontsReady } from '../src/notation/render'
 import { RowPool } from '../src/notation/rows'
+import { toNumber } from '../src/score/fraction'
 import { resolveInstruments } from '../src/score/instruments'
+import { buildTimeMap } from '../src/score/timemap'
 import type { Score } from '../src/score/types'
-import { type Figure, GALLERY } from './gallery-scores'
+import { barStarts, unroll } from '../src/score/unroll'
+import { type Figure, GALLERY, WORST_CASE } from './gallery-scores'
 
 interface Shown {
   layout: Layout
@@ -86,3 +89,124 @@ pick.addEventListener('change', showPicked)
 // The kit groove first: the one piece with two voices and an ending, the spec's "full two-voice kit exercise".
 pick.value = 'kit-ending'
 showPicked()
+
+// --- Measurements: dev-only, `performance.now()` is fine here (nothing in the app reads these) ---
+
+/** The piece with the most bars: the pyramids, thirty bars of sixteenths. */
+const LONGEST = SCORES.reduce((a, b) => (b.bars.length > a.bars.length ? b : a))
+
+function on(id: string, handler: () => void): void {
+  // biome-ignore lint/style/noNonNullAssertion: the id is hardcoded in gallery.html; a missing one must break the dev page loudly.
+  document.getElementById(id)!.addEventListener('click', handler)
+}
+
+on('measure-head', () => {
+  const head = measureHead(true, '12/8')
+  const meter = measureHead(false, '12/8')
+  log(
+    `head: clef + 12/8 need ${head.toFixed(1)} px, HEAD_PX is ${HEAD_PX}; 12/8 alone needs ${meter.toFixed(1)} px, METER_PX is ${METER_PX}; clef + 4/4 need ${measureHead(true, '4/4').toFixed(1)} px`,
+  )
+})
+
+on('measure-band', () => {
+  const host = document.getElementById('band') as HTMLElement
+  // Scale 1 on purpose, on the page for the eye and on pixels for the numbers: a text box in the
+  // SVG is the font's em box, not the ink, so `getBBox()` would over-reserve by ≈80 px.
+  const layout = buildLayout(WORST_CASE.score, { barsPerRow: 8, auto: true })
+  host.replaceChildren()
+  host.style.height = `${SYSTEM_H}px`
+  const catalogue = resolveInstruments(WORST_CASE.score)
+  engraveRow(host, WORST_CASE.score, catalogue, layout, layout.rows[0], 1)
+  const { top, bottom } = measureInk(WORST_CASE.score, catalogue, layout, layout.rows[0])
+  log(
+    `band: ink from y = ${top.toFixed(1)} to ${bottom.toFixed(1)} px (pixels); band is [0, ${SYSTEM_H}] with the top line at ${STAFF_TOP}; ` +
+      `overflow above ${Math.max(0, -top).toFixed(1)} px, below ${Math.max(0, bottom - SYSTEM_H).toFixed(1)} px`,
+  )
+})
+
+/** Engraves `score` into `host` with every row timed; returns what the motion loop needs. */
+function timed(host: HTMLElement, viewport: HTMLElement, score: Score) {
+  const f = fit(
+    viewport.clientWidth || 1200,
+    viewport.clientHeight || 3 * SYSTEM_H,
+    { barsPerRow: 'auto', rowsPerViewport: 'auto' },
+    score,
+  )
+  const layout = buildLayout(score, { barsPerRow: f.barsPerRow, auto: true })
+  const rowH = SYSTEM_H * f.scale
+  host.replaceChildren()
+  host.style.height = `${layout.rows.length * rowH}px`
+  const catalogue = resolveInstruments(score)
+  const times: number[] = []
+  const pool = new RowPool(layout.rows.length, (r) => {
+    const t = performance.now()
+    const row = engraveRow(host, score, catalogue, layout, layout.rows[r], f.scale)
+    times.push(performance.now() - t)
+    return row
+  })
+  return { f, layout, rowH, pool, times }
+}
+
+const stats = (times: number[]) =>
+  times.length === 0
+    ? 'no row engraved'
+    : `${times.length} rows, max ${Math.max(...times).toFixed(1)} ms, mean ${(times.reduce((a, b) => a + b, 0) / times.length).toFixed(1)} ms`
+
+on('measure-engrave', () => {
+  const viewport = document.getElementById('motion') as HTMLElement
+  const host = document.getElementById('motion-host') as HTMLElement
+  viewport.style.height = `${3 * SYSTEM_H}px`
+  const { layout, pool, times } = timed(host, viewport, LONGEST)
+  const t = performance.now()
+  pool.ensure(0, layout.rows.length - 1)
+  log(`engrave ${LONGEST.id}: ${(performance.now() - t).toFixed(1)} ms in all; ${stats(times)}`)
+})
+
+/**
+ * The viewport follows the row the cursor would be on at 120 bpm, through the pool, for 30 s: in
+ * scroll mode the row anchors at the top, in pages mode the page turns when the row leaves it and
+ * the next page is kept engraved. What is measured is whether engraving on demand fits between
+ * frames — the question the canvas-rows task waits on — not the cursor, which is plan 11.
+ */
+function motion(mode: 'scroll' | 'pages'): void {
+  const viewport = document.getElementById('motion') as HTMLElement
+  const host = document.getElementById('motion-host') as HTMLElement
+  viewport.style.height = `${3 * SYSTEM_H}px`
+  const { f, layout, rowH, pool, times } = timed(host, viewport, LONGEST)
+  const playback = unroll(LONGEST)
+  const map = buildTimeMap(LONGEST, playback, 120)
+  const starts = barStarts(LONGEST, playback).map(toNumber)
+  const rowAt = (seconds: number): number => {
+    const pos = map.positionAt(seconds)
+    let i = 0
+    while (i + 1 < starts.length && starts[i + 1] <= pos) i++
+    return layout.rowOfBar[playback[i].barIndex]
+  }
+  const last = layout.rows.length - 1
+  let frames = 0
+  let dropped = 0
+  const t0 = performance.now()
+  let prev = t0
+  const step = () => {
+    const now = performance.now()
+    frames++
+    if (now - prev > 20) dropped++
+    prev = now
+    const s = (now - t0) / 1000
+    const row = rowAt(s)
+    if (mode === 'scroll') {
+      viewport.scrollTop = row * rowH
+      pool.ensure(row, Math.min(last, row + f.rowsVisible - 1))
+    } else {
+      const first = Math.floor(row / f.rowsVisible) * f.rowsVisible
+      viewport.scrollTop = first * rowH
+      pool.ensure(first, Math.min(last, first + 2 * f.rowsVisible - 1))
+    }
+    if (s < 30 && s < map.end) requestAnimationFrame(step)
+    else log(`${mode}: ${s.toFixed(1)} s, ${frames} frames, ${dropped} intervals > 20 ms; engraved ${stats(times)}`)
+  }
+  requestAnimationFrame(step)
+}
+
+on('measure-scroll', () => motion('scroll'))
+on('measure-pages', () => motion('pages'))

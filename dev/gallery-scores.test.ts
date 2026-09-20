@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { GALLERY } from './gallery-scores'
+import { GALLERY, WORST_CASE } from './gallery-scores'
 
 // Importing the module already runs every figure through `parseScore`; this pins the rest.
 describe('gallery scores', () => {
@@ -36,5 +36,10 @@ describe('gallery scores', () => {
       'tempo',
       'meters',
     ])
+  })
+
+  it('the worst case validates and is not a coverage row', () => {
+    expect(WORST_CASE.id).toBe('worst-case')
+    expect(GALLERY.some((f) => f.id === 'worst-case')).toBe(false)
   })
 })

@@ -467,6 +467,7 @@ function engraveBar(
   if (bar.showClef) label(ctx, stave, String(bar.barIndex + 1), 0)
   // A repeat played more than twice: the sign cannot say it, the text above its end barline does.
   const times = written.repeat?.end?.times ?? 0
+  // 24 px: the width of "×3" in 13 px system-ui (measured ≈20 px) plus 4 px of air before the barline.
   if (times > 2) label(ctx, stave, `×${times}`, bar.x + bar.width - 24)
   if (written.simile) {
     // One "%" centred on the bar: a note in a voice that asks for no time (SOFT), whose tick context
@@ -557,4 +558,58 @@ export function engraveRow(
   el.style.top = `${row.index * height}px`
   host.appendChild(el)
   return { el, dispose: () => el.remove() }
+}
+
+/**
+ * Natural px from a stave's left edge to where its notes may start, for the given head: what
+ * `HEAD_PX` (clef + meter) and `METER_PX` (meter alone) must cover, plus VexFlow's note padding.
+ * A dev measurement for the gallery; nothing in the app calls it. Needs the fonts: the clef and
+ * the signature are glyphs.
+ */
+export function measureHead(clef: boolean, meter: string | null): number {
+  const stave = new Stave(0, 0, 400)
+  if (clef) stave.addClef('percussion')
+  if (meter) stave.addTimeSignature(meter)
+  return stave.getNoteStartX() + Metrics.get('Stave.padding', 0)
+}
+
+/**
+ * Ink extent of one row in natural px, read from pixels: the row is drawn on an offscreen canvas
+ * (VexFlow's canvas backend, through the same `engraveBar`) with room above and below the band,
+ * and the first and last painted pixel rows are read back. `getBBox()` cannot give this: VexFlow 5
+ * draws every glyph as text, and a text box is the font's em box — measured ≈80 px deeper than a
+ * dynamic's ink. A dev measurement for the gallery; nothing in the app calls it.
+ */
+export function measureInk(
+  score: Score,
+  catalogue: Catalogue,
+  layout: Layout,
+  row: RowLayout,
+): { top: number; bottom: number } {
+  const PAD = 200
+  const canvas = document.createElement('canvas')
+  const renderer = new Renderer(canvas, RendererBackends.CANVAS)
+  const width = Math.ceil(row.widthNatural)
+  const height = SYSTEM_H + 2 * PAD
+  renderer.resize(width, height)
+  const ctx = renderer.getContext()
+  const c2d = canvas.getContext('2d') as CanvasRenderingContext2D
+  // After `resize`, which applied the device pixel ratio: the shift is in natural px.
+  c2d.translate(0, PAD)
+  const meters = metersOf(score)
+  const spans = new Map<string, VoiceSpan>()
+  for (const bar of row.bars) engraveBar(ctx, score, catalogue, layout, row, bar, meters, spans)
+  const dpr = window.devicePixelRatio || 1
+  const image = c2d.getImageData(0, 0, canvas.width, canvas.height)
+  let top = -1
+  let bottom = -1
+  for (let y = 0; y < image.height; y++) {
+    let painted = false
+    for (let x = 0; x < image.width && !painted; x++) painted = image.data[(y * image.width + x) * 4 + 3] > 0
+    if (painted) {
+      if (top < 0) top = y
+      bottom = y + 1
+    }
+  }
+  return { top: top / dpr - PAD, bottom: bottom / dpr - PAD }
 }
