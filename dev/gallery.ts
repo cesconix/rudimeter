@@ -3,9 +3,9 @@
 // DOM). Tasks 6 and 7 add the library and the measurements the layout constants come from.
 
 import { SCORES } from '../src/data/scores'
-import { engraveRow, measureHead, measureInk } from '../src/notation/engrave'
+import { type EngravedRow, engraveRow, measureHead, measureInk } from '../src/notation/engrave'
 import { fit } from '../src/notation/fit'
-import { buildLayout, HEAD_PX, type Layout, METER_PX, STAFF_TOP, SYSTEM_H } from '../src/notation/layout'
+import { buildLayout, HEAD_PX, METER_PX, STAFF_TOP, SYSTEM_H } from '../src/notation/layout'
 import { notationFontsReady } from '../src/notation/render'
 import { RowPool } from '../src/notation/rows'
 import { toNumber } from '../src/score/fraction'
@@ -15,13 +15,8 @@ import type { Score } from '../src/score/types'
 import { barStarts, unroll } from '../src/score/unroll'
 import { type Figure, GALLERY, WORST_CASE } from './gallery-scores'
 
-interface Shown {
-  layout: Layout
-  scale: number
-}
-
-/** Engraves a whole score into `host` at the scale that fits its width, every row alive. */
-function show(host: HTMLElement, score: Score): Shown {
+/** Engraves a whole score into `host` at the scale that fits its width, every row alive; the caller owns the pool. */
+function show(host: HTMLElement, score: Score): RowPool<EngravedRow> {
   // 0 while the host is not in layout yet: a wide fallback rather than one bar per row.
   const availW = host.clientWidth || 1200
   const f = fit(availW, Number.POSITIVE_INFINITY, { barsPerRow: 'auto', rowsPerViewport: 'auto' }, score)
@@ -33,7 +28,7 @@ function show(host: HTMLElement, score: Score): Shown {
     engraveRow(host, score, catalogue, layout, layout.rows[r], f.scale),
   )
   pool.ensure(0, layout.rows.length - 1)
-  return { layout, scale: f.scale }
+  return pool
 }
 
 function section(fig: Figure): { el: HTMLElement; host: HTMLElement } {
@@ -81,9 +76,13 @@ for (const score of SCORES) {
   pick.appendChild(option)
 }
 const library = document.getElementById('library') as HTMLElement
+// `show` replaces the host's children on every call anyway, so the previous SVGs are dropped
+// regardless — but the pool itself must not keep owning rows it no longer draws into.
+let libraryPool: RowPool<EngravedRow> | undefined
 const showPicked = () => {
   const score = SCORES.find((s) => s.id === pick.value) ?? SCORES[0]
-  show(library, score)
+  libraryPool?.invalidate()
+  libraryPool = show(library, score)
 }
 pick.addEventListener('change', showPicked)
 // The kit groove first: the one piece with two voices and an ending, the spec's "full two-voice kit exercise".

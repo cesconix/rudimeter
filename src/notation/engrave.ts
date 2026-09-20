@@ -49,6 +49,7 @@ import {
   type BarLayout,
   type EventBox,
   type Layout,
+  LINE_PX,
   type RowLayout,
   STAFF_H,
   STAFF_LINES,
@@ -115,9 +116,10 @@ function glyph(text: string, where: 'above' | 'below'): Annotation {
 }
 
 /**
- * Below the staff, under the feet's stems: a kick's stem ends 35 px below its head, and the sticking
- * sits under that. 30 px below the stave's bottom: clear of a kick's 35 px stem on the worst-case
- * row (gallery).
+ * Below the staff, under the feet's stems. The kick head sits on line 0.5 (5 px above the bottom
+ * line); its 35 px stem ends 30 px below the bottom line. VexFlow draws the wedge at
+ * `stave bottom + 20 + yShift` (`renderHairpin`: `dis = yShift + 20`), so 30 puts it 50 px below
+ * the bottom line — 20 px under the stem end, measured on the worst-case row (gallery): no crossing.
  */
 const HAIRPIN_Y_SHIFT = 30
 
@@ -215,6 +217,8 @@ function decorate(note: StaveNote, event: Event, notes: Note[], dir: number, cat
     note.addModifier(new Annotation(event.text).setVerticalJustification(AnnotationVerticalJustify.TOP), 0)
   if (event.grace) {
     // The grace note takes the event's first instrument unless the piece says otherwise; a flam is one slashed eighth, a drag two beamed sixteenths.
+    // `event.grace.sticking` (the grace note's hand) is not printed: books mark a flam's hand only
+    // on the main note, and the old renderer did not print it either.
     const instrument = event.grace.instrument ?? notes[0].instrument
     const key = keyForLine(catalogue[instrument].line, catalogue[instrument].head)
     const flam = event.grace.kind === 'flam'
@@ -372,9 +376,15 @@ interface VoiceSpan {
   last?: StemmableNote
 }
 
-/** The instruments tied into the first event of bar `b` of a voice from the bar before it. At a row start they arrive as half ties. */
+/**
+ * The instruments tied into the first event of bar `b` of a voice from the bar before it. At a row
+ * start they arrive as half ties. Walks back over bars without `parts` (simile bars carry no
+ * events of their own) to the last bar that actually has this voice.
+ */
 function tiedInto(score: Score, b: number, partId: string, voice: number): InstrumentId[] {
-  const previous = score.bars[b - 1]?.parts?.[partId]?.voices[voice]
+  let i = b - 1
+  while (i >= 0 && score.bars[i].parts === undefined) i--
+  const previous = i >= 0 ? score.bars[i].parts?.[partId]?.voices[voice] : undefined
   if (!previous) return []
   const flat = flattenVoice(previous)
   const last = flat[flat.length - 1]?.event
@@ -402,11 +412,21 @@ function hairpinInto(score: Score, b: number, partId: string, voice: number): 'c
  * on the row's last bar — is drawn as a half tie to the stave end. A hairpin runs from its start to
  * its stop, across bars; one still open at the row end stops at the voice's last note of the row,
  * and the next row picks it up from its first note (`StaveHairpin` needs both notes).
+ *
+ * `first` and `lastBar` name the first and last bar WITH PARTS of the row, not `row.bars[0]` /
+ * `row.bars[row.bars.length - 1]`: a simile bar (`parts` absent) never reaches this function — see
+ * `engraveBar` — so a row that starts or ends with a "%" must still run the row-start arrival or
+ * the row-end hairpin clip on the bar that actually carries the voice.
  */
-function spanVoice(score: Score, row: RowLayout, bar: BarLayout, v: BuiltVoice, span: VoiceSpan): Element[] {
+function spanVoice(
+  score: Score,
+  bar: BarLayout,
+  v: BuiltVoice,
+  span: VoiceSpan,
+  first: boolean,
+  lastBar: boolean,
+): Element[] {
   const out: Element[] = []
-  const first = bar === row.bars[0]
-  const lastBar = bar === row.bars[row.bars.length - 1]
   const head = v.placed[0]
   if (first) {
     if (head?.note instanceof StaveNote) {
@@ -418,6 +438,7 @@ function spanVoice(score: Score, row: RowLayout, bar: BarLayout, v: BuiltVoice, 
     const open = head && hairpinInto(score, bar.barIndex, v.part.id, v.index)
     if (open && head) span.hairpin = { note: head.note, kind: open }
   } else if (head?.note instanceof StaveNote) {
+    // A tie pending across a simile bar is drawn into this bar's first note as-is: the "%" repeats the bar the tie left, so the continuation still reads right.
     for (const t of span.ties) {
       const k = head.keyIndex.get(t.instrument)
       if (k !== undefined)
@@ -442,7 +463,8 @@ function spanVoice(score: Score, row: RowLayout, bar: BarLayout, v: BuiltVoice, 
     }
     if (event.hairpin === 'cresc' || event.hairpin === 'dim') span.hairpin = { note: p.note, kind: event.hairpin }
     else if (event.hairpin === 'stop' && span.hairpin) {
-      out.push(hairpin(span.hairpin.note, p.note, span.hairpin.kind))
+      // Guarded like the row-end clip below: a hairpin opened on a previous row and stopped on this row's first note would otherwise draw a zero-width wedge.
+      if (span.hairpin.note !== p.note) out.push(hairpin(span.hairpin.note, p.note, span.hairpin.kind))
       span.hairpin = undefined
     }
     span.last = p.note
@@ -470,8 +492,8 @@ function engraveBar(
   // the band, so it must move with STAFF_TOP — the band is the layout's, the staff's place in it is VexFlow's.
   const stave = new Stave(bar.x - bar.head, 0, bar.head + bar.width, {
     numLines: STAFF_LINES,
-    spaceAboveStaffLn: STAFF_TOP / 10,
-    spaceBelowStaffLn: (SYSTEM_H - STAFF_TOP - STAFF_H) / 10,
+    spaceAboveStaffLn: STAFF_TOP / LINE_PX,
+    spaceBelowStaffLn: (SYSTEM_H - STAFF_TOP - STAFF_H) / LINE_PX,
   })
   if (bar.showClef) stave.addClef('percussion')
   if (bar.showMeter) stave.addTimeSignature(`${meter[0]}/${meter[1]}`)
@@ -539,6 +561,12 @@ function engraveBar(
   const formatter = new Formatter().joinVoices(vf)
   formatter.formatToStave(vf, stave)
   placeOnGrid(formatter, voices)
+  // The row's first and last bar WITH PARTS — a simile bar never reaches this function (it returns
+  // above), so a row that starts or ends with a "%" must still resolve arrivals against the bar
+  // that actually carries the voice, not against `row.bars[0]` / `row.bars[row.bars.length - 1]`.
+  const partsBars = row.bars.filter((b) => score.bars[b.barIndex].parts !== undefined)
+  const first = partsBars[0] === bar
+  const lastBar = partsBars[partsBars.length - 1] === bar
   // Spans are drawn after the voices so they sit over the noteheads, not under them.
   const spanned = voices.flatMap((v) => {
     const key = `${v.part.id}/${v.index}`
@@ -547,7 +575,7 @@ function engraveBar(
       span = { ties: [] }
       spans.set(key, span)
     }
-    return spanVoice(score, row, bar, v, span)
+    return spanVoice(score, bar, v, span, first, lastBar)
   })
   for (const v of voices) v.vf.draw(ctx, stave)
   for (const v of voices) {
@@ -584,7 +612,8 @@ export function engraveRow(
   const meters = metersOf(score)
   const spans = new Map<string, VoiceSpan>()
   for (const bar of row.bars) engraveBar(ctx, score, catalogue, layout, row, bar, meters, spans)
-  const el = mount.querySelector('svg') as SVGSVGElement
+  const el = mount.querySelector('svg')
+  if (!el) throw new Error('VexFlow rendered no <svg>')
   el.style.position = 'absolute'
   el.style.left = '0'
   el.style.top = `${row.index * height}px`

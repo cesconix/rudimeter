@@ -6,6 +6,7 @@ import {
   GRACE_GUTTER,
   HEAD_PX,
   hasGrace,
+  LINE_PX,
   METER_PX,
   MIN_NOTEHEAD_PX,
   NOTEHEAD_PX,
@@ -47,9 +48,12 @@ const W = PX_PER_WHOLE
 
 describe('constants', () => {
   it('the band is the sum of its parts, and the floor is under the natural notehead', () => {
-    expect(STAFF_H).toBe((STAFF_LINES - 1) * 10)
+    expect(STAFF_H).toBe((STAFF_LINES - 1) * LINE_PX)
     expect(SYSTEM_H).toBe(STAFF_TOP + STAFF_H + STAFF_BELOW)
     expect(MIN_NOTEHEAD_PX).toBeLessThan(NOTEHEAD_PX)
+    // VexFlow reads the space above and below the staff in line spaces (`spaceAboveStaffLn`).
+    expect(STAFF_TOP % LINE_PX).toBe(0)
+    expect(STAFF_BELOW % LINE_PX).toBe(0)
   })
 })
 
@@ -153,6 +157,19 @@ describe('rows', () => {
       HEAD_PX + W + METER_PX + (9 * W) / 4 + METER_PX,
     ])
     expect(layout.rows[0].rowEndX).toBe(row[4].x + row[4].width)
+  })
+
+  it('a meter change on the first bar of a row pays the row head, not the mid-row meter gutter', () => {
+    const bars = [bar(quarters()), bar(quarters()), bar([n(4), n(4), n(4)], { meter: [3, 4], newRow: true })]
+    const layout = buildLayout(piece(bars), { barsPerRow: 4, auto: true })
+    expect(layout.rows[1].bars[0]).toEqual({
+      barIndex: 2,
+      x: HEAD_PX,
+      width: (3 * W) / 4,
+      head: HEAD_PX,
+      showClef: true,
+      showMeter: true,
+    })
   })
 
   it('a barsPerRow below one, or not a number, packs one bar per row', () => {

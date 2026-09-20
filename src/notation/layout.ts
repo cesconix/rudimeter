@@ -31,9 +31,11 @@ export const GRACE_GUTTER = 24
  * clipped: the row seems to trail off. Eight pixels cover even the final barline, which is thick.
  */
 export const RIGHT_PAD = 8
+/** VexFlow's distance between staff lines (`Tables.STAVE_LINE_DISTANCE`). */
+export const LINE_PX = 10
 /** Five lines 10 px apart (VexFlow's spacing): a 40 px staff. */
 export const STAFF_LINES = 5
-export const STAFF_H = (STAFF_LINES - 1) * 10
+export const STAFF_H = (STAFF_LINES - 1) * LINE_PX
 /**
  * Above the staff: stems, beams, accents, tuplet numbers, text, a volta bracket, a tempo mark. Below
  * it: the feet's stems (35 px past the notehead), the sticking, a dynamic, a hairpin. Both are
@@ -43,8 +45,8 @@ export const STAFF_H = (STAFF_LINES - 1) * 10
  * Measured on the worst-case row (gallery, "Measure band"): ink from −7.5 to 242 px in a 190 px
  * band with the top line at 70 → 78 px above the top line, 132 below the bottom one; above that,
  * 24 px for the tempo mark and the volta bracket, which VexFlow would otherwise draw inside the
- * stack: 78 + 24 = 102 → 110. Below: 80 + 52 + 4 = 136 → 140 (next multiple of 10: VexFlow reads
- * `spaceAboveStaffLn` in line spaces).
+ * stack: 78 + 24 = 102 → 110. Below: 80 + 52 + 4 = 136 → 140 (next multiple of LINE_PX: VexFlow
+ * reads `spaceAboveStaffLn` in line spaces).
  */
 export const STAFF_TOP = 110
 export const STAFF_BELOW = 140
@@ -172,10 +174,10 @@ export function buildLayout(score: Score, spec: ViewSpec): Layout {
 
   const boxes = new Map<string, EventBox>()
   let position = ZERO
-  score.bars.forEach((bar, b) => {
+  score.bars.forEach((_bar, b) => {
     const lb = layoutOfBar[b]
     // A simile bar draws a sign, but the cursor and the highlight need the events it stands for, under its own index: that is how `eventsOf` keys them.
-    const source = score.bars[bar.simile ? sourceOf(score, b) : b]
+    const source = score.bars[sourceOf(score, b)]
     for (const part of score.parts) {
       source.parts?.[part.id]?.voices.forEach((voice, v) => {
         for (const f of flattenVoice(voice)) {
