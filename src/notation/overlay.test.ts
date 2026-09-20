@@ -5,7 +5,7 @@ import { add, toNumber, ZERO } from '../score/fraction'
 import { resolveInstruments } from '../score/instruments'
 import type { Bar, Event, InstrumentId, Item, Score } from '../score/types'
 import { eventsOf, unroll } from '../score/unroll'
-import { type BarLayout, buildLayout, HEAD_PX, LINE_PX, METER_PX, PX_PER_WHOLE, STAFF_TOP } from './layout'
+import { BAR_PAD, type BarLayout, buildLayout, HEAD_PX, LINE_PX, METER_PX, PX_PER_WHOLE, STAFF_TOP } from './layout'
 import {
   cursorPoints,
   HIGHLIGHT_PAD,
@@ -78,12 +78,33 @@ describe('cursorPoints', () => {
     expect(layout.rows[0].rowEndX).toBe(HEAD_PX + W)
   })
 
-  it('two bars on one row: the end of bar 1 and the start of bar 2 are one point', () => {
+  it('two bars on one row: the end of bar 1 slides through the pad to the start of bar 2, one point', () => {
     const score = piece([bar(q4()), bar(q4())])
     const layout = buildLayout(score, { barsPerRow: 2, auto: true })
     const pts = cursorPoints(layout, score, unroll(score))
-    expect(pts.filter((p) => p.t === 1)).toEqual([{ t: 1, x: HEAD_PX + W, row: 0 }])
-    expect(pts[pts.length - 1]).toEqual({ t: 2, x: HEAD_PX + 2 * W, row: 0 })
+    // Not the barline (HEAD_PX + W): the end point sits on bar 2's grid start, so the last quarter's
+    // slide covers the barline and the pad, and bar 2's first event dedups against it.
+    expect(pts.filter((p) => p.t === 1)).toEqual([{ t: 1, x: HEAD_PX + W + BAR_PAD, row: 0 }])
+    expect(pts[pts.length - 1]).toEqual({ t: 2, x: HEAD_PX + 2 * W + BAR_PAD, row: 0 })
+  })
+
+  it('a repeat back over a padded bar keeps the jump: the end point stays on the barline', () => {
+    // Bars 1–2 repeat: after bar 2 the cursor goes back to bar 1, not on to bar 3, so bar 2's end
+    // point is its own barline (a slide towards bar 3's pad would point the wrong way), and bar 3's
+    // pad is crossed only on the last pass, when bar 3 really follows.
+    const score = piece([
+      bar(q4(), undefined, { repeat: { start: true } }),
+      bar(q4(), undefined, { repeat: { end: {} } }),
+      bar(q4()),
+    ])
+    const layout = buildLayout(score, { barsPerRow: 4, auto: true })
+    const pts = cursorPoints(layout, score, unroll(score))
+    const bar2End = HEAD_PX + 2 * W + BAR_PAD
+    expect(pts.filter((p) => p.t === 2)).toEqual([
+      { t: 2, x: bar2End, row: 0 },
+      { t: 2, x: HEAD_PX, row: 0 },
+    ])
+    expect(pts.filter((p) => p.t === 4)).toEqual([{ t: 4, x: bar2End + BAR_PAD, row: 0 }])
   })
 
   it('a meter gutter mid-row is two points at the same t: the cursor jumps over it', () => {
@@ -138,21 +159,26 @@ describe('cursorPoints', () => {
           }
 
           // Every emitted bar closes with a point at its own right edge, on its own row — the
-          // point the cursor slides to during the bar's last event (see cursorPoints' docblock).
+          // point the cursor slides to during the bar's last event (see cursorPoints' docblock) —
+          // or, when the next written bar follows on the same row behind nothing but the pad, at
+          // that bar's grid start.
           const meters = metersOf(score)
           const barOf = new Map<number, BarLayout>()
           for (const row of layout.rows) for (const b of row.bars) barOf.set(b.barIndex, b)
           let start = ZERO
-          for (const pb of playback) {
+          playback.forEach((pb, i) => {
             const lb = barOf.get(pb.barIndex)
             if (!lb) throw new Error(`${label}: no BarLayout for bar ${pb.barIndex}`)
             const end = add(start, barLength(meters[pb.barIndex]))
             const t = toNumber(end)
             const row = layout.rowOfBar[pb.barIndex]
-            const found = pts.some((p) => p.t === t && p.x === lb.x + lb.width && p.row === row)
+            const next = playback[i + 1]
+            const nb = next && next.barIndex === pb.barIndex + 1 ? barOf.get(next.barIndex) : undefined
+            const endX = nb && layout.rowOfBar[nb.barIndex] === row && nb.head === BAR_PAD ? nb.x : lb.x + lb.width
+            const found = pts.some((p) => p.t === t && p.x === endX && p.row === row)
             expect(found, `${label}: bar ${pb.barIndex} (pass ${pb.pass}) has no end point at t=${t}`).toBe(true)
             start = end
-          }
+          })
         }
       }
     }

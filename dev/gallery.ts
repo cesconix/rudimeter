@@ -3,10 +3,10 @@
 // DOM). Tasks 6 and 7 add the library and the measurements the layout constants come from.
 
 import { SCORES } from '../src/data/scores'
-import { type EngravedRow, engraveRow, measureHead, measureInk } from '../src/notation/engrave'
+import { type EngravedRow, engraveRow, measureHead, measureInk, measurePad } from '../src/notation/engrave'
 import { fit, type Pref } from '../src/notation/fit'
 import { notationFontsReady } from '../src/notation/fonts'
-import { buildLayout, HEAD_PX, METER_PX, STAFF_TOP, SYSTEM_H } from '../src/notation/layout'
+import { BAR_PAD, buildLayout, HEAD_PX, METER_PX, STAFF_TOP, SYSTEM_H } from '../src/notation/layout'
 import { playbackBarAt } from '../src/notation/overlay'
 import { deferEnsure, RowPool } from '../src/notation/rows'
 import { toNumber } from '../src/score/fraction'
@@ -106,7 +106,7 @@ on('measure-head', () => {
   const head = measureHead(true, '12/8')
   const meter = measureHead(false, '12/8')
   log(
-    `head: clef + 12/8 need ${head.toFixed(1)} px, HEAD_PX is ${HEAD_PX}; 12/8 alone needs ${meter.toFixed(1)} px, METER_PX is ${METER_PX}; clef + 4/4 need ${measureHead(true, '4/4').toFixed(1)} px`,
+    `head: clef + 12/8 need ${head.toFixed(1)} px, HEAD_PX is ${HEAD_PX}; 12/8 alone needs ${meter.toFixed(1)} px, METER_PX is ${METER_PX}; clef + 4/4 need ${measureHead(true, '4/4').toFixed(1)} px; VexFlow's Stave.padding is ${measurePad().toFixed(1)} px, BAR_PAD is ${BAR_PAD}`,
   )
 })
 
