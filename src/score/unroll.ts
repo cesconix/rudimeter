@@ -36,7 +36,7 @@ export interface PlaybackBar {
 }
 
 /** The written bar a simile bar stands for: the last bar before it that is not itself a simile. */
-function sourceOf(score: Score, i: number): number {
+export function sourceOf(score: Score, i: number): number {
   let j = i
   while (j > 0 && score.bars[j].simile) j--
   return j

@@ -1,204 +1,49 @@
-// Dev page: gallery of every note that notation/plan + notation/build can produce (manual visual
-// check, VexFlow draws into the DOM) and measurement checks (rendering 40 bars, DOM recolouring at
-// 20 notes/s, scroll with translateX) inherited from the original spike.
-//
-// The "scroll" check remains a frame-rate measurement on a horizontal translateX: production no
-// longer scrolls that way (the score wraps and scrolls vertically via `scrollTop`, see Score), but
-// the number this button produces — how many frames drop while a promoted layer moves — still holds.
+// Dev page: one section per notation the engraver draws, each a small score that isolates what its
+// title promises — the manual check of `src/notation/engrave.ts`, which `bun test` cannot run (no
+// DOM). Tasks 6 and 7 add the library and the measurements the layout constants come from.
 
-import type { StaveNote } from 'vexflow/bravura'
-import { parseExercise } from '../src/engine/exercise'
-import type { Exercise } from '../src/engine/types'
-import { paintColor } from '../src/notation/paint'
-import { planExercise } from '../src/notation/plan'
-import { notationFontsReady, type RenderedScore, renderScore } from '../src/notation/render'
+import { SCORES } from '../src/data/scores'
+import { type EngravedRow, engraveRow, measureHead, measureInk } from '../src/notation/engrave'
+import { fit } from '../src/notation/fit'
+import { buildLayout, HEAD_PX, METER_PX, STAFF_TOP, SYSTEM_H } from '../src/notation/layout'
+import { notationFontsReady } from '../src/notation/render'
+import { RowPool } from '../src/notation/rows'
+import { toNumber } from '../src/score/fraction'
+import { resolveInstruments } from '../src/score/instruments'
+import { buildTimeMap } from '../src/score/timemap'
+import type { Score } from '../src/score/types'
+import { barStarts, unroll } from '../src/score/unroll'
+import { type Figure, GALLERY, WORST_CASE } from './gallery-scores'
 
-// --- Exercises for the measurement checks ("1 bar" / "40 bars" buttons) ---
-
-const SHOWCASE = parseExercise({
-  id: 'showcase',
-  name: 'showcase',
-  timeSignature: [4, 4],
-  steps: '>fRLRL dRLR zR- tRtL',
-  repeats: 1,
-})
-const PARADIDDLE = parseExercise({
-  id: 'para',
-  name: 'para',
-  timeSignature: [4, 4],
-  steps: '>RLRR >LRLL >RLRR >LRLL',
-  repeats: 40,
-})
-
-// --- Exercises for the static gallery: each section isolates the notes its title promises ---
-
-/** Bar of 1 beat: the beat's subdivision n fixes the duration (1→q, 2→8, 4→16, 8→32). */
-const GALLERY_DURATIONS = parseExercise({
-  id: 'gallery-durations',
-  name: 'durations',
-  timeSignature: [1, 4],
-  steps: 'R | RL | RLRL | RLRLRLRL',
-  repeats: 1,
-})
-
-/** n=3,5,6,7 are tuplets: 3-in-2, 5-in-4, 6-in-4, 7-in-4. */
-const GALLERY_TUPLETS = parseExercise({
-  id: 'gallery-tuplets',
-  name: 'tuplets',
-  timeSignature: [1, 4],
-  steps: 'RLR | RLRLR | RLRLRL | RLRLRLR',
-  repeats: 1,
-})
-
-/** One rest per duration (q, 8, 16, 32), plus one rest inside a beat in a triplet (3-in-2). */
-const GALLERY_RESTS = parseExercise({
-  id: 'gallery-rests',
-  name: 'rests',
-  timeSignature: [1, 4],
-  steps: '- | -R | -RLR | -RLRLRLR | RL-',
-  repeats: 1,
-})
-
-/** flam (1 grace note, slash), drag (2 beamed grace notes), buzz (glyph on the stem), tremolo (1 slash on the stem). */
-const GALLERY_ORNAMENTS = parseExercise({
-  id: 'gallery-ornaments',
-  name: 'ornaments',
-  timeSignature: [1, 4],
-  steps: 'fR | dR | zR | tR',
-  repeats: 1,
-})
-
-/** Accent and ornament on the same note: accented flam, accented buzz. */
-const GALLERY_ACCENT_ORNAMENT = parseExercise({
-  id: 'gallery-accent-ornament',
-  name: 'accent + ornament',
-  timeSignature: [1, 4],
-  steps: '>fR | >zR',
-  repeats: 1,
-})
-
-/** One bar in 4/4, 4 beats of eighths: one beam per beat must come out, not a single beam for the whole bar. */
-const GALLERY_BEAMS = parseExercise({
-  id: 'gallery-beams',
-  name: 'beams per beat',
-  timeSignature: [4, 4],
-  steps: 'RL RL RL RL',
-  repeats: 1,
-})
-
-/** Single paradiddle, 2 repeats: a real exercise, not a synthetic sampler of notes. */
-const GALLERY_REALISTIC = parseExercise({
-  id: 'gallery-realistic',
-  name: 'realistic exercise',
-  timeSignature: [4, 4],
-  steps: '>RLRR >LRLL >RLRR >LRLL',
-  repeats: 2,
-})
-
-const allNotes: StaveNote[] = []
-
-/**
- * `barsPerRepeat` = all the exercise's bars: the gallery has no repeats to respect and wants the
- * max on a single row, and with `totalBars` equal the row never exceeds the piece.
- * `availW` is the container's width, with a generous fallback for when the page measures 0
- * (host not yet in layout).
- */
-function optionsFor(host: HTMLDivElement, ex: Exercise, bars: number) {
-  return {
-    timeSignature: `${ex.timeSignature[0]}/${ex.timeSignature[1]}`,
-    beatsPerBar: ex.timeSignature[0],
-    barsPerRepeat: bars,
-    totalBars: bars,
-    availW: host.clientWidth || 1200,
-  }
+/** Engraves a whole score into `host` at the scale that fits its width, every row alive; the caller owns the pool. */
+function show(host: HTMLElement, score: Score): RowPool<EngravedRow> {
+  // 0 while the host is not in layout yet: a wide fallback rather than one bar per row.
+  const availW = host.clientWidth || 1200
+  const f = fit(availW, Number.POSITIVE_INFINITY, { barsPerRow: 'auto', rowsPerViewport: 'auto' }, score)
+  const layout = buildLayout(score, { barsPerRow: f.barsPerRow, auto: true })
+  host.replaceChildren()
+  host.style.height = `${layout.rows.length * SYSTEM_H * f.scale}px`
+  const catalogue = resolveInstruments(score)
+  const pool = new RowPool(layout.rows.length, (r) =>
+    engraveRow(host, score, catalogue, layout, layout.rows[r], f.scale),
+  )
+  pool.ensure(0, layout.rows.length - 1)
+  return pool
 }
 
-function draw(ex: typeof SHOWCASE): number {
-  const host = document.getElementById('score') as HTMLDivElement
-  allNotes.length = 0
-  const bars = planExercise(ex)
-  const t = performance.now()
-  // The 40 bars now come out over several rows instead of in a strip: the measurement is the same,
-  // it is the time to draw the whole SVG.
-  const r: RenderedScore = renderScore(host, bars, optionsFor(host, ex, bars.length))
-  r.notes.forEach((n) => {
-    allNotes.push(n.note)
-  })
-  return performance.now() - t
-}
-
-/**
- * Static render of a gallery section: once, no measurement, no button.
- * The beat's width is no longer negotiable by the caller (`fitLayout` decides it from the
- * available space, and it never goes above natural): the sections with beats of 5-8 notes sit
- * narrower than before.
- */
-function renderGallery(id: string, ex: Exercise): void {
-  const host = document.getElementById(id) as HTMLDivElement
-  const bars = planExercise(ex)
-  renderScore(host, bars, optionsFor(host, ex, bars.length))
-}
-
-const COLORS = ['#2a2', '#c90', '#d33', '#888']
-
-function paint(n: StaveNote, color: string): void {
-  const el = n.getSVGElement()
-  if (!el) {
-    log('getSVGElement() empty: the ids are not in the DOM')
-    return
-  }
-  paintColor(el, color)
-}
-
-function paintLoop(): void {
-  if (allNotes.length === 0) {
-    log('draw first')
-    return
-  }
-  let i = 0
-  let frames = 0
-  let slow = 0
-  const t0 = performance.now()
-  let last = t0
-  const timer = setInterval(() => {
-    paint(allNotes[i % allNotes.length], COLORS[i % COLORS.length])
-    i++
-  }, 50)
-  const raf = () => {
-    const now = performance.now()
-    frames++
-    if (now - last > 32) slow++
-    last = now
-    if (now - t0 < 5000) requestAnimationFrame(raf)
-    else {
-      clearInterval(timer)
-      log(`colour: ${i} notes in 5 s, ${frames} frames, ${slow} frames > 32 ms`)
-    }
-  }
-  requestAnimationFrame(raf)
-}
-
-function scrollLoop(): void {
-  const el = document.getElementById('score') as HTMLDivElement
-  const width = el.querySelector('svg')?.getBoundingClientRect().width ?? 0
-  const t0 = performance.now()
-  let frames = 0
-  let slow = 0
-  let last = t0
-  const raf = () => {
-    const now = performance.now()
-    const px = ((now - t0) / 1000) * 240
-    el.style.transform = `translateX(${-px}px)`
-    frames++
-    if (now - last > 32) slow++
-    last = now
-    if (px < width) requestAnimationFrame(raf)
-    else
-      log(
-        `scroll: ${width.toFixed(0)} px in ${((now - t0) / 1000).toFixed(1)} s, ${frames} frames, ${slow} frames > 32 ms`,
-      )
-  }
-  requestAnimationFrame(raf)
+function section(fig: Figure): { el: HTMLElement; host: HTMLElement } {
+  const el = document.createElement('section')
+  el.className = 'figure'
+  el.id = `fig-${fig.id}`
+  const h3 = document.createElement('h3')
+  h3.textContent = fig.title
+  const p = document.createElement('p')
+  p.className = 'expect'
+  p.textContent = fig.expect
+  const host = document.createElement('div')
+  host.className = 'host'
+  el.append(h3, p, host)
+  return { el, host }
 }
 
 function log(s: string): void {
@@ -206,29 +51,161 @@ function log(s: string): void {
   pre.textContent += `${s}\n`
 }
 
-// biome-ignore lint/style/noNonNullAssertion: the id is hardcoded in gallery.html; a missing one must break the dev page loudly.
-document.getElementById('one')!.addEventListener('click', () => log(`1 bar: ${draw(SHOWCASE).toFixed(1)} ms`))
-// biome-ignore lint/style/noNonNullAssertion: the id is hardcoded in gallery.html; a missing one must break the dev page loudly.
-document.getElementById('forty')!.addEventListener('click', () => {
-  const ms = draw(PARADIDDLE)
-  log(`40 bars: ${ms.toFixed(1)} ms, ${allNotes.length} notes`)
-})
-// biome-ignore lint/style/noNonNullAssertion: the id is hardcoded in gallery.html; a missing one must break the dev page loudly.
-document.getElementById('paint')!.addEventListener('click', paintLoop)
-// biome-ignore lint/style/noNonNullAssertion: the id is hardcoded in gallery.html; a missing one must break the dev page loudly.
-document.getElementById('scroll')!.addEventListener('click', scrollLoop)
-
-// The music font (Bravura) arrives async via @font-face: VexFlow measures glyphs in the DOM to
-// compute the x coordinates, so a render before the font is applied uses the fallback and nails
-// down wrong coordinates in the SVG (render.ts never re-lays-out). The buttons above are already
-// safe because they fire after load; the gallery instead draws itself on startup, so it waits.
+// The music font (Bravura) arrives async via @font-face and VexFlow measures glyphs in the DOM: a
+// render before the font is applied nails down wrong coordinates in the SVG.
 await notationFontsReady()
 
-renderGallery('gallery-durations', GALLERY_DURATIONS)
-renderGallery('gallery-tuplets', GALLERY_TUPLETS)
-renderGallery('gallery-rests', GALLERY_RESTS)
-renderGallery('gallery-ornaments', GALLERY_ORNAMENTS)
-renderGallery('gallery-accent-ornament', GALLERY_ACCENT_ORNAMENT)
-renderGallery('gallery-beams', GALLERY_BEAMS)
-renderGallery('gallery-showcase', SHOWCASE)
-renderGallery('gallery-realistic', GALLERY_REALISTIC)
+const sections = document.getElementById('sections') as HTMLElement
+for (const fig of GALLERY) {
+  const { el, host } = section(fig)
+  sections.appendChild(el)
+  try {
+    show(host, fig.score)
+  } catch (err) {
+    // One broken figure must not hide the others: the page keeps going and says which one failed.
+    log(`${fig.id}: ${String(err)}`)
+    console.error(fig.id, err)
+  }
+}
+
+const pick = document.getElementById('pick') as HTMLSelectElement
+for (const score of SCORES) {
+  const option = document.createElement('option')
+  option.value = score.id
+  option.textContent = score.source ? `${score.title} — ${score.source}` : score.title
+  pick.appendChild(option)
+}
+const library = document.getElementById('library') as HTMLElement
+// `show` replaces the host's children on every call anyway, so the previous SVGs are dropped
+// regardless — but the pool itself must not keep owning rows it no longer draws into.
+let libraryPool: RowPool<EngravedRow> | undefined
+const showPicked = () => {
+  const score = SCORES.find((s) => s.id === pick.value) ?? SCORES[0]
+  libraryPool?.invalidate()
+  libraryPool = show(library, score)
+}
+pick.addEventListener('change', showPicked)
+// The kit groove first: the one piece with two voices and an ending, the spec's "full two-voice kit exercise".
+pick.value = 'kit-ending'
+showPicked()
+
+// --- Measurements: dev-only, `performance.now()` is fine here (nothing in the app reads these) ---
+
+/** The piece with the most bars: the pyramids, thirty bars of sixteenths. */
+const LONGEST = SCORES.reduce((a, b) => (b.bars.length > a.bars.length ? b : a))
+
+function on(id: string, handler: () => void): void {
+  // biome-ignore lint/style/noNonNullAssertion: the id is hardcoded in gallery.html; a missing one must break the dev page loudly.
+  document.getElementById(id)!.addEventListener('click', handler)
+}
+
+on('measure-head', () => {
+  const head = measureHead(true, '12/8')
+  const meter = measureHead(false, '12/8')
+  log(
+    `head: clef + 12/8 need ${head.toFixed(1)} px, HEAD_PX is ${HEAD_PX}; 12/8 alone needs ${meter.toFixed(1)} px, METER_PX is ${METER_PX}; clef + 4/4 need ${measureHead(true, '4/4').toFixed(1)} px`,
+  )
+})
+
+on('measure-band', () => {
+  const host = document.getElementById('band') as HTMLElement
+  // Scale 1 on purpose, on the page for the eye and on pixels for the numbers: a text box in the
+  // SVG is the font's em box, not the ink, so `getBBox()` would over-reserve by ≈80 px.
+  const layout = buildLayout(WORST_CASE.score, { barsPerRow: 8, auto: true })
+  host.replaceChildren()
+  host.style.height = `${SYSTEM_H}px`
+  const catalogue = resolveInstruments(WORST_CASE.score)
+  engraveRow(host, WORST_CASE.score, catalogue, layout, layout.rows[0], 1)
+  const { top, bottom } = measureInk(WORST_CASE.score, catalogue, layout, layout.rows[0])
+  log(
+    `band: ink from y = ${top.toFixed(1)} to ${bottom.toFixed(1)} px (pixels); band is [0, ${SYSTEM_H}] with the top line at ${STAFF_TOP}; ` +
+      `overflow above ${Math.max(0, -top).toFixed(1)} px, below ${Math.max(0, bottom - SYSTEM_H).toFixed(1)} px`,
+  )
+})
+
+/** Engraves `score` into `host` with every row timed; returns what the motion loop needs. */
+function timed(host: HTMLElement, viewport: HTMLElement, score: Score) {
+  const f = fit(
+    viewport.clientWidth || 1200,
+    viewport.clientHeight || 3 * SYSTEM_H,
+    { barsPerRow: 'auto', rowsPerViewport: 'auto' },
+    score,
+  )
+  const layout = buildLayout(score, { barsPerRow: f.barsPerRow, auto: true })
+  const rowH = SYSTEM_H * f.scale
+  host.replaceChildren()
+  host.style.height = `${layout.rows.length * rowH}px`
+  const catalogue = resolveInstruments(score)
+  const times: number[] = []
+  const pool = new RowPool(layout.rows.length, (r) => {
+    const t = performance.now()
+    const row = engraveRow(host, score, catalogue, layout, layout.rows[r], f.scale)
+    times.push(performance.now() - t)
+    return row
+  })
+  return { f, layout, rowH, pool, times }
+}
+
+const stats = (times: number[]) =>
+  times.length === 0
+    ? 'no row engraved'
+    : `${times.length} rows, max ${Math.max(...times).toFixed(1)} ms, mean ${(times.reduce((a, b) => a + b, 0) / times.length).toFixed(1)} ms`
+
+on('measure-engrave', () => {
+  const viewport = document.getElementById('motion') as HTMLElement
+  const host = document.getElementById('motion-host') as HTMLElement
+  viewport.style.height = `${3 * SYSTEM_H}px`
+  const { layout, pool, times } = timed(host, viewport, LONGEST)
+  const t = performance.now()
+  pool.ensure(0, layout.rows.length - 1)
+  log(`engrave ${LONGEST.id}: ${(performance.now() - t).toFixed(1)} ms in all; ${stats(times)}`)
+})
+
+/**
+ * The viewport follows the row the cursor would be on at 120 bpm, through the pool, for 30 s: in
+ * scroll mode the row anchors at the top, in pages mode the page turns when the row leaves it and
+ * the next page is kept engraved. What is measured is whether engraving on demand fits between
+ * frames — the question the canvas-rows task waits on — not the cursor, which is plan 11.
+ */
+function motion(mode: 'scroll' | 'pages'): void {
+  const viewport = document.getElementById('motion') as HTMLElement
+  const host = document.getElementById('motion-host') as HTMLElement
+  viewport.style.height = `${3 * SYSTEM_H}px`
+  const { f, layout, rowH, pool, times } = timed(host, viewport, LONGEST)
+  const playback = unroll(LONGEST)
+  const map = buildTimeMap(LONGEST, playback, 120)
+  const starts = barStarts(LONGEST, playback).map(toNumber)
+  const rowAt = (seconds: number): number => {
+    const pos = map.positionAt(seconds)
+    let i = 0
+    while (i + 1 < starts.length && starts[i + 1] <= pos) i++
+    return layout.rowOfBar[playback[i].barIndex]
+  }
+  const last = layout.rows.length - 1
+  let frames = 0
+  let dropped = 0
+  const t0 = performance.now()
+  let prev = t0
+  const step = () => {
+    const now = performance.now()
+    frames++
+    if (now - prev > 20) dropped++
+    prev = now
+    const s = (now - t0) / 1000
+    const row = rowAt(s)
+    if (mode === 'scroll') {
+      viewport.scrollTop = row * rowH
+      pool.ensure(row, Math.min(last, row + f.rowsVisible - 1))
+    } else {
+      const first = Math.floor(row / f.rowsVisible) * f.rowsVisible
+      viewport.scrollTop = first * rowH
+      pool.ensure(first, Math.min(last, first + 2 * f.rowsVisible - 1))
+    }
+    if (s < 30 && s < map.end) requestAnimationFrame(step)
+    else log(`${mode}: ${s.toFixed(1)} s, ${frames} frames, ${dropped} intervals > 20 ms; engraved ${stats(times)}`)
+  }
+  requestAnimationFrame(step)
+}
+
+on('measure-scroll', () => motion('scroll'))
+on('measure-pages', () => motion('pages'))

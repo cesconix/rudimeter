@@ -6,68 +6,38 @@
     <title>notation gallery</title>
     <style>
       body { margin: 0; font-family: system-ui, sans-serif; background: #fff; color: #000; }
-      #controls { padding: 8px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-      #viewport { overflow: hidden; width: 100vw; border-top: 1px solid #ccc; border-bottom: 1px solid #ccc; }
-      #score { will-change: transform; }
-      pre { padding: 8px; white-space: pre-wrap; }
+      h1 { margin: 16px 8px 4px; font-size: 18px; }
       h2 { margin: 24px 8px 4px; font-size: 16px; }
-      .figure { margin: 0 8px 16px; }
+      .figure { margin: 0 8px 24px; }
       .figure h3 { margin: 0 0 4px; font-size: 13px; font-weight: 600; color: #333; }
-      .score-box { overflow-x: auto; border: 1px solid #ddd; }
+      .figure .expect { margin: 0 0 6px; font-size: 12px; color: #555; max-width: 80ch; }
+      .host { position: relative; border: 1px solid #ddd; overflow-x: auto; }
+      pre { padding: 8px; white-space: pre-wrap; }
     </style>
   </head>
   <body>
-    <div id="controls">
-      <button type="button" id="one">1 bar (every figure)</button>
-      <button type="button" id="forty">40 bars</button>
-      <button type="button" id="paint">Colour 20/s for 5 s</button>
-      <button type="button" id="scroll">Scroll</button>
-    </div>
-    <div id="viewport"><div id="score"></div></div>
+    <h1>Gallery — one section per notation, checked against its sentence</h1>
     <pre id="log"></pre>
-
-    <h2>Gallery — manual check of every figure</h2>
-
+    <h2>Measurements — the numbers the layout constants come from</h2>
     <div class="figure">
-      <h3>Durations — a beat of 1, 2, 4, 8 notes (q, 8, 16, 32)</h3>
-      <div id="gallery-durations" class="score-box"></div>
+      <p class="expect">Head: the px the clef + meter need against HEAD_PX, the meter alone against METER_PX. Band: the worst-case row's ink against [0, SYSTEM_H]. Longest piece: ms per engraved row (the spec's line is 16 ms on the iPad). Motion: 30 s at 120 bpm, rAF intervals above 20 ms, scroll and pages.</p>
+      <p>
+        <button type="button" id="measure-head">Measure head</button>
+        <button type="button" id="measure-band">Measure band</button>
+        <button type="button" id="measure-engrave">Engrave the longest piece</button>
+        <button type="button" id="measure-scroll">Scroll 30 s</button>
+        <button type="button" id="measure-pages">Pages 30 s</button>
+      </p>
+      <div id="band" class="host"></div>
+      <div id="motion" style="position: relative; overflow: hidden; border: 1px solid #ddd; height: 0"><div id="motion-host" style="position: relative"></div></div>
     </div>
-
+    <h2>Library — every piece of <code>SCORES</code>, whole</h2>
     <div class="figure">
-      <h3>Tuplets — 3-in-2, 5-in-4, 6-in-4, 7-in-4</h3>
-      <div id="gallery-tuplets" class="score-box"></div>
+      <p class="expect">50 Workout #43 against p. 51 of the book (dotted eighths, sixteenth rests, quarter rests, repeat signs at bars 1, 4 and 16); the two pyramids against their previous rendering (two bars per row); the kit groove with its second ending, two voices, a triplet with ghosts, a flam, a buzz with a diminuendo.</p>
+      <select id="pick"></select>
+      <div id="library" class="host"></div>
     </div>
-
-    <div class="figure">
-      <h3>Rests — one per duration (q, 8, 16, 32) + one inside a triplet</h3>
-      <div id="gallery-rests" class="score-box"></div>
-    </div>
-
-    <div class="figure">
-      <h3>Ornaments — flam, drag, buzz roll, tremolo</h3>
-      <div id="gallery-ornaments" class="score-box"></div>
-    </div>
-
-    <div class="figure">
-      <h3>Accent + ornament on the same note — accented flam, accented buzz</h3>
-      <div id="gallery-accent-ornament" class="score-box"></div>
-    </div>
-
-    <div class="figure">
-      <h3>Beams per beat — 4 eighths in 4/4, one beam per beat (not one per bar)</h3>
-      <div id="gallery-beams" class="score-box"></div>
-    </div>
-
-    <div class="figure">
-      <h3>Showcase — every figure in 1 bar (same as the "1 bar" button)</h3>
-      <div id="gallery-showcase" class="score-box"></div>
-    </div>
-
-    <div class="figure">
-      <h3>Realistic exercise — single paradiddle, 2 repeats</h3>
-      <div id="gallery-realistic" class="score-box"></div>
-    </div>
-
+    <div id="sections"></div>
     <script type="module" src="./gallery.ts"></script>
   </body>
 </html>
