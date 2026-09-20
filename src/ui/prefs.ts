@@ -8,7 +8,8 @@ export type ViewMode = 'scroll' | 'pages'
 export interface ViewPrefs {
   mode: ViewMode
   barsPerRow: Pref
-  rowsPerViewport: Pref
+  /** magnification of the natural size, the user's alone: the layout never zooms by itself, it stretches the grid to the width */
+  zoom: number
   /** one bpm for every piece: the time map scales the piece's first tempo mark to it */
   bpm: number
 }
@@ -17,14 +18,14 @@ export const PREFS_KEY = 'rudimeter.view'
 export const DEFAULT_PREFS: ViewPrefs = {
   mode: 'scroll',
   barsPerRow: 'auto',
-  rowsPerViewport: 'auto',
+  zoom: 1,
   bpm: DEFAULT_BPM,
 }
 export const BARS_PER_ROW_CHOICES: readonly Pref[] = ['auto', 1, 2, 4, 8]
-export const ROWS_PER_VIEWPORT_CHOICES: readonly Pref[] = ['auto', 1, 2, 3, 4, 5, 6]
+/** Steps the eye can tell apart; 2× is a bar of 4/4 at 950 px, past which even a landscape iPad shows one bar per row. */
+export const ZOOM_CHOICES: readonly number[] = [0.75, 1, 1.25, 1.5, 2]
 
-const pick = (choices: readonly Pref[], value: unknown, fallback: Pref): Pref =>
-  choices.find((c) => c === value) ?? fallback
+const pick = <T>(choices: readonly T[], value: unknown, fallback: T): T => choices.find((c) => c === value) ?? fallback
 
 /**
  * Field by field, defaults for whatever is missing or malformed: the storage may hold anything —
@@ -46,7 +47,7 @@ export function parsePrefs(raw: string | null): ViewPrefs {
   return {
     mode: p.mode === 'pages' ? 'pages' : 'scroll',
     barsPerRow: pick(BARS_PER_ROW_CHOICES, p.barsPerRow, DEFAULT_PREFS.barsPerRow),
-    rowsPerViewport: pick(ROWS_PER_VIEWPORT_CHOICES, p.rowsPerViewport, DEFAULT_PREFS.rowsPerViewport),
+    zoom: pick(ZOOM_CHOICES, p.zoom, DEFAULT_PREFS.zoom),
     bpm,
   }
 }

@@ -39,8 +39,8 @@ export function ScoreScreen() {
   const transport = useMemo(() => new Transport(clock, score, prefs.bpm), [clock, score])
   // Only the two layout preferences reach the view: a new object there is a re-layout, and a bpm change must not be one.
   const layoutPrefs = useMemo<Prefs>(
-    () => ({ barsPerRow: prefs.barsPerRow, rowsPerViewport: prefs.rowsPerViewport }),
-    [prefs.barsPerRow, prefs.rowsPerViewport],
+    () => ({ barsPerRow: prefs.barsPerRow, zoom: prefs.zoom }),
+    [prefs.barsPerRow, prefs.zoom],
   )
   // The AUDIBLE clock for the drawing (src/audio/clock.ts): the cursor stays with the sound going out.
   const now = useCallback(() => (ctxRef.current ? audibleTime(ctxRef.current) : 0), [])

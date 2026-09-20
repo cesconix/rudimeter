@@ -9,7 +9,7 @@ Live: https://rudimeter.com
 ## How it works
 
 1. **Pick a piece** from the library: pad exercises written in the sticking language, drum-kit pieces imported from MusicXML.
-2. **Set the tempo** (the piece's own tempo marks scale with it) and choose how the page follows the cursor — scrolling, or turning pages — and how many bars fit on a row and rows on the screen. Both default to automatic.
+2. **Set the tempo** (the piece's own tempo marks scale with it) and choose how the page follows the cursor — scrolling, or turning pages — how many bars go on a row (automatic by default: as many as fit at the size you chose) and the zoom. The music is drawn at its natural size and stretched to the width of the screen; only you make it bigger or smaller, and a rotation re-spaces it without re-sizing it.
 3. **Play.** The cursor moves at constant speed on a time grid; every sounding event lights up as it passes; a tap on a bar starts from there.
 
 The practice-pad session — calibration, click, and every stroke graded from the microphone — is parked on the dev page `/dev/session.html` while the score is rebuilt; it comes back as another layer on this score.

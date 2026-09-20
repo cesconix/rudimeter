@@ -1,7 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { clampBpm, MAX_BPM, MIN_BPM, type Transport } from '../audio/transport'
 import type { Pref } from '../notation/fit'
-import { BARS_PER_ROW_CHOICES, ROWS_PER_VIEWPORT_CHOICES, type ViewMode, type ViewPrefs } from './prefs'
+import { BARS_PER_ROW_CHOICES, type ViewMode, type ViewPrefs, ZOOM_CHOICES } from './prefs'
 
 interface Props {
   transport: Transport
@@ -101,14 +101,11 @@ export function TransportBar({ transport, bar, bars, prefs, onPlay, onPrefs }: P
             </select>
           </label>
           <label>
-            Rows per screen{' '}
-            <select
-              value={prefValue(prefs.rowsPerViewport)}
-              onChange={(e) => onPrefs({ rowsPerViewport: prefFrom(e.target.value) })}
-            >
-              {ROWS_PER_VIEWPORT_CHOICES.map((c) => (
-                <option key={prefValue(c)} value={prefValue(c)}>
-                  {prefValue(c)}
+            Zoom{' '}
+            <select value={String(prefs.zoom)} onChange={(e) => onPrefs({ zoom: Number(e.target.value) })}>
+              {ZOOM_CHOICES.map((z) => (
+                <option key={z} value={String(z)}>
+                  {Math.round(z * 100)} %
                 </option>
               ))}
             </select>

@@ -181,6 +181,73 @@ describe('rows', () => {
   })
 })
 
+describe('justification', () => {
+  const two = () => piece([bar(quarters()), bar(quarters())])
+
+  it('without fillWidth the grid is natural: stretch 1', () => {
+    const layout = buildLayout(two(), { barsPerRow: 2, auto: true })
+    expect(layout.stretch).toBe(1)
+    expect(layout.rows[0].widthNatural).toBe(HEAD_PX + 2 * W + BAR_PAD + RIGHT_PAD)
+  })
+
+  it('stretches the grid so the row reaches fillWidth; heads and pads keep their size', () => {
+    const fillWidth = 1000
+    const layout = buildLayout(two(), { barsPerRow: 2, auto: true, fillWidth })
+    // (1000 − 83 − 12 − 8) / 768: the music takes what the fixed parts leave.
+    const s = (fillWidth - HEAD_PX - BAR_PAD - RIGHT_PAD) / (2 * W)
+    expect(layout.stretch).toBeCloseTo(s, 10)
+    expect(layout.rows[0].widthNatural).toBeCloseTo(fillWidth, 10)
+    expect(layout.rows[0].bars[0]).toMatchObject({ x: HEAD_PX, width: W * s, head: HEAD_PX })
+    expect(layout.rows[0].bars[1]).toMatchObject({ x: HEAD_PX + W * s + BAR_PAD, width: W * s, head: BAR_PAD })
+    // The boxes are the stretched grid's slices: the second quarter of bar 2 starts a quarter (stretched) into it.
+    expect(layout.boxes.get('b1/pad/0/1')).toMatchObject({
+      x: HEAD_PX + W * s + BAR_PAD + (W / 4) * s,
+      width: (W / 4) * s,
+      position: frac(5, 4),
+    })
+  })
+
+  it('never shrinks: a fillWidth narrower than the natural row leaves the grid natural', () => {
+    const layout = buildLayout(two(), { barsPerRow: 2, auto: true, fillWidth: 500 })
+    expect(layout.stretch).toBe(1)
+    expect(layout.rows[0].widthNatural).toBe(HEAD_PX + 2 * W + BAR_PAD + RIGHT_PAD)
+  })
+
+  it('one stretch for the piece, set by the row that fills first; the other rows stay shorter', () => {
+    const layout = buildLayout(piece([bar(quarters()), bar(quarters()), bar(quarters())]), {
+      barsPerRow: 2,
+      auto: true,
+      fillWidth: 1000,
+    })
+    expect(layout.rows[0].widthNatural).toBeCloseTo(1000, 10)
+    expect(layout.rows[1].widthNatural).toBeCloseTo(HEAD_PX + W * layout.stretch + RIGHT_PAD, 10)
+    expect(layout.rows[1].widthNatural).toBeLessThan(1000)
+  })
+
+  it('a row of shorter bars binds the stretch when its fixed parts are the widest: mixed meters', () => {
+    // Row 0: 4/4 + 3/4 with a meter gutter; row 1: 4/4 + 4/4 with a pad. Row 1 has more music and
+    // less fixed width, so it is the one that reaches fillWidth.
+    const layout = buildLayout(
+      piece([
+        bar(quarters()),
+        bar([n(4), n(4), n(4)], { meter: [3, 4] }),
+        bar(quarters(), { meter: [4, 4] }),
+        bar(quarters()),
+      ]),
+      { barsPerRow: 2, auto: true, fillWidth: 1200 },
+    )
+    const widths = layout.rows.map((r) => r.widthNatural)
+    expect(Math.max(...widths)).toBeCloseTo(1200, 10)
+    expect(widths[1]).toBeCloseTo(1200, 10)
+    expect(widths[0]).toBeLessThan(1200)
+  })
+
+  it('a non-finite fillWidth is no fillWidth', () => {
+    expect(buildLayout(two(), { barsPerRow: 2, auto: true, fillWidth: Number.NaN }).stretch).toBe(1)
+    expect(buildLayout(two(), { barsPerRow: 2, auto: true, fillWidth: Number.POSITIVE_INFINITY }).stretch).toBe(1)
+  })
+})
+
 describe('boxes', () => {
   it("are the event's slice of the grid: dotted values take their dotted width", () => {
     const layout = buildLayout(piece([bar([n(4, 1), n(8), n(4), n(4)])]), { barsPerRow: 4, auto: true })

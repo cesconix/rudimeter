@@ -82,6 +82,12 @@ export interface ViewSpec {
   barsPerRow: number
   /** automatic layout: a bar marked `newRow` starts a row. A user-fixed bars-per-row ignores the mark. */
   auto: boolean
+  /**
+   * Natural px the rows may take: the viewport's width over the scale. The time grid stretches so
+   * that the widest row reaches it — justification, as print does — and never shrinks; absent, the
+   * grid keeps its natural `PX_PER_WHOLE`.
+   */
+  fillWidth?: number
 }
 
 export interface EventBox {
@@ -127,6 +133,8 @@ export interface Layout {
   systemH: number
   /** natural px: clef + meter gutter, plus the grace gutter when the piece has a grace note */
   gridX0: number
+  /** the time grid's factor over `PX_PER_WHOLE`: 1 at natural spacing, more when the rows are justified to `fillWidth` */
+  stretch: number
 }
 
 export const hasGrace = (score: Score): boolean =>
@@ -150,6 +158,33 @@ function bracketOf(score: Score, b: number): BarLayout['bracket'] {
   }
 }
 
+/** A bar packed on a row, before the grid is stretched: what it prints before its grid and how long it lasts. */
+interface Packed {
+  barIndex: number
+  /** whole-note units */
+  len: number
+  head: number
+  showClef: boolean
+  showMeter: boolean
+  bracket?: BarLayout['bracket']
+}
+
+/**
+ * One stretch for the whole piece — the cursor keeps one speed from the first row to the last —
+ * chosen so that the row which would overrun first exactly reaches `fillWidth`; every other row
+ * stays shorter, as the last system of a printed page does. Never below 1: the grid is stretched to
+ * fill, not shrunk to fit — that is the scale's job, in `fit`.
+ */
+function stretchToFill(packed: Packed[][], fillWidth: number | undefined): number {
+  if (fillWidth === undefined || !Number.isFinite(fillWidth) || packed.length === 0) return 1
+  const factors = packed.map((row) => {
+    const fixed = row.reduce((sum, p) => sum + p.head, 0) + RIGHT_PAD
+    const music = row.reduce((sum, p) => sum + p.len, 0) * PX_PER_WHOLE
+    return (fillWidth - fixed) / music
+  })
+  return Math.max(1, Math.min(...factors))
+}
+
 /**
  * Rows of bars on the time grid, natural px, and one box per written event. Pure: the engraver
  * draws what this says, the overlay (plan 11) reads the boxes, nobody reads the DOM.
@@ -160,39 +195,56 @@ export function buildLayout(score: Score, spec: ViewSpec): Layout {
   // A user preference is a positive integer by construction; the guard is here because the function is exported.
   const perRow = Number.isFinite(spec.barsPerRow) ? Math.max(1, Math.floor(spec.barsPerRow)) : 1
 
-  const rows: RowLayout[] = []
-  const rowOfBar: number[] = []
-  const layoutOfBar: BarLayout[] = []
-  let bars: BarLayout[] = []
-  let x = gridX0
-  const close = () => {
-    if (bars.length === 0) return
-    const last = bars[bars.length - 1]
-    const rowEndX = last.x + last.width
-    rows.push({ index: rows.length, bars, widthNatural: rowEndX + RIGHT_PAD, rowEndX })
-    bars = []
-    x = gridX0
-  }
+  // Pass one: which bar goes on which row, and what each prints before its grid. The x positions
+  // wait for the stretch, which needs every row packed first.
+  const packed: Packed[][] = []
+  let row: Packed[] = []
   let previous: Meter | undefined
   score.bars.forEach((bar, b) => {
     const meter = meters[b]
     // The signature is drawn on the first bar and where the meter changes; a bar that restates the meter in force draws nothing.
     const changed = previous === undefined || meter[0] !== previous[0] || meter[1] !== previous[1]
     previous = meter
-    if (bars.length >= perRow || (spec.auto && bar.newRow && bars.length > 0)) close()
-    const first = bars.length === 0
+    if (row.length >= perRow || (spec.auto && bar.newRow && row.length > 0)) {
+      packed.push(row)
+      row = []
+    }
+    const first = row.length === 0
     const head = first ? gridX0 : changed ? METER_PX : BAR_PAD
-    if (!first) x += head
-    const width = toNumber(barLength(meter)) * PX_PER_WHOLE
-    const layoutBar: BarLayout = { barIndex: b, x, width, head, showClef: first, showMeter: changed }
+    const p: Packed = { barIndex: b, len: toNumber(barLength(meter)), head, showClef: first, showMeter: changed }
     const bracket = bracketOf(score, b)
-    if (bracket) layoutBar.bracket = bracket
-    bars.push(layoutBar)
-    layoutOfBar.push(layoutBar)
-    rowOfBar.push(rows.length)
-    x += width
+    if (bracket) p.bracket = bracket
+    row.push(p)
   })
-  close()
+  if (row.length > 0) packed.push(row)
+  const stretch = stretchToFill(packed, spec.fillWidth)
+
+  // Pass two: the geometry, on the stretched grid.
+  const rows: RowLayout[] = []
+  const rowOfBar: number[] = []
+  const layoutOfBar: BarLayout[] = []
+  for (const r of packed) {
+    const bars: BarLayout[] = []
+    let x = 0
+    for (const p of r) {
+      x += p.head
+      const width = p.len * PX_PER_WHOLE * stretch
+      const lb: BarLayout = {
+        barIndex: p.barIndex,
+        x,
+        width,
+        head: p.head,
+        showClef: p.showClef,
+        showMeter: p.showMeter,
+      }
+      if (p.bracket) lb.bracket = p.bracket
+      bars.push(lb)
+      layoutOfBar[p.barIndex] = lb
+      rowOfBar[p.barIndex] = rows.length
+      x += width
+    }
+    rows.push({ index: rows.length, bars, widthNatural: x + RIGHT_PAD, rowEndX: x })
+  }
 
   const boxes = new Map<string, EventBox>()
   let position = ZERO
@@ -208,8 +260,8 @@ export function buildLayout(score: Score, spec: ViewSpec): Layout {
           boxes.set(keyOf(id), {
             id,
             row: rowOfBar[b],
-            x: lb.x + toNumber(f.offset) * PX_PER_WHOLE,
-            width: toNumber(f.length) * PX_PER_WHOLE,
+            x: lb.x + toNumber(f.offset) * PX_PER_WHOLE * stretch,
+            width: toNumber(f.length) * PX_PER_WHOLE * stretch,
             position: add(position, f.offset),
             length: f.length,
             rest: f.event.rest === true,
@@ -220,5 +272,5 @@ export function buildLayout(score: Score, spec: ViewSpec): Layout {
     position = add(position, barLength(meters[b]))
   })
 
-  return { rows, boxes, rowOfBar, systemH: SYSTEM_H, gridX0 }
+  return { rows, boxes, rowOfBar, systemH: SYSTEM_H, gridX0, stretch }
 }

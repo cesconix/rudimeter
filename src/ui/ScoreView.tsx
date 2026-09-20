@@ -159,7 +159,12 @@ export function ScoreView({ score, transport, now, mode, prefs, onBar }: Props) 
       .then(() => {
         if (cancelled) return
         const f = fit(size.w, size.h, prefs, score)
-        const layout = buildLayout(score, { barsPerRow: f.barsPerRow, auto: prefs.barsPerRow === 'auto' })
+        // `fillWidth`: the rows are justified to the frame, so a resize or a rotation re-spaces the music, never re-sizes it.
+        const layout = buildLayout(score, {
+          barsPerRow: f.barsPerRow,
+          auto: prefs.barsPerRow === 'auto',
+          fillWidth: size.w / f.scale,
+        })
         const catalogue = resolveInstruments(score)
         const rowH = SYSTEM_H * f.scale
         host.replaceChildren()
