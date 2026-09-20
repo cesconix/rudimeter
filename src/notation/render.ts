@@ -112,15 +112,6 @@ export interface RenderedScore {
 }
 
 /**
- * Resolves when the fonts are ready in the document (including VexFlow's Bravura music font).
- * It does not keep a reference to `document.fonts`' `FontFaceSet`: the promise resolved to `void`
- * is enough for the caller, which only needs to know *when*, not *what*.
- */
-export function notationFontsReady(): Promise<void> {
-  return document.fonts.ready.then(() => undefined)
-}
-
-/**
  * From the available space, works out how many bars fit on a row and at what scale.
  * No manual control: if the screen is narrow, bars per row drop on their own.
  *

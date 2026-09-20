@@ -42,4 +42,9 @@ describe('gallery scores', () => {
     expect(WORST_CASE.id).toBe('worst-case')
     expect(GALLERY.some((f) => f.id === 'worst-case')).toBe(false)
   })
+
+  it('the figures whose sentences name a barline pin their bars per row', () => {
+    const pinned = Object.fromEntries(GALLERY.filter((f) => f.barsPerRow).map((f) => [f.id, f.barsPerRow]))
+    expect(pinned).toEqual({ ties: 4, hairpins: 4 })
+  })
 })

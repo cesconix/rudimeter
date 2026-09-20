@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { RowPool } from './rows'
+import { deferEnsure, RowPool } from './rows'
 
 /** A pool over fake rows that record their life: `engraved` in order of creation, `disposed` in order of disposal. */
 function pool(count: number) {
@@ -67,5 +67,73 @@ describe('RowPool', () => {
     const { p } = pool(3)
     p.ensure(5, 9)
     expect(p.alive()).toEqual([])
+  })
+})
+
+describe('deferEnsure', () => {
+  it('runs one ensure per scheduled task, with the last window asked for', () => {
+    const { p, engraved } = pool(10)
+    const queue: (() => void)[] = []
+    const d = deferEnsure(p, (run) => queue.push(run))
+    d.ensure(0, 1)
+    d.ensure(2, 3)
+    expect(queue.length).toBe(1)
+    expect(engraved).toEqual([])
+    queue.shift()?.()
+    expect(p.alive()).toEqual([1, 2, 3, 4])
+    // a new call after the task ran schedules again
+    d.ensure(5, 5)
+    expect(queue.length).toBe(1)
+    queue.shift()?.()
+    expect(p.alive()).toEqual([4, 5, 6])
+  })
+
+  it('cancel drops the pending window: a pool that was invalidated is not drawn into again', () => {
+    const { p, engraved } = pool(10)
+    const queue: (() => void)[] = []
+    const d = deferEnsure(p, (run) => queue.push(run))
+    d.ensure(0, 1)
+    d.cancel()
+    queue.shift()?.()
+    expect(engraved).toEqual([])
+    d.ensure(3, 3)
+    expect(queue.length).toBe(0)
+  })
+
+  it('schedules on a timer by default', async () => {
+    const { p } = pool(10)
+    const d = deferEnsure(p)
+    d.ensure(2, 2)
+    expect(p.alive()).toEqual([])
+    await new Promise((r) => setTimeout(r, 5))
+    expect(p.alive()).toEqual([1, 2, 3])
+  })
+
+  it('a throw inside the deferred ensure is caught and logged, not left to escape the timer task', () => {
+    const engraved: number[] = []
+    const p = new RowPool(10, (row) => {
+      if (row === 3) throw new Error('boom')
+      engraved.push(row)
+      return { row, dispose: () => {} }
+    })
+    const queue: (() => void)[] = []
+    const d = deferEnsure(p, (run) => queue.push(run))
+    const errors: unknown[] = []
+    const original = console.error
+    console.error = (...args: unknown[]) => errors.push(args)
+    try {
+      d.ensure(2, 4)
+      expect(() => queue.shift()?.()).not.toThrow()
+    } finally {
+      console.error = original
+    }
+    expect(errors.length).toBe(1)
+    // rows 1 and 2 engraved fine before the pool hit row 3 and threw; the pool's own iteration
+    // order (ascending) means nothing past the failing row got a chance either.
+    expect(engraved).toEqual([1, 2])
+    // a later call still works: the pool is not left wedged by the earlier throw.
+    d.ensure(6, 6)
+    queue.shift()?.()
+    expect(engraved).toEqual([1, 2, 5, 6, 7])
   })
 })

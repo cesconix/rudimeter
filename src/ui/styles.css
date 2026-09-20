@@ -211,3 +211,74 @@ select {
   z-index: 10;
   pointer-events: none;
 }
+/* The score screen: picker on top, the score filling the middle, the transport bar at the bottom.
+   The full height sits on the root container, as the session flow did, so the viewport gets a real
+   height to fit rows into. */
+#root:has(main.score-screen) {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+main.score-screen {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  max-width: none;
+  /* The base `main` rule's `margin: 0 auto` shrinks a column-flex item to its content's width. */
+  margin: 0;
+  padding: 8px 12px;
+}
+main.score-screen .score-frame {
+  position: relative;
+  flex: 1;
+  min-height: 160px;
+  display: flex;
+}
+main.score-screen .score-viewport {
+  flex: 1;
+}
+/* Pages: the viewport keeps the frame's width; its height is set by ScoreView; it never scrolls by
+   hand — the page turns with the cursor and a tap seeks. */
+main.score-screen .score-frame--pages .score-viewport {
+  overflow-y: hidden;
+}
+/* A highlight box: the event's slice of the time grid around its heads, translucent so the heads
+   stay readable. Moved by transform, never re-rendered. */
+.score-highlight {
+  position: absolute;
+  left: 0;
+  top: 0;
+  background: var(--cursor);
+  border-radius: 4px;
+  z-index: 1;
+  pointer-events: none;
+  will-change: transform;
+}
+.score-cursor {
+  top: 0;
+  will-change: transform;
+}
+
+/* The transport bar: one row of big controls at the bottom, the settings folded under "View". */
+.transport-bar {
+  border-top: 1px solid #8884;
+  padding: 8px 0 0;
+  margin-top: 8px;
+}
+.transport-bar button {
+  margin: 2px 4px 2px 0;
+  padding: 10px 16px;
+}
+.transport-bar input[type="number"] {
+  width: 4.5em;
+}
+.transport-bar__position {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+.transport-bar__settings label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

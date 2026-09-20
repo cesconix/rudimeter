@@ -47,14 +47,28 @@ export const STAFF_H = (STAFF_LINES - 1) * LINE_PX
  * 24 px for the tempo mark and the volta bracket, which VexFlow would otherwise draw inside the
  * stack: 78 + 24 = 102 → 110. Below: 80 + 52 + 4 = 136 → 140 (next multiple of LINE_PX: VexFlow
  * reads `spaceAboveStaffLn` in line spaces).
+ *
+ * Re-measured 2026-09-20, after the hands' sticking moved above the staff in two-voice bars (plan
+ * 11, task 4): the gallery's "Measure band" now reads ink from 0.5 to 242.0 px in a [0, 290] band
+ * with the top line at 110 — STAFF_TOP still gives 0 overflow above, unchanged. Below, the sticking
+ * and its dynamics left the bottom of the band: ink bottom 242 px − the bottom line at
+ * STAFF_TOP + STAFF_H = 150 → 92 px below the bottom line, + 4 px of air = 96 → 100 (next multiple
+ * of LINE_PX).
  */
 export const STAFF_TOP = 110
-export const STAFF_BELOW = 140
+export const STAFF_BELOW = 100
 export const SYSTEM_H = STAFF_TOP + STAFF_H + STAFF_BELOW
 /** Notehead width at natural scale: the cursor is as wide as it, and the readability floor is measured on it. */
 export const NOTEHEAD_PX = 11.8
 /** Below this the notehead is no longer readable: the constraint that limits how many bars a row takes. */
 export const MIN_NOTEHEAD_PX = 8
+
+/**
+ * Where a rest sits, in staff lines from the bottom. Alone in the bar, on the middle line; with a
+ * second voice the hands' rests move up and the feet's down, so the two never print on top of each
+ * other. The engraver turns these into VexFlow keys; the overlay reads them for a rest's highlight.
+ */
+export const REST_LINE = { single: 2, up: 3, down: 1 } as const
 
 export interface ViewSpec {
   barsPerRow: number

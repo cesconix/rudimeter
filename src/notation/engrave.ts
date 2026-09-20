@@ -50,6 +50,7 @@ import {
   type EventBox,
   type Layout,
   LINE_PX,
+  REST_LINE,
   type RowLayout,
   STAFF_H,
   STAFF_LINES,
@@ -84,11 +85,12 @@ export function keyForLine(line: number, head: Notehead = 'normal'): string {
   return code ? `${name}/${octave}/${code}` : `${name}/${octave}`
 }
 
-/**
- * Where a rest sits. Alone in the bar, on the middle line; with a second voice the hands' rests
- * move up and the feet's down, so the two never print on top of each other.
- */
-const REST_KEY = { single: 'b/4', up: 'd/5', down: 'g/4' } as const
+/** The rest lines of the layout as VexFlow keys: `keyForLine(2)` is b/4, the middle line. */
+const REST_KEY = {
+  single: keyForLine(REST_LINE.single),
+  up: keyForLine(REST_LINE.up),
+  down: keyForLine(REST_LINE.down),
+} as const
 
 // `Glyphs` (the SMuFL enum) is not a named export of 'vexflow/bravura' — only the default `VexFlow`
 // object carries it (`VexFlow.Glyphs`) — so it is read off the default export once, here.
@@ -169,7 +171,13 @@ interface BuiltVoice {
   tuplets: Tuplet[]
 }
 
-function buildNote(event: Event, dir: number, catalogue: Catalogue, restKey: string): Omit<Placed, 'box'> {
+function buildNote(
+  event: Event,
+  dir: number,
+  catalogue: Catalogue,
+  restKey: string,
+  twoVoices: boolean,
+): Omit<Placed, 'box'> {
   const dots = event.duration.dots ?? 0
   const duration = String(event.duration.base)
   const keyIndex = new Map<string, number>()
@@ -190,16 +198,24 @@ function buildNote(event: Event, dir: number, catalogue: Catalogue, restKey: str
   const note = new StaveNote({ keys, duration, dots, stemDirection: dir })
   // One `buildAndAttach` call draws one dot: the struct's `dots` only set the ticks, so a double dot needs two calls.
   for (let i = 0; i < dots; i++) Dot.buildAndAttach([note], { all: true })
-  decorate(note, event, notes, dir, catalogue)
+  decorate(note, event, notes, dir, catalogue, twoVoices)
   return { note, keyIndex, notes }
 }
 
 /**
  * Everything that hangs on a sounding event. Order matters where modifiers stack in the same
  * direction: the sticking is added before the dynamic so the letter sits nearer the note and the
- * dynamic below it, as books print them.
+ * dynamic below it, as books print them. In a two-voice bar the hands' sticking is a TOP
+ * annotation and stacks above the accent, under the text.
  */
-function decorate(note: StaveNote, event: Event, notes: Note[], dir: number, catalogue: Catalogue): void {
+function decorate(
+  note: StaveNote,
+  event: Event,
+  notes: Note[],
+  dir: number,
+  catalogue: Catalogue,
+  twoVoices: boolean,
+): void {
   notes.forEach((n, i) => {
     if (n.ghost) {
       note.addModifier(new Parenthesis(ModifierPosition.LEFT), i)
@@ -210,8 +226,19 @@ function decorate(note: StaveNote, event: Event, notes: Note[], dir: number, cat
     if (n.closed) note.addModifier(glyph(Glyphs.brassMuteClosed, 'above'), i)
   })
   if (event.accent) note.addModifier(new Articulation('a>').setPosition(ModifierPosition.ABOVE), 0)
-  if (event.sticking)
-    note.addModifier(new Annotation(event.sticking).setVerticalJustification(AnnotationVerticalJustify.BOTTOM), 0)
+  if (event.sticking) {
+    // In a two-voice bar the hands' letters go above the staff: below, VexFlow puts a BOTTOM
+    // annotation one line under the note's lowest head, which is where the feet's stems and beams
+    // are (seen in the gallery, plan 10). The feet's own letters, and a single voice's, stay below,
+    // where the pad books print them. Added before the text so the letter sits nearer the note.
+    const above = twoVoices && dir === Stem.UP
+    note.addModifier(
+      new Annotation(event.sticking).setVerticalJustification(
+        above ? AnnotationVerticalJustify.TOP : AnnotationVerticalJustify.BOTTOM,
+      ),
+      0,
+    )
+  }
   if (event.dynamic) note.addModifier(glyph(DYNAMIC_GLYPHS[event.dynamic], 'below'), 0)
   if (event.text)
     note.addModifier(new Annotation(event.text).setVerticalJustification(AnnotationVerticalJustify.TOP), 0)
@@ -249,7 +276,7 @@ function buildVoice(
   const placed: Placed[] = flat.map((f) => {
     const id: EventId = { bar: bar.barIndex, part: part.id, voice: index, item: f.item }
     if (f.sub !== undefined) id.sub = f.sub
-    return { ...buildNote(f.event, dir, catalogue, restKey), box: layout.boxes.get(keyOf(id)) }
+    return { ...buildNote(f.event, dir, catalogue, restKey, twoVoices), box: layout.boxes.get(keyOf(id)) }
   })
   // SOFT: a voice that overflows or underfills its bar (validation reports it) still draws instead of throwing.
   const vf = new Voice({ numBeats: meter[0], beatValue: meter[1] })
@@ -361,7 +388,7 @@ const VOLTA_Y_SHIFT = 4 - (STAFF_TOP - 60)
  * The gallery's worst-case row ("♩ = 100" over "Groove") showed it sitting on a text above the first
  * note and on the bar number: STAFF_TOP grew a 24 px top layer for exactly this. A first pass put
  * the baseline at y = 20, but the re-measurement found the glyph's ≈23.5 px ascent then overflowed
- * the band by 3.5 px above (ink top at y = −3.5 in the [0, 290] band); the baseline is put at y = 24
+ * the band by 3.5 px above (ink top at y = −3.5 in the [0, 250] band); the baseline is put at y = 24
  * instead, using the full top layer — the glyph's top then sits ≈0.5 px inside the band.
  */
 const TEMPO_Y_SHIFT = 24 - (STAFF_TOP - 20)

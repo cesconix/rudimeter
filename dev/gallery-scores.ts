@@ -10,6 +10,8 @@ export interface Figure {
   /** what the section must show, in the reviewer's words */
   expect: string
   score: Score
+  /** fixed bars per row, for a figure whose sentence names a barline or a row end; automatic otherwise */
+  barsPerRow?: number
 }
 
 const on = (ids: InstrumentId | InstrumentId[]) =>
@@ -67,15 +69,24 @@ const bar = (up: Item[], down?: Item[], extra: Partial<Bar> = {}): Bar => ({
 const q4 = (): Item[] => [N(4), N(4), N(4), N(4)]
 const times = <A>(n: number, make: () => A): A[] => Array.from({ length: n }, make)
 
-function figure(id: string, title: string, expect: string, bars: Bar[], extra: Partial<Score> = {}): Figure {
+function figure(
+  id: string,
+  title: string,
+  expect: string,
+  bars: Bar[],
+  extra: Partial<Score> = {},
+  barsPerRow?: number,
+): Figure {
   const first = bars[0]
   const withMeter = first.meter ? bars : [{ meter: [4, 4] as [number, number], ...first }, ...bars.slice(1)]
-  return {
+  const fig: Figure = {
     id,
     title,
     expect,
     score: parseScore({ id, title, parts: [{ id: 'kit', kind: 'drumset' }], ...extra, bars: withMeter }),
   }
+  if (barsPerRow !== undefined) fig.barsPerRow = barsPerRow
+  return fig
 }
 
 export const GALLERY: Figure[] = [
@@ -203,7 +214,7 @@ export const GALLERY: Figure[] = [
   figure(
     'noteheads',
     'Noteheads from the catalogue and per-note overrides, black and open',
-    'Bar 1: snare normal, hi-hat x, ride bell diamond, cross stick x on the snare line. Bar 2: half notes keep an OPEN head — hollow x, hollow diamond. Bar 3, all on the snare line: circle-x, triangle, slash, x. Bar 4: the same four as halves, open where the font has an open variant.',
+    'Bar 1: snare normal, hi-hat x, ride bell diamond, cross stick x on the snare line. Bar 2: half notes keep an OPEN head — hollow x, hollow diamond. Bar 3, all on the snare line: circle-x, triangle, slash, x. Bar 4: circle-x and triangle as halves, open heads (two halves fill the bar).',
     [
       bar([N(4, 'snare'), N(4, 'hihat'), N(4, 'ride-bell'), N(4, 'cross-stick')]),
       bar([N(2, 'hihat'), N(2, 'ride-bell')]),
@@ -320,7 +331,7 @@ export const GALLERY: Figure[] = [
   figure(
     'sticking',
     'Sticking under the staff: a paradiddle',
-    'R L R R L R L L under the eighths, one letter under each head, the accents above the first of each group; the letters are on one line, none drops lower than its neighbour.',
+    'R L R R L R L L under the eighths, one letter under each head, the accents above the first of each group; the letters are on one line, none drops lower than its neighbour. Single voice: the letters stay below.',
     [
       bar([
         N(8, 'snare', { accent: true, sticking: 'R' }),
@@ -337,7 +348,7 @@ export const GALLERY: Figure[] = [
   figure(
     'dynamics',
     'Dynamics pp → ff under the note, in the music font; under the sticking when both are there',
-    'Bar 1: pp, p, mp, mf under four quarters; bar 2: f, ff under two halves — the real glyphs, bold and italic, not typed letters. Bar 3: R and L under the snare quarters with mf under the L, below the letter; below the feet, f under the first kick, under its stem; then a dotted quarter rest below the staff, an eighth kick, a quarter rest.',
+    "Bar 1: pp, p, mp, mf under four quarters; bar 2: f, ff under two halves — the real glyphs, bold and italic, not typed letters. Bar 3: R L R L ABOVE the staff (a two-voice bar: below they would sit on the kick's stems) with mf under the second quarter, below the staff; below the feet, f under the first kick, under its stem; then a dotted quarter rest below the staff, an eighth kick, a quarter rest.",
     [
       bar([
         N(4, 'snare', { dynamic: 'pp' }),
@@ -360,18 +371,20 @@ export const GALLERY: Figure[] = [
   figure(
     'hairpins',
     'Hairpins: inside a bar, across a bar, across a row end',
-    'Bar 1: a crescendo from beat 1 to beat 4, below the staff. Bar 2: a diminuendo opening on beat 1 that closes on beat 2 of bar 3; then a crescendo opening on beat 3 of bar 3. Bar 4 starts a new row: the crescendo continues from its first note to beat 4, where it stops — so the first row ends with the open wedge reaching the last note of bar 3 and the second row starts with it.',
+    'Bar 1: a crescendo from beat 1 to beat 4, below the staff. Bar 2: a diminuendo opening on beat 1 that closes on beat 2 of bar 3; then a crescendo opening on beat 3 of bar 3. Bar 4 starts a new row: the crescendo continues from its first note to beat 4, where it stops — so the first row ends with the open wedge reaching the last note of bar 3 and the second row starts with it. (four bars per row, fixed, so the barline and the row end fall where the sentence says at every width).',
     [
       bar([N(4, 'snare', { hairpin: 'cresc' }), N(4), N(4), N(4, 'snare', { hairpin: 'stop' })]),
       bar([N(4, 'snare', { hairpin: 'dim' }), N(4), N(4), N(4)]),
       bar([N(4), N(4, 'snare', { hairpin: 'stop' }), N(4, 'snare', { hairpin: 'cresc' }), N(4)]),
       bar([N(4), N(4), N(4), N(4, 'snare', { hairpin: 'stop' })], undefined, { newRow: true }),
     ],
+    {},
+    4,
   ),
   figure(
     'ties',
     'Ties: inside a bar, across a bar, across a row end, on one note of a chord',
-    'Bar 1: quarter tied to quarter, then two quarters. Bar 2 ends on a quarter tied into bar 3: the tie crosses the barline. Bar 3 ends on a half tied into bar 4, which starts a new row: a half tie leaves the first row to the right edge and a half tie enters the second row from the left. Bar 5: hi-hat + snare chords where only the snare is tied — one tie, on the snare head.',
+    'Bar 1: quarter tied to quarter, then two quarters. Bar 2 ends on a quarter tied into bar 3: the tie crosses the barline. Bar 3 ends on a half tied into bar 4, which starts a new row: a half tie leaves the first row to the right edge and a half tie enters the second row from the left. Bar 5: hi-hat + snare chords where only the snare is tied — one tie, on the snare head. (four bars per row, fixed, so the barline and the row end fall where the sentence says at every width).',
     [
       bar([{ duration: { base: 4 }, notes: [{ instrument: 'snare', tie: true }] }, N(4), N(4), N(4)]),
       bar([N(4), N(4), N(4), { duration: { base: 4 }, notes: [{ instrument: 'snare', tie: true }] }]),
@@ -382,6 +395,8 @@ export const GALLERY: Figure[] = [
         N(2, ['hihat', 'snare']),
       ]),
     ],
+    {},
+    4,
   ),
   figure(
     'text',

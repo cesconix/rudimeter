@@ -5,6 +5,7 @@
     "dev/**/*.test.ts",
     "dev/gallery.ts",
     "dev/lab.ts",
+    "dev/session.tsx",
     "dev/scenarios/*.ts",
     "api/**/*.test.ts",
     "dashboard/main.ts",
