@@ -654,6 +654,11 @@ export function engraveRow(
  * A dev measurement for the gallery; nothing in the app calls it. Needs the fonts: the clef and
  * the signature are glyphs.
  */
+/** VexFlow's own air between a stave's start and its first note, natural px: what `BAR_PAD` restates. A dev measurement for the gallery. */
+export function measurePad(): number {
+  return Metrics.get('Stave.padding', 0)
+}
+
 export function measureHead(clef: boolean, meter: string | null): number {
   const stave = new Stave(0, 0, 400)
   if (clef) stave.addClef('percussion')

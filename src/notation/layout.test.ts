@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test'
 import { frac } from '../score/fraction'
 import type { Bar, Event, Item, NoteBase, Score } from '../score/types'
 import {
+  BAR_PAD,
   buildLayout,
   GRACE_GUTTER,
   HEAD_PX,
@@ -73,17 +74,18 @@ describe('rows', () => {
       showClef: true,
       showMeter: true,
     })
+    // A bar with neither clef nor meter still starts `BAR_PAD` after its barline: the air the row head and the meter gutter already carry.
     expect(layout.rows[0].bars[1]).toEqual({
       barIndex: 1,
-      x: HEAD_PX + W,
+      x: HEAD_PX + W + BAR_PAD,
       width: W,
-      head: 0,
+      head: BAR_PAD,
       showClef: false,
       showMeter: false,
     })
-    expect(layout.rows[0].rowEndX).toBe(HEAD_PX + 4 * W)
-    expect(layout.rows[0].widthNatural).toBe(HEAD_PX + 4 * W + RIGHT_PAD)
-    expect(layout.rows[2].rowEndX).toBe(HEAD_PX + 2 * W)
+    expect(layout.rows[0].rowEndX).toBe(HEAD_PX + 4 * W + 3 * BAR_PAD)
+    expect(layout.rows[0].widthNatural).toBe(HEAD_PX + 4 * W + 3 * BAR_PAD + RIGHT_PAD)
+    expect(layout.rows[2].rowEndX).toBe(HEAD_PX + 2 * W + BAR_PAD)
   })
 
   it('newRow starts a row in automatic mode and is ignored when the user fixed the row', () => {
@@ -148,13 +150,13 @@ describe('rows', () => {
     const row = layout.rows[0].bars
     expect(row.map((b) => b.width)).toEqual([W, (3 * W) / 4, (3 * W) / 4, (3 * W) / 4, (3 * W) / 4])
     expect(row.map((b) => b.showMeter)).toEqual([true, true, false, false, true])
-    expect(row.map((b) => b.head)).toEqual([HEAD_PX, METER_PX, 0, 0, METER_PX])
+    expect(row.map((b) => b.head)).toEqual([HEAD_PX, METER_PX, BAR_PAD, BAR_PAD, METER_PX])
     expect(row.map((b) => b.x)).toEqual([
       HEAD_PX,
       HEAD_PX + W + METER_PX,
-      HEAD_PX + W + METER_PX + (3 * W) / 4,
-      HEAD_PX + W + METER_PX + (6 * W) / 4,
-      HEAD_PX + W + METER_PX + (9 * W) / 4 + METER_PX,
+      HEAD_PX + W + METER_PX + (3 * W) / 4 + BAR_PAD,
+      HEAD_PX + W + METER_PX + (6 * W) / 4 + 2 * BAR_PAD,
+      HEAD_PX + W + METER_PX + (9 * W) / 4 + 2 * BAR_PAD + METER_PX,
     ])
     expect(layout.rows[0].rowEndX).toBe(row[4].x + row[4].width)
   })
@@ -231,11 +233,11 @@ describe('boxes', () => {
       barsPerRow: 2,
       auto: true,
     })
-    expect(layout.boxes.get('b1/pad/0/0')).toMatchObject({ row: 0, x: HEAD_PX + W, position: frac(1) })
+    expect(layout.boxes.get('b1/pad/0/0')).toMatchObject({ row: 0, x: HEAD_PX + W + BAR_PAD, position: frac(1) })
     expect(layout.boxes.get('b2/pad/0/0')).toMatchObject({ row: 1, x: HEAD_PX, position: frac(2) })
     expect(layout.boxes.get('b3/pad/0/3')).toMatchObject({
       row: 1,
-      x: HEAD_PX + W + (3 * W) / 4,
+      x: HEAD_PX + W + BAR_PAD + (3 * W) / 4,
       position: frac(15, 4),
     })
   })
@@ -247,13 +249,13 @@ describe('boxes', () => {
     })
     expect(layout.boxes.get('b1/pad/0/0')).toMatchObject({
       id: { bar: 1, part: 'pad', voice: 0, item: 0 },
-      x: HEAD_PX + W,
+      x: HEAD_PX + W + BAR_PAD,
       width: (3 * W) / 8,
       position: frac(1),
     })
     expect(layout.boxes.get('b2/pad/0/2')).toMatchObject({
       id: { bar: 2, part: 'pad', voice: 0, item: 2 },
-      x: HEAD_PX + 2 * W + W / 2,
+      x: HEAD_PX + 2 * W + 2 * BAR_PAD + W / 2,
       position: frac(5, 2),
     })
     expect(layout.boxes.size).toBe(9)

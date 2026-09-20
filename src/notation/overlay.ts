@@ -5,7 +5,7 @@ import type { Catalogue } from '../score/instruments'
 import type { Score } from '../score/types'
 import type { PlaybackBar, PlaybackEvent } from '../score/unroll'
 import type { CursorPoint } from './cursor'
-import { type BarLayout, type Layout, LINE_PX, REST_LINE, STAFF_LINES, STAFF_TOP } from './layout'
+import { BAR_PAD, type BarLayout, type Layout, LINE_PX, REST_LINE, STAFF_LINES, STAFF_TOP } from './layout'
 
 /**
  * Everything here is in PLAYBACK POSITION (whole-note units), never seconds: inside a row x is
@@ -33,6 +33,13 @@ export function playbackBarAt(starts: number[], position: number): number {
  * interpolating across the score towards wherever it lands. The end point and the next bar's
  * first point share one `t`: `cursorAt` lands on the later of the two at that instant, and never
  * has an interval that crosses rows. Natural px.
+ *
+ * One exception to "the grid's end": when the bar that plays next is the next written bar on the
+ * same row with nothing but `BAR_PAD` before its grid, the end point sits at that bar's grid start
+ * instead, so the last event's slide crosses the barline and the pad in one motion. A 12 px jump on
+ * every barline would read as a tick; the slide costs a twelfth of the speed on a quarter and half
+ * of it on a sixteenth, only inside the bar's last event. A meter gutter keeps the jump: 53 px in
+ * one sixteenth is a lurch, not a slide.
  */
 export function cursorPoints(layout: Layout, score: Score, playback: PlaybackBar[]): CursorPoint[] {
   const meters = metersOf(score)
@@ -40,7 +47,7 @@ export function cursorPoints(layout: Layout, score: Score, playback: PlaybackBar
   for (const row of layout.rows) for (const b of row.bars) barOf.set(b.barIndex, b)
   const out: CursorPoint[] = []
   let start = ZERO
-  for (const pb of playback) {
+  playback.forEach((pb, i) => {
     const lb = barOf.get(pb.barIndex)
     const row = layout.rowOfBar[pb.barIndex]
     // A simile bar carries the boxes of the bar it repeats under its own index (layout.ts).
@@ -60,9 +67,14 @@ export function cursorPoints(layout: Layout, score: Score, playback: PlaybackBar
     // instead of a non-null assertion: were it ever missing, the bar-end point would be dropped
     // and the wrap branch (`cursorAt`'s unused `rowEndX = 0`) would reappear; `overlay.test.ts`
     // guards this invariant over the whole library.
-    if (lb) out.push({ t: toNumber(end), x: lb.x + lb.width, row })
+    if (lb) {
+      const next = playback[i + 1]
+      const nb = next && next.barIndex === pb.barIndex + 1 ? barOf.get(next.barIndex) : undefined
+      const padded = nb !== undefined && layout.rowOfBar[nb.barIndex] === row && nb.head === BAR_PAD
+      out.push({ t: toNumber(end), x: padded ? nb.x : lb.x + lb.width, row })
+    }
     start = end
-  }
+  })
   // Stable sort: at one `t` the insertion order stands — a bar's end before the next bar's first
   // event — which is what puts the cursor on the next bar at that instant. Two voices at the same
   // instant give the same point twice — the walk above pushes one voice's events, then the next

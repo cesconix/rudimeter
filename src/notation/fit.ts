@@ -2,6 +2,7 @@ import { barLength, metersOf } from '../score/events'
 import { toNumber } from '../score/fraction'
 import type { Score } from '../score/types'
 import {
+  BAR_PAD,
   GRACE_GUTTER,
   HEAD_PX,
   hasGrace,
@@ -54,7 +55,8 @@ export function fit(availW: number, availH: number, prefs: Prefs, score: Score):
   const gridX0 = HEAD_PX + (hasGrace(score) ? GRACE_GUTTER : 0)
   // `|| PX_PER_WHOLE`: a piece with no bars has no meter; it does not happen past `parseScore`, but the function is exported.
   const widestBar = Math.max(0, ...metersOf(score).map((m) => toNumber(barLength(m)))) * PX_PER_WHOLE || PX_PER_WHOLE
-  const widestRow = (n: number) => Math.min(n, total) * widestBar + gridX0 + RIGHT_PAD
+  // Every bar after the first on a row starts with `BAR_PAD` of air before its grid.
+  const widestRow = (n: number) => Math.min(n, total) * (widestBar + BAR_PAD) - BAR_PAD + gridX0 + RIGHT_PAD
   const readable = (n: number) => NOTEHEAD_PX * Math.min(1, w / widestRow(n)) >= MIN_NOTEHEAD_PX
   const barsPerRow = bars === 'auto' ? Math.min(total, CANDIDATES.find(readable) ?? 1) : bars
   const scaleW = w / widestRow(barsPerRow)

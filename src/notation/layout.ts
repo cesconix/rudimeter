@@ -31,6 +31,14 @@ export const GRACE_GUTTER = 24
  * clipped: the row seems to trail off. Eight pixels cover even the final barline, which is thick.
  */
 export const RIGHT_PAD = 8
+/**
+ * Air between a barline and the first note of the bar that follows it. The row head (`HEAD_PX`) and
+ * the meter gutter (`METER_PX`) already carry it: both were measured as VexFlow's `getNoteStartX()`
+ * plus its `Stave.padding`, which is 12 px (gallery, "Measure head"). A bar with neither had none,
+ * so its first note printed against the barline. The pad is a head like the other two — the grid
+ * starts after it — and the cursor slides through it during the previous bar's last event.
+ */
+export const BAR_PAD = 12
 /** VexFlow's distance between staff lines (`Tables.STAVE_LINE_DISTANCE`). */
 export const LINE_PX = 10
 /** Five lines 10 px apart (VexFlow's spacing): a 40 px staff. */
@@ -94,7 +102,7 @@ export interface BarLayout {
   /** natural px: where the bar's time grid starts and how wide it is */
   x: number
   width: number
-  /** px of stave before the grid: the row head on the first bar, a meter gutter on a change mid-row, 0 otherwise */
+  /** px of stave before the grid: the row head on the first bar, a meter gutter on a change mid-row, `BAR_PAD` otherwise */
   head: number
   showClef: boolean
   showMeter: boolean
@@ -173,7 +181,7 @@ export function buildLayout(score: Score, spec: ViewSpec): Layout {
     previous = meter
     if (bars.length >= perRow || (spec.auto && bar.newRow && bars.length > 0)) close()
     const first = bars.length === 0
-    const head = first ? gridX0 : changed ? METER_PX : 0
+    const head = first ? gridX0 : changed ? METER_PX : BAR_PAD
     if (!first) x += head
     const width = toNumber(barLength(meter)) * PX_PER_WHOLE
     const layoutBar: BarLayout = { barIndex: b, x, width, head, showClef: first, showMeter: changed }
