@@ -40,6 +40,8 @@ export function parsePrefs(raw: string | null): ViewPrefs {
   }
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return { ...DEFAULT_PREFS }
   const p = parsed as Record<string, unknown>
+  // A stored bpm below 1 (a negative, a zero) is malformed, not a low tempo: it falls all the way
+  // to the default rather than being clamped up to MIN_BPM, the same way any other broken field does.
   const bpm = typeof p.bpm === 'number' && p.bpm >= 1 ? clampBpm(p.bpm) : DEFAULT_PREFS.bpm
   return {
     mode: p.mode === 'pages' ? 'pages' : 'scroll',

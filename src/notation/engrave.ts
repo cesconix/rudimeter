@@ -388,7 +388,7 @@ const VOLTA_Y_SHIFT = 4 - (STAFF_TOP - 60)
  * The gallery's worst-case row ("♩ = 100" over "Groove") showed it sitting on a text above the first
  * note and on the bar number: STAFF_TOP grew a 24 px top layer for exactly this. A first pass put
  * the baseline at y = 20, but the re-measurement found the glyph's ≈23.5 px ascent then overflowed
- * the band by 3.5 px above (ink top at y = −3.5 in the [0, 290] band); the baseline is put at y = 24
+ * the band by 3.5 px above (ink top at y = −3.5 in the [0, 250] band); the baseline is put at y = 24
  * instead, using the full top layer — the glyph's top then sits ≈0.5 px inside the band.
  */
 const TEMPO_Y_SHIFT = 24 - (STAFF_TOP - 20)

@@ -68,7 +68,16 @@ export function deferEnsure<T extends { dispose(): void }>(
       schedule(() => {
         const w = wanted
         wanted = null
-        if (w && !cancelled) pool.ensure(w[0], w[1])
+        if (!w || cancelled) return
+        // Off the frame step, so a throw here has no caller to catch it: it would surface as one
+        // uncaught error per frame with no row drawn and nothing saying which. Logged and swallowed
+        // instead — the view keeps running with whatever rows it already has, and the row range
+        // that failed is named for whoever reads the console.
+        try {
+          pool.ensure(w[0], w[1])
+        } catch (err) {
+          console.error(`engraving rows ${w[0]}–${w[1]} failed`, err)
+        }
       })
     },
     cancel() {

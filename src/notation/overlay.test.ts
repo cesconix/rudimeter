@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'bun:test'
-import { toNumber } from '../score/fraction'
+import { SCORES } from '../data/scores'
+import { barLength, metersOf } from '../score/events'
+import { add, toNumber, ZERO } from '../score/fraction'
 import { resolveInstruments } from '../score/instruments'
 import type { Bar, Event, InstrumentId, Item, Score } from '../score/types'
 import { eventsOf, unroll } from '../score/unroll'
-import { buildLayout, HEAD_PX, LINE_PX, METER_PX, PX_PER_WHOLE, STAFF_TOP } from './layout'
+import { type BarLayout, buildLayout, HEAD_PX, LINE_PX, METER_PX, PX_PER_WHOLE, STAFF_TOP } from './layout'
 import {
   cursorPoints,
   HIGHLIGHT_PAD,
@@ -115,6 +117,45 @@ describe('cursorPoints', () => {
       [1.75, HEAD_PX + 3 * Q],
       [2, HEAD_PX + W],
     ])
+  })
+
+  it('no interval of cursorAt crosses rows: a bar-end point closes every emitted bar, whole library', () => {
+    for (const score of SCORES) {
+      for (const barsPerRow of [1, 2, 4, 8] as const) {
+        for (const auto of [true, false]) {
+          const layout = buildLayout(score, { barsPerRow, auto })
+          const playback = unroll(score)
+          const pts = cursorPoints(layout, score, playback)
+          const label = `${score.id} barsPerRow=${barsPerRow} auto=${auto}`
+
+          // D3: no adjacent pair straddles a row wrap with a positive-length interval between —
+          // that is the wrap branch of `cursorAt`, which needs the view's `rowEndX` (passed as 0
+          // here) and would send the cursor backwards instead.
+          for (let i = 1; i < pts.length; i++) {
+            const a = pts[i - 1]
+            const b = pts[i]
+            expect(a.row !== b.row && a.t < b.t, `${label}: interval [${a.t}, ${b.t}) crosses rows`).toBe(false)
+          }
+
+          // Every emitted bar closes with a point at its own right edge, on its own row — the
+          // point the cursor slides to during the bar's last event (see cursorPoints' docblock).
+          const meters = metersOf(score)
+          const barOf = new Map<number, BarLayout>()
+          for (const row of layout.rows) for (const b of row.bars) barOf.set(b.barIndex, b)
+          let start = ZERO
+          for (const pb of playback) {
+            const lb = barOf.get(pb.barIndex)
+            if (!lb) throw new Error(`${label}: no BarLayout for bar ${pb.barIndex}`)
+            const end = add(start, barLength(meters[pb.barIndex]))
+            const t = toNumber(end)
+            const row = layout.rowOfBar[pb.barIndex]
+            const found = pts.some((p) => p.t === t && p.x === lb.x + lb.width && p.row === row)
+            expect(found, `${label}: bar ${pb.barIndex} (pass ${pb.pass}) has no end point at t=${t}`).toBe(true)
+            start = end
+          }
+        }
+      }
+    }
   })
 })
 

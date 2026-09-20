@@ -58,13 +58,16 @@ export function ScoreScreen() {
   }, [ctx])
 
   const play = async () => {
-    let c = ctxRef.current
-    if (!c) {
-      c = createAudioContext()
-      ctxRef.current = c
-      setCtx(c)
-    }
     try {
+      let c = ctxRef.current
+      if (!c) {
+        // Inside the try: Web Audio unsupported (or blocked) throws here, and without a context
+        // there is nothing to resume — the banner is still the honest state to land in, not a
+        // silently rejected `play()`.
+        c = createAudioContext()
+        ctxRef.current = c
+        setCtx(c)
+      }
       await ensureRunning(c)
     } catch {
       // Safari rejects `resume()` when it decides the call falls outside the gesture: surface the
@@ -93,7 +96,17 @@ export function ScoreScreen() {
       <div className="row">
         <ScorePicker value={scoreId} onChange={pick} />
         {suspended && ctx && (
-          <button type="button" onClick={() => ctx.resume().then(() => setSuspended(false))}>
+          <button
+            type="button"
+            onClick={() =>
+              // A rejection here (the same Safari gesture rule as `play`'s) must not escape as an
+              // unhandled rejection: the banner just stays up, which is already the honest state.
+              ctx
+                .resume()
+                .then(() => setSuspended(false))
+                .catch(() => setSuspended(true))
+            }
+          >
             Audio paused: tap to resume
           </button>
         )}

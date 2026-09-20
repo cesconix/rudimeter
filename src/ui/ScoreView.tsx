@@ -64,6 +64,15 @@ interface Built {
   points: CursorPoint[]
   rects: Map<string, HighlightRect>
   highlights: HighlightSource
+  /** `layout.rows.length * rowH`, known at build time: sparing the loop a forced-reflow `host.offsetHeight` read every frame. */
+  hostH: number
+  /**
+   * The viewport's height: `rowsVisible * rowH` in pages mode, the measured frame height (`size.h`)
+   * in scroll mode. Known at build time for the same reason as `hostH` — one forced reflow per
+   * frame instead of two; the only DOM read left after the loop's writes is the `scrollTop`
+   * read-back below, which stays because the browser rounds and clamps it (see its own comment).
+   */
+  viewportH: number
 }
 
 /** The rows a viewport shows in each mode, for the pool. */
@@ -104,6 +113,13 @@ export function ScoreView({ score, transport, now, mode, prefs, onBar }: Props) 
     followingRef.current = on
     setFollowing(on)
   }, [])
+
+  // A new piece starts followed: a user who took the scrolling over on the previous one must not
+  // find the next piece stuck in manual with the cursor running off screen.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the effect body does not read `score`, only re-runs on a new one.
+  useEffect(() => {
+    follow(true)
+  }, [score, follow])
 
   // The usable width decides bars per row and scale, the height rows per viewport (see `fit`), so
   // both are measured, never assumed: the frame is a flex child, its size is not the window's.
@@ -174,6 +190,8 @@ export function ScoreView({ score, transport, now, mode, prefs, onBar }: Props) 
           points: cursorPoints(layout, score, transport.playback),
           rects: highlightRects(score, catalogue, layout, transport.playback),
           highlights: transportHighlights(transport.events),
+          hostH: layout.rows.length * rowH,
+          viewportH: mode === 'pages' ? f.rowsVisible * rowH : size.h,
         }
         // The rows around the cursor now, synchronously: a frame with an empty viewport is a flash.
         const pos = transport.positionAt(now())
@@ -257,7 +275,7 @@ export function ScoreView({ score, transport, now, mode, prefs, onBar }: Props) 
         const first = Math.floor(p.row / b.rowsVisible) * b.rowsVisible
         vp.scrollTop = first * rowH
       } else {
-        const maxScroll = Math.max(0, host.offsetHeight - vp.clientHeight)
+        const maxScroll = Math.max(0, b.hostH - b.viewportH)
         const target = Math.max(0, Math.min(maxScroll, p.row * rowH - rowH * ROW_TOP_MARGIN))
         if (followingRef.current) {
           // After a re-layout there is no continuity to preserve: `scrollY` is in pixels of a
@@ -277,20 +295,22 @@ export function ScoreView({ score, transport, now, mode, prefs, onBar }: Props) 
         snapNext.current = false
       }
       // The rows the viewport now shows, asked for off the frame step (`deferEnsure`).
-      b.ensure(...rowWindow(mode, b, vp.scrollTop, vp.clientHeight, p.row))
+      b.ensure(...rowWindow(mode, b, vp.scrollTop, b.viewportH, p.row))
     }
     raf = requestAnimationFrame(step)
     return () => cancelAnimationFrame(raf)
   }, [transport, mode, now, onBar])
 
-  // Who is in charge of the scrolling (scroll mode; in pages mode the viewport does not scroll by
-  // hand). The gestures are not listed — the list would always be incomplete — we look at the
-  // result: if `scrollTop` is not what we wrote there, someone else moved it. `wheel` stays as an
-  // immediate signal of intent. `pointerdown`/`touchstart` no: a finger resting on the iPad, with
-  // the sticks in your hands, happens all the time and is not a request to stop the score.
+  // Who is in charge of the scrolling (scroll mode only; in pages mode the viewport does not
+  // scroll by hand, `expected.current` is never kept up to date, and the `overflow-y: hidden`
+  // clamp racing the build effect's `expected.current = null` could flip `following` off with the
+  // button hidden — D9). The gestures are not listed — the list would always be incomplete — we
+  // look at the result: if `scrollTop` is not what we wrote there, someone else moved it. `wheel`
+  // stays as an immediate signal of intent. `pointerdown`/`touchstart` no: a finger resting on the
+  // iPad, with the sticks in your hands, happens all the time and is not a request to stop the score.
   useEffect(() => {
     const vp = viewportRef.current
-    if (!vp) return
+    if (!vp || mode !== 'scroll') return
     const release = () => follow(false)
     const onScroll = () => {
       const e = expected.current
@@ -302,7 +322,7 @@ export function ScoreView({ score, transport, now, mode, prefs, onBar }: Props) 
       vp.removeEventListener('wheel', release)
       vp.removeEventListener('scroll', onScroll)
     }
-  }, [follow])
+  }, [follow, mode])
 
   // A tap on a bar seeks the transport to it (first pass) and hands the scrolling back to the cursor.
   // `click`, not `pointerdown`: a pan on iOS never produces a click, a tap does.

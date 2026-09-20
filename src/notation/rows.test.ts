@@ -108,4 +108,32 @@ describe('deferEnsure', () => {
     await new Promise((r) => setTimeout(r, 5))
     expect(p.alive()).toEqual([1, 2, 3])
   })
+
+  it('a throw inside the deferred ensure is caught and logged, not left to escape the timer task', () => {
+    const engraved: number[] = []
+    const p = new RowPool(10, (row) => {
+      if (row === 3) throw new Error('boom')
+      engraved.push(row)
+      return { row, dispose: () => {} }
+    })
+    const queue: (() => void)[] = []
+    const d = deferEnsure(p, (run) => queue.push(run))
+    const errors: unknown[] = []
+    const original = console.error
+    console.error = (...args: unknown[]) => errors.push(args)
+    try {
+      d.ensure(2, 4)
+      expect(() => queue.shift()?.()).not.toThrow()
+    } finally {
+      console.error = original
+    }
+    expect(errors.length).toBe(1)
+    // rows 1 and 2 engraved fine before the pool hit row 3 and threw; the pool's own iteration
+    // order (ascending) means nothing past the failing row got a chance either.
+    expect(engraved).toEqual([1, 2])
+    // a later call still works: the pool is not left wedged by the earlier throw.
+    d.ensure(6, 6)
+    queue.shift()?.()
+    expect(engraved).toEqual([1, 2, 5, 6, 7])
+  })
 })

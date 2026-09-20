@@ -56,12 +56,19 @@ export function cursorPoints(layout: Layout, score: Score, playback: PlaybackBar
       })
     }
     const end = add(start, barLength(meters[pb.barIndex]))
+    // `lb` is always found — every playback bar has a `BarLayout` — but the guard stays loud
+    // instead of a non-null assertion: were it ever missing, the bar-end point would be dropped
+    // and the wrap branch (`cursorAt`'s unused `rowEndX = 0`) would reappear; `overlay.test.ts`
+    // guards this invariant over the whole library.
     if (lb) out.push({ t: toNumber(end), x: lb.x + lb.width, row })
     start = end
   }
   // Stable sort: at one `t` the insertion order stands — a bar's end before the next bar's first
   // event — which is what puts the cursor on the next bar at that instant. Two voices at the same
-  // instant give the same point twice; the second is dropped.
+  // instant give the same point twice — the walk above pushes one voice's events, then the next
+  // voice's, of the same bar, back to back, so the duplicates land adjacent once the sort is
+  // stable — and the second is dropped; reordering the loops (part before voice, say) would scatter
+  // the duplicates apart and this adjacent-pair filter would need a full dedup instead.
   out.sort((a, b) => a.t - b.t)
   return out.filter((p, i) => i === 0 || p.t !== out[i - 1].t || p.x !== out[i - 1].x || p.row !== out[i - 1].row)
 }
