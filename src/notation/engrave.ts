@@ -69,7 +69,11 @@ export interface EngravedRow {
   dispose(): void
 }
 
-/** One event as VexFlow holds it, with the box the time grid puts it in. */
+/**
+ * One event as VexFlow holds it, with the box the time grid puts it in. `keyIndex` and `notes` are
+ * unread here: the next task's ties and per-note modifiers (accent, sticking, open/closed) key off
+ * them to find which VexFlow key on a chord is which instrument.
+ */
 interface Placed {
   note: StemmableNote
   /** undefined for a hidden rest: it has a box in the layout but nothing to align */
@@ -80,6 +84,7 @@ interface Placed {
   notes: Note[]
 }
 
+/** `part`, `index` and `flat` are unread here: the next task's ties and hairpins need the voice they belong to and its flat events to find a run's start and end. */
 interface BuiltVoice {
   part: Part
   index: number
@@ -98,7 +103,8 @@ function buildNote(event: Event, dir: number, catalogue: Catalogue, restKey: str
   if (event.hidden) return { note: new GhostNote({ duration, dots }), keyIndex, notes: [] }
   if (event.rest) {
     const rest = new StaveNote({ keys: [restKey], duration, dots, type: 'r', stemDirection: dir })
-    if (dots > 0) Dot.buildAndAttach([rest], { all: true })
+    // One `buildAndAttach` call draws one dot: the struct's `dots` only set the ticks, so a double dot needs two calls.
+    for (let i = 0; i < dots; i++) Dot.buildAndAttach([rest], { all: true })
     return { note: rest, keyIndex, notes: [] }
   }
   // Low to high: VexFlow displaces the noteheads of a chord from that order.
@@ -108,7 +114,8 @@ function buildNote(event: Event, dir: number, catalogue: Catalogue, restKey: str
   })
   const keys = notes.map((n) => keyForLine(catalogue[n.instrument].line, n.head ?? catalogue[n.instrument].head))
   const note = new StaveNote({ keys, duration, dots, stemDirection: dir })
-  if (dots > 0) Dot.buildAndAttach([note], { all: true })
+  // One `buildAndAttach` call draws one dot: the struct's `dots` only set the ticks, so a double dot needs two calls.
+  for (let i = 0; i < dots; i++) Dot.buildAndAttach([note], { all: true })
   return { note, keyIndex, notes }
 }
 
