@@ -116,7 +116,8 @@ function glyph(text: string, where: 'above' | 'below'): Annotation {
 
 /**
  * Below the staff, under the feet's stems: a kick's stem ends 35 px below its head, and the sticking
- * sits under that. 30 px is the estimate until the gallery's worst-case row (Task 8) says otherwise.
+ * sits under that. 30 px below the stave's bottom: clear of a kick's 35 px stem on the worst-case
+ * row (gallery).
  */
 const HAIRPIN_Y_SHIFT = 30
 
@@ -316,12 +317,23 @@ function placeOnGrid(formatter: Formatter, voices: BuiltVoice[]): void {
   }
 }
 
-/** Small grey text in the band above the staff: bar numbers, and the "×N" of a repeat played more than twice. */
-function label(ctx: RenderContext, stave: Stave, text: string, x: number): void {
+/**
+ * Small text in the band above the staff: bar numbers and the "×N" of a repeat played more than
+ * twice default to grey 8 px above the top line; the volta label (drawn by the caller, not VexFlow —
+ * see `VOLTA_Y_SHIFT`) passes its own baseline and black.
+ */
+function label(
+  ctx: RenderContext,
+  stave: Stave,
+  text: string,
+  x: number,
+  y: number = stave.getYForLine(0) - 8,
+  color = '#888',
+): void {
   ctx.save()
   ctx.setFont('system-ui, sans-serif', 13)
-  ctx.setFillStyle('#888')
-  ctx.fillText(text, x, stave.getYForLine(0) - 8)
+  ctx.setFillStyle(color)
+  ctx.fillText(text, x, y)
   ctx.restore()
 }
 
@@ -333,10 +345,20 @@ export function voltaType(bracket: { first: boolean; last: boolean }): number {
 }
 
 /**
- * VexFlow puts the metronome mark 20 px above the top line; −20 px lifts it clear of the bar number
- * that shares the row start. The estimate until the gallery's worst-case row (Task 8) says otherwise.
+ * VexFlow draws the bracket line at `getYForTopText(5) + yShift`, i.e. `(STAFF_TOP − 60) + yShift`.
+ * The gallery's worst-case row showed the tuplet "3", the accent and "Fill" drawn over the bracket's
+ * line (VexFlow puts it 60 px above the top line, inside the reach of what the notes push up), so
+ * the line's baseline is put at y = 4 from the band top, in the same top layer as the tempo mark.
  */
-const TEMPO_Y_SHIFT = -20
+const VOLTA_Y_SHIFT = 4 - (STAFF_TOP - 60)
+
+/**
+ * VexFlow draws the tempo mark at `stave.getYForTopText(1) + shift`, i.e. `(STAFF_TOP − 20) + shift`.
+ * The gallery's worst-case row ("♩ = 100" over "Groove") showed it sitting on a text above the first
+ * note and on the bar number: STAFF_TOP grew a 24 px top layer for exactly this, so the mark's
+ * baseline is put at y = 20 from the band top, clear of both.
+ */
+const TEMPO_Y_SHIFT = 20 - (STAFF_TOP - 20)
 
 /** What a voice carries from one bar of the row to the next. Keyed `${part}/${voice}` in `engraveRow`. */
 interface VoiceSpan {
@@ -454,20 +476,28 @@ function engraveBar(
   if (written.repeat?.start) stave.setBegBarType(BarlineType.REPEAT_BEGIN)
   if (written.repeat?.end) stave.setEndBarType(BarlineType.REPEAT_END)
   else if (bar.barIndex === score.bars.length - 1) stave.setEndBarType(BarlineType.END)
-  // "1." / "1. 2." at the bracket start; VexFlow draws the line to the bar's end and the hook where the bracket closes.
-  if (bar.bracket) stave.setVoltaType(voltaType(bar.bracket), bar.bracket.numbers.map((n) => `${n}.`).join(' '), 0)
+  // "1." / "1. 2." at the bracket start; VexFlow draws the line to the bar's end and the hook where
+  // the bracket closes. The line moves with VOLTA_Y_SHIFT into the top layer, but VexFlow's own
+  // label ignores that shift (stavevolta.js draws it at a fixed offset from the unshifted line), so
+  // the text is passed empty here and drawn by hand below, after the stave, with the right baseline.
+  if (bar.bracket) stave.setVoltaType(voltaType(bar.bracket), '', VOLTA_Y_SHIFT)
   if (written.tempo)
     stave.setTempo(
       { bpm: written.tempo.bpm, duration: String(written.tempo.unit ?? 4), dots: written.tempo.dotted ? 1 : 0 },
       TEMPO_Y_SHIFT,
     )
   stave.setContext(ctx).draw()
+  // The volta label, black and by hand: VexFlow's own label ignores VOLTA_Y_SHIFT (see above), so
+  // drawing it through setVoltaType would leave it inside the stack the shift was meant to clear.
+  // Only on the bracket's first bar — the "1." / "1. 2." belongs once, where the bracket opens.
+  if (bar.bracket?.first)
+    label(ctx, stave, bar.bracket.numbers.map((n) => `${n}.`).join(' '), bar.x - bar.head + 4, 16, '#000')
   // Only at the start of the row: with twenty identical repeats it is the only thing that says WHERE
   // you are. Above the staff, not to the left — the left has the clef. Written bar numbers, 1-based.
   if (bar.showClef) label(ctx, stave, String(bar.barIndex + 1), 0)
   // A repeat played more than twice: the sign cannot say it, the text above its end barline does.
   const times = written.repeat?.end?.times ?? 0
-  // 24 px: the width of "×3" in 13 px system-ui (measured ≈20 px) plus 4 px of air before the barline.
+  // 24 px: "×3" is 16.2 px wide in 13 px system-ui, plus 8 px of air before the barline.
   if (times > 2) label(ctx, stave, `×${times}`, bar.x + bar.width - 24)
   if (written.simile) {
     // One "%" centred on the bar: a note in a voice that asks for no time (SOFT), whose tick context

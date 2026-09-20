@@ -49,11 +49,11 @@ A beat is split evenly among its tokens: `RL` is two eighths, `RLRL` four sixtee
 src/engine     pure domain: sticking DSL, time grid, judging, stats, report. No DOM, no dependencies.
 src/score      pure model of a piece: written durations, drum-kit catalogue, voices, repeats; validation, playback unrolling, time map. No DOM, no dependencies.
 src/audio      Web Audio: click scheduling, microphone capture, onset-detection worklet, calibration.
-src/notation   VexFlow rendering: exercise → staff, cursor geometry, per-note colouring.
+src/notation   the score on screen: rows on a time grid and the fit to the viewport (pure), VexFlow engraving one SVG per row through a pool; plus the old exercise renderer the session flow still uses.
 src/session    the runner that ties grid, judge and progression together while you play.
 src/ui         React screens.
 src/data       the score library: JSON pieces and the sticking exercises compiled into them.
-dev/           notation gallery: every figure the renderer can draw, for a manual visual check.
+dev/           notation gallery: one section per notation the engraver draws, the whole library, and the measurements the layout constants come from.
 ```
 
 Imports flow one way: `engine` ← `score` | `audio` | `notation` | `session` ← `ui`. Tests run with `bun test` and no DOM.
@@ -76,7 +76,7 @@ bun run check      # biome + tsc + knip + tests, the same gate as CI
 
 HTTPS is mandatory: `getUserMedia` needs a secure context, and the iPad reaches your Mac over the LAN. Chrome on the same machine can use `https://localhost:5173`.
 
-Notation gallery: with the dev server running, open `/dev/gallery.html`.
+Notation gallery: with the dev server running, open `/dev/gallery.html` — one section per notation with the sentence it must match, every piece of the library whole, and a Measurements block (head widths, the band, ms per engraved row, dropped frames over 30 s of motion) that the constants in `src/notation/layout.ts` are set from.
 
 MusicXML import: `bun run import <file> --id <id>` writes `src/data/scores/<id>.json`; the fixtures under `dev/fixtures/musicxml/` show what the importer reads.
 

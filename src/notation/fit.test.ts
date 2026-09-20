@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import type { Bar, Item, Score } from '../score/types'
+import type { Bar, Event, Item, Score } from '../score/types'
 import { fit, type Prefs } from './fit'
 import { MIN_NOTEHEAD_PX, NOTEHEAD_PX, SYSTEM_H } from './layout'
 
@@ -27,22 +27,22 @@ const STONE = piece(2, 40)
 /** The same with a flam on the first beat: the grace gutter is paid. */
 const STONE_FLAM = (() => {
   const s = piece(2, 40)
-  ;(s.bars[0].parts?.pad.voices[0].items[0] as any).grace = { kind: 'flam' }
+  ;(s.bars[0].parts?.pad.voices[0].items[0] as Event).grace = { kind: 'flam' }
   return s
 })()
 
 describe('fit: bars per row', () => {
   // The widths of the old `fitLayout` table, measured on real devices (iPhone portrait and
-  // landscape, iPad, desktop) with HEAD_PX = 70. One row changed: at 1194 px the old rule took 6
+  // landscape, iPad, desktop) with HEAD_PX = 83. One row changed: at 1194 px the old rule took 6
   // bars at 11.5 px; six is no longer a candidate, and 8 bars fill the width at 8.7 px, above the floor.
   it.each([
-    [375, 2, 9.6],
-    [390, 2, 10.0],
-    [834, 4, 11.6],
-    [844, 4, 11.8],
-    [847, 4, 11.8],
+    [375, 2, 9.3],
+    [390, 2, 9.7],
+    [834, 4, 11.5],
+    [844, 4, 11.6],
+    [847, 4, 11.6],
     [1194, 8, 8.7],
-    [1600, 8, 11.7],
+    [1600, 8, 11.6],
   ])('at %p px: %p bars per row, notehead %p px', (availW, barsPerRow, head) => {
     const f = fit(availW, 600, AUTO, STONE)
     expect(f.barsPerRow).toBe(barsPerRow)
@@ -75,15 +75,16 @@ describe('fit: bars per row', () => {
   it('a fixed bars per row is taken as is, even wider than the screen', () => {
     const f = fit(400, 600, { barsPerRow: 8, rowsPerViewport: 'auto' }, STONE)
     expect(f.barsPerRow).toBe(8)
-    expect(f.scale).toBeCloseTo(400 / (8 * 192 + 78), 5)
+    expect(f.scale).toBeCloseTo(400 / (8 * 192 + 91), 5)
   })
 
   it('the grace gutter takes width from the music, not from the scale', () => {
-    // 468 px, 2/4: two bars take 462 without the gutter and 486 with it; the row keeps two bars and shrinks a little.
-    expect(fit(468, 600, AUTO, STONE)).toMatchObject({ barsPerRow: 2, scale: 1 })
-    const graced = fit(468, 600, AUTO, STONE_FLAM)
+    // 480 px, 2/4: two bars are 475 px wide (384 + 83 + 8) without the gutter and 499 with it
+    // (384 + 83 + 24 + 8); the row keeps two bars and shrinks a little.
+    expect(fit(480, 600, AUTO, STONE)).toMatchObject({ barsPerRow: 2, scale: 1 })
+    const graced = fit(480, 600, AUTO, STONE_FLAM)
     expect(graced.barsPerRow).toBe(2)
-    expect(graced.scale).toBeCloseTo(468 / 486, 5)
+    expect(graced.scale).toBeCloseTo(480 / 499, 5)
   })
 })
 

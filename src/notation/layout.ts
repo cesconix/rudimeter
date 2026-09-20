@@ -13,11 +13,11 @@ export const PX_PER_WHOLE = 384
 /**
  * Clef + meter at the start of every row, drawn or not: one origin for every row keeps `gridX0` a
  * single number. Measured in the gallery ("Measurements") on the percussion clef + "12/8", the
- * widest signature in the library. 70 px is the estimate until Task 8 records the measurement.
+ * widest signature in the library: 78.5 px to the first note, plus 4 px of air.
  */
-export const HEAD_PX = 70
-/** A meter change mid-row: what the signature takes before the bar's grid starts. Measured like HEAD_PX; 32 px is the estimate. */
-export const METER_PX = 32
+export const HEAD_PX = 83
+/** A meter change mid-row: what the signature takes before the bar's grid starts. Measured like HEAD_PX, on "12/8" alone: 48.2 px, plus 4 px of air. */
+export const METER_PX = 53
 /**
  * Gutter to the left of the grid when the piece has a grace note: a flam is drawn BEFORE its note
  * and nothing on the time grid reserves that space (measured: 23.7 px to the left of the notehead),
@@ -35,14 +35,18 @@ export const RIGHT_PAD = 8
 export const STAFF_LINES = 5
 export const STAFF_H = (STAFF_LINES - 1) * 10
 /**
- * Above the staff: stems, beams, accents, tuplet numbers, text, a volta bracket, a tempo mark. The
- * old renderer measured 70 px on an accented triplet (the number sits above the accent). Below it:
- * the feet's stems (35 px past the notehead), the sticking, a dynamic, a hairpin. Both are
+ * Above the staff: stems, beams, accents, tuplet numbers, text, a volta bracket, a tempo mark. Below
+ * it: the feet's stems (35 px past the notehead), the sticking, a dynamic, a hairpin. Both are
  * constants for the whole piece, measured once in the gallery on the worst-case row and never per
- * exercise: the bands must stack. 70 and 80 are the estimates until Task 8 records the measurement.
+ * exercise: the bands must stack.
+ *
+ * Measured on the worst-case row (gallery, "Measure band"): ink from −7.5 to 242 px in a 190 px
+ * band with the top line at 70 → 78 px above the top line, 132 below the bottom one; above that,
+ * 24 px for the tempo mark and the volta bracket, which VexFlow would otherwise draw inside the
+ * stack.
  */
-export const STAFF_TOP = 70
-export const STAFF_BELOW = 80
+export const STAFF_TOP = 110
+export const STAFF_BELOW = 140
 export const SYSTEM_H = STAFF_TOP + STAFF_H + STAFF_BELOW
 /** Notehead width at natural scale: the cursor is as wide as it, and the readability floor is measured on it. */
 export const NOTEHEAD_PX = 11.8
