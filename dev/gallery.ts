@@ -4,10 +4,11 @@
 
 import { SCORES } from '../src/data/scores'
 import { type EngravedRow, engraveRow, measureHead, measureInk } from '../src/notation/engrave'
-import { fit } from '../src/notation/fit'
+import { fit, type Pref } from '../src/notation/fit'
 import { notationFontsReady } from '../src/notation/fonts'
 import { buildLayout, HEAD_PX, METER_PX, STAFF_TOP, SYSTEM_H } from '../src/notation/layout'
-import { RowPool } from '../src/notation/rows'
+import { playbackBarAt } from '../src/notation/overlay'
+import { deferEnsure, RowPool } from '../src/notation/rows'
 import { toNumber } from '../src/score/fraction'
 import { resolveInstruments } from '../src/score/instruments'
 import { buildTimeMap } from '../src/score/timemap'
@@ -16,11 +17,11 @@ import { barStarts, unroll } from '../src/score/unroll'
 import { type Figure, GALLERY, WORST_CASE } from './gallery-scores'
 
 /** Engraves a whole score into `host` at the scale that fits its width, every row alive; the caller owns the pool. */
-function show(host: HTMLElement, score: Score): RowPool<EngravedRow> {
+function show(host: HTMLElement, score: Score, barsPerRow: Pref = 'auto'): RowPool<EngravedRow> {
   // 0 while the host is not in layout yet: a wide fallback rather than one bar per row.
   const availW = host.clientWidth || 1200
-  const f = fit(availW, Number.POSITIVE_INFINITY, { barsPerRow: 'auto', rowsPerViewport: 'auto' }, score)
-  const layout = buildLayout(score, { barsPerRow: f.barsPerRow, auto: true })
+  const f = fit(availW, Number.POSITIVE_INFINITY, { barsPerRow, rowsPerViewport: 'auto' }, score)
+  const layout = buildLayout(score, { barsPerRow: f.barsPerRow, auto: barsPerRow === 'auto' })
   host.replaceChildren()
   host.style.height = `${layout.rows.length * SYSTEM_H * f.scale}px`
   const catalogue = resolveInstruments(score)
@@ -60,7 +61,7 @@ for (const fig of GALLERY) {
   const { el, host } = section(fig)
   sections.appendChild(el)
   try {
-    show(host, fig.score)
+    show(host, fig.score, fig.barsPerRow ?? 'auto')
   } catch (err) {
     // One broken figure must not hide the others: the page keeps going and says which one failed.
     log(`${fig.id}: ${String(err)}`)
@@ -162,30 +163,40 @@ on('measure-engrave', () => {
 })
 
 /**
- * The viewport follows the row the cursor would be on at 120 bpm, through the pool, for 30 s: in
- * scroll mode the row anchors at the top, in pages mode the page turns when the row leaves it and
- * the next page is kept engraved. What is measured is whether engraving on demand fits between
- * frames — the question the canvas-rows task waits on — not the cursor, which is plan 11.
+ * The viewport follows the row the cursor would be on at 120 bpm, through the pool, off the frame
+ * step (`deferEnsure`), for 30 s: in scroll mode the row anchors at the top, in pages mode the page
+ * turns when the row leaves it and the next page is kept engraved. What is measured is whether
+ * engraving on demand fits between frames — the question the canvas-rows task waits on — not the
+ * cursor, which is plan 11.
  */
+
+/** One motion run at a time: a second click would drive two loops through one pool and count each other's frames. */
+let running = false
+
 function motion(mode: 'scroll' | 'pages'): void {
+  if (running) {
+    log(`${mode}: a run is in progress`)
+    return
+  }
+  running = true
   const viewport = document.getElementById('motion') as HTMLElement
   const host = document.getElementById('motion-host') as HTMLElement
   viewport.style.height = `${3 * SYSTEM_H}px`
   const { f, layout, rowH, pool, times } = timed(host, viewport, LONGEST)
+  // The same call the app makes (ScoreView): the row is asked for off the frame step, so what is
+  // measured is the app's scheduling, not engraving inside the rAF callback.
+  const deferred = deferEnsure(pool)
   const playback = unroll(LONGEST)
   const map = buildTimeMap(LONGEST, playback, 120)
   const starts = barStarts(LONGEST, playback).map(toNumber)
-  const rowAt = (seconds: number): number => {
-    const pos = map.positionAt(seconds)
-    let i = 0
-    while (i + 1 < starts.length && starts[i + 1] <= pos) i++
-    return layout.rowOfBar[playback[i].barIndex]
-  }
+  const rowAt = (seconds: number): number =>
+    layout.rowOfBar[playback[playbackBarAt(starts, map.positionAt(seconds))].barIndex]
   const last = layout.rows.length - 1
   let frames = 0
   let dropped = 0
   const t0 = performance.now()
   let prev = t0
+  pool.ensure(0, f.rowsVisible - 1)
   const step = () => {
     const now = performance.now()
     frames++
@@ -195,14 +206,17 @@ function motion(mode: 'scroll' | 'pages'): void {
     const row = rowAt(s)
     if (mode === 'scroll') {
       viewport.scrollTop = row * rowH
-      pool.ensure(row, Math.min(last, row + f.rowsVisible - 1))
+      deferred.ensure(row, Math.min(last, row + f.rowsVisible - 1))
     } else {
       const first = Math.floor(row / f.rowsVisible) * f.rowsVisible
       viewport.scrollTop = first * rowH
-      pool.ensure(first, Math.min(last, first + 2 * f.rowsVisible - 1))
+      deferred.ensure(first, Math.min(last, first + 2 * f.rowsVisible - 1))
     }
     if (s < 30 && s < map.end) requestAnimationFrame(step)
-    else log(`${mode}: ${s.toFixed(1)} s, ${frames} frames, ${dropped} intervals > 20 ms; engraved ${stats(times)}`)
+    else {
+      running = false
+      log(`${mode}: ${s.toFixed(1)} s, ${frames} frames, ${dropped} intervals > 20 ms; engraved ${stats(times)}`)
+    }
   }
   requestAnimationFrame(step)
 }
