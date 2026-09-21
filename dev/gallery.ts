@@ -20,10 +20,11 @@ import { type Figure, GALLERY, WORST_CASE } from './gallery-scores'
 function show(host: HTMLElement, score: Score, barsPerRow: Pref = 'auto'): RowPool<EngravedRow> {
   // 0 while the host is not in layout yet: a wide fallback rather than one bar per row.
   const availW = host.clientWidth || 1200
-  const f = fit(availW, Number.POSITIVE_INFINITY, { barsPerRow, rowsPerViewport: 'auto' }, score)
+  const f = fit(availW, Number.POSITIVE_INFINITY, { barsPerRow, zoom: 1 }, score)
   // A pin fixes the row's WIDTH (how many bars fit), never its row breaks: only a user's saved
   // preference in the app may drop a figure's `newRow` marks, so the gallery always honours them.
-  const layout = buildLayout(score, { barsPerRow: f.barsPerRow, auto: true })
+  // Justified to the host like the app's rows to the frame: a figure is checked as the app draws it.
+  const layout = buildLayout(score, { barsPerRow: f.barsPerRow, auto: true, fillWidth: availW / f.scale })
   host.replaceChildren()
   host.style.height = `${layout.rows.length * SYSTEM_H * f.scale}px`
   const catalogue = resolveInstruments(score)
@@ -128,13 +129,9 @@ on('measure-band', () => {
 
 /** Engraves `score` into `host` with every row timed; returns what the motion loop needs. */
 function timed(host: HTMLElement, viewport: HTMLElement, score: Score) {
-  const f = fit(
-    viewport.clientWidth || 1200,
-    viewport.clientHeight || 3 * SYSTEM_H,
-    { barsPerRow: 'auto', rowsPerViewport: 'auto' },
-    score,
-  )
-  const layout = buildLayout(score, { barsPerRow: f.barsPerRow, auto: true })
+  const availW = viewport.clientWidth || 1200
+  const f = fit(availW, viewport.clientHeight || 3 * SYSTEM_H, { barsPerRow: 'auto', zoom: 1 }, score)
+  const layout = buildLayout(score, { barsPerRow: f.barsPerRow, auto: true, fillWidth: availW / f.scale })
   const rowH = SYSTEM_H * f.scale
   host.replaceChildren()
   host.style.height = `${layout.rows.length * rowH}px`
