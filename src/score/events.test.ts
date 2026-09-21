@@ -1,18 +1,13 @@
 import { describe, expect, it } from 'bun:test'
-import { barLength, flattenVoice, metersOf, voiceLength } from './events'
+import { barLength, flattenBar, metersOf } from './events'
 import { frac } from './fraction'
-import type { Event, Score, Voice } from './types'
+import type { Event, Score } from './types'
 
-const snare = (base: 4 | 8 | 16, extra: Partial<Event> = {}): Event => ({
-  duration: { base },
-  notes: [{ instrument: 'snare' }],
-  ...extra,
-})
+const n = (base: 4 | 8 | 16, extra: Partial<Event> = {}): Event => ({ duration: { base }, ...extra })
 
-describe('flattenVoice', () => {
+describe('flattenBar', () => {
   it('gives every event its offset from the bar start and its sounding length', () => {
-    const voice: Voice = { stem: 'up', items: [snare(4), snare(8), { duration: { base: 8 }, rest: true }] }
-    const flat = flattenVoice(voice)
+    const flat = flattenBar({ items: [n(4), n(8), { duration: { base: 8 }, rest: true }] })
     expect(flat.map((f) => [f.item, f.offset, f.length])).toEqual([
       [0, frac(0), frac(1, 4)],
       [1, frac(1, 4), frac(1, 8)],
@@ -23,8 +18,8 @@ describe('flattenVoice', () => {
   })
 
   it('scales the items of a tuplet and numbers them with `sub`', () => {
-    const group = { tuplet: { actual: 3, normal: 2 }, items: [snare(8), snare(8), snare(8)] }
-    const flat = flattenVoice({ stem: 'up', items: [snare(4), group, snare(4)] })
+    const group = { tuplet: { actual: 3, normal: 2 }, items: [n(8), n(8), n(8)] }
+    const flat = flattenBar({ items: [n(4), group, n(4)] })
     expect(flat.map((f) => [f.item, f.sub, f.offset, f.length])).toEqual([
       [0, undefined, frac(0), frac(1, 4)],
       [1, 0, frac(1, 4), frac(1, 12)],
@@ -35,10 +30,10 @@ describe('flattenVoice', () => {
     expect(flat[1].tuplet).toBe(group)
   })
 
-  it('sums a voice', () => {
-    expect(
-      voiceLength({ stem: 'up', items: [snare(4), snare(4), snare(8, { duration: { base: 8, dots: 1 } }), snare(16)] }),
-    ).toEqual(frac(3, 4))
+  it('a dotted value takes its dotted length', () => {
+    const flat = flattenBar({ items: [n(4), n(4), n(8, { duration: { base: 8, dots: 1 } }), n(16)] })
+    expect(flat.map((f) => f.length)).toEqual([frac(1, 4), frac(1, 4), frac(3, 16), frac(1, 16)])
+    expect(flat[3].offset).toEqual(frac(11, 16))
   })
 })
 
