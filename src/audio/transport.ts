@@ -108,8 +108,9 @@ export class Transport {
   }
 
   /**
-   * To the start of a written bar on a given pass; a bar the pass skips (a first ending on pass 2)
-   * lands on the first pass that plays it, and a bar the piece does not have on 0.
+   * To the start of a written bar on a given pass; a pass the bar has not got (a bar outside the
+   * repeated section, asked for on pass 2) lands on the bar's first pass, and a bar the piece does
+   * not have on 0.
    */
   seek(barIndex: number, pass = 1): void {
     const exact = this.playback.findIndex((pb) => pb.barIndex === barIndex && pb.pass === pass)

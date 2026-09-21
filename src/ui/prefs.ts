@@ -10,7 +10,7 @@ export interface ViewPrefs {
   barsPerRow: Pref
   /** magnification of the natural size, the user's alone: the layout never zooms by itself, it stretches the grid to the width */
   zoom: number
-  /** one bpm for every piece: the time map scales the piece's first tempo mark to it */
+  /** one bpm for every piece: it counts the beat of the meter (`beatOf` in the time map), so every piece runs at it */
   bpm: number
 }
 

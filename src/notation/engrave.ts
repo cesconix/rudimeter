@@ -82,8 +82,8 @@ interface BuiltBar {
 
 /**
  * Everything that hangs on an event. Order matters where modifiers stack in the same direction:
- * the sticking is added before the text so the letter sits nearer the note, the text above the
- * accent. A rest carries at most a text (validation keeps the rest of the list off it).
+ * the accent is added before the text so the text sits above the accent; the sticking is the only
+ * thing below the staff. A rest carries at most a text (validation keeps the rest of the list off it).
  */
 function decorate(note: StaveNote, event: Event): void {
   if (event.accent) note.addModifier(new Articulation('a>').setPosition(ModifierPosition.ABOVE), 0)
