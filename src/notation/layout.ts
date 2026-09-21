@@ -78,6 +78,15 @@ export const MIN_NOTEHEAD_PX = 8
 export const SNARE_LINE = 2.5
 export const REST_LINE = 2
 
+/**
+ * How far the cursor band overflows above and below the staff, natural px: the hi-hat and crash
+ * heads sit up to 10 px above the top line, the kick's stem ends 30 px below the bottom one. The
+ * band crosses the staff instead of stopping at it so it is the NOTE that is marked, not the row;
+ * semi-transparent (`.score-cursor`) so the heads stay readable underneath.
+ */
+export const CURSOR_ABOVE = 30
+export const CURSOR_BELOW = 30
+
 export interface ViewSpec {
   barsPerRow: number
   /** automatic layout: a bar marked `newRow` starts a row. A user-fixed bars-per-row ignores the mark. */

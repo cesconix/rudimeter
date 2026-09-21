@@ -4,7 +4,16 @@ import { type CursorPoint, cursorAt } from '../notation/cursor'
 import { type EngravedRow, engraveRow } from '../notation/engrave'
 import { fit, type Prefs } from '../notation/fit'
 import { notationFontsReady } from '../notation/fonts'
-import { buildLayout, type Layout, NOTEHEAD_PX, STAFF_H, STAFF_TOP, SYSTEM_H } from '../notation/layout'
+import {
+  buildLayout,
+  CURSOR_ABOVE,
+  CURSOR_BELOW,
+  type Layout,
+  NOTEHEAD_PX,
+  STAFF_H,
+  STAFF_TOP,
+  SYSTEM_H,
+} from '../notation/layout'
 import {
   cursorPoints,
   type HighlightRect,
@@ -14,7 +23,6 @@ import {
   transportHighlights,
 } from '../notation/overlay'
 import { deferEnsure, RowPool } from '../notation/rows'
-import { resolveInstruments } from '../score/instruments'
 import type { Score } from '../score/types'
 import type { ViewMode } from './prefs'
 
@@ -41,16 +49,8 @@ const ROW_TOP_MARGIN = 0.12
  * the browser rounding on fractional values and does not reach any real gesture.
  */
 const SCROLL_OWNERSHIP_PX = 1.5
-/**
- * How far the cursor band overflows above and below the staff, natural px: the hi-hat and crash
- * heads sit up to 10 px above the top line, the kick's stem ends 30 px below the bottom one. The
- * band crosses the staff instead of stopping at it so it is the NOTE that is marked, not the row;
- * semi-transparent (`.score-cursor`) so the heads stay readable underneath.
- */
-const CURSOR_ABOVE = 30
-const CURSOR_BELOW = 30
-/** Highlight boxes kept in the DOM: one per voice sounding at once — two in the library — with room to spare. */
-const HIGHLIGHT_SLOTS = ['h0', 'h1', 'h2', 'h3']
+/** Highlight boxes kept in the DOM: one voice, so at most one event sounds at a position. The loop keeps its shape over a list for the judge's boxes, later. */
+const HIGHLIGHT_SLOTS = ['h0']
 
 /** Everything the frame loop reads, rebuilt whole on every re-layout: one object, so a frame never mixes two geometries. */
 interface Built {
@@ -165,7 +165,6 @@ export function ScoreView({ score, transport, now, mode, prefs, onBar }: Props) 
           auto: prefs.barsPerRow === 'auto',
           fillWidth: size.w / f.scale,
         })
-        const catalogue = resolveInstruments(score)
         const rowH = SYSTEM_H * f.scale
         host.replaceChildren()
         host.style.height = `${layout.rows.length * rowH}px`
@@ -180,9 +179,7 @@ export function ScoreView({ score, transport, now, mode, prefs, onBar }: Props) 
             el.hidden = true
           }
         }
-        const pool = new RowPool(layout.rows.length, (r) =>
-          engraveRow(host, score, catalogue, layout, layout.rows[r], f.scale),
-        )
+        const pool = new RowPool(layout.rows.length, (r) => engraveRow(host, score, layout, layout.rows[r], f.scale))
         const deferred = deferEnsure(pool)
         const b: Built = {
           layout,
@@ -193,7 +190,7 @@ export function ScoreView({ score, transport, now, mode, prefs, onBar }: Props) 
           ensure: deferred.ensure,
           cancel: deferred.cancel,
           points: cursorPoints(layout, score, transport.playback),
-          rects: highlightRects(score, catalogue, layout, transport.playback),
+          rects: highlightRects(score, layout, transport.playback),
           highlights: transportHighlights(transport.events),
           hostH: layout.rows.length * rowH,
           viewportH: mode === 'pages' ? f.rowsVisible * rowH : size.h,

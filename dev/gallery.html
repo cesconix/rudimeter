@@ -20,20 +20,22 @@
     <pre id="log"></pre>
     <h2>Measurements — the numbers the layout constants come from</h2>
     <div class="figure">
-      <p class="expect">Head: the px the clef + meter need against HEAD_PX, the meter alone against METER_PX, VexFlow's Stave.padding against BAR_PAD. Band: the worst-case row's ink against [0, SYSTEM_H]. Longest piece: ms per engraved row (the spec's line is 16 ms on the iPad). Motion: 30 s at 120 bpm, rAF intervals above 20 ms, scroll and pages.</p>
+      <p class="expect">Head: the px the clef + meter need against HEAD_PX, the meter alone against METER_PX, VexFlow's Stave.padding against BAR_PAD. Band: the worst-case row's ink against [0, SYSTEM_H] — the numbers STAFF_TOP and STAFF_BELOW are set from. Cursor: the ink of a quarter with its R above the top line and below the bottom one — the numbers CURSOR_ABOVE and CURSOR_BELOW are set from. Longest piece: ms per engraved row (the spec's line is 16 ms on the iPad). Motion: 30 s at 120 bpm, rAF intervals above 20 ms, scroll and pages.</p>
       <p>
         <button type="button" id="measure-head">Measure head</button>
         <button type="button" id="measure-band">Measure band</button>
+        <button type="button" id="measure-cursor">Measure cursor</button>
         <button type="button" id="measure-engrave">Engrave the longest piece</button>
         <button type="button" id="measure-scroll">Scroll 30 s</button>
         <button type="button" id="measure-pages">Pages 30 s</button>
       </p>
       <div id="band" class="host"></div>
+      <div id="cursor" class="host"></div>
       <div id="motion" style="position: relative; overflow: hidden; border: 1px solid #ddd; height: 0"><div id="motion-host" style="position: relative"></div></div>
     </div>
     <h2>Library — every piece of <code>SCORES</code>, whole</h2>
     <div class="figure">
-      <p class="expect">50 Workout #43 against p. 51 of the book (dotted eighths, sixteenth rests, quarter rests, repeat signs at bars 1, 4 and 16); the two pyramids against their previous rendering (two bars per row); the kit groove with its second ending, two voices, a triplet with ghosts, a flam, a buzz with a diminuendo.</p>
+      <p class="expect">50 Workout #43 against p. 51 of the book (dotted eighths, sixteenth rests, quarter rests, repeat signs at bars 1, 4 and 16); the two pyramids against their previous rendering (two bars per row); the four sticking exercises with their repeat signs and "×20" / "×8".</p>
       <select id="pick"></select>
       <div id="library" class="host"></div>
     </div>
