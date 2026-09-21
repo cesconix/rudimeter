@@ -65,17 +65,42 @@ function log(s: string): void {
 // render before the font is applied nails down wrong coordinates in the SVG.
 await notationFontsReady()
 
+/** A host on the page and what it draws: every panel is redrawn when the page's width changes. */
+interface Panel {
+  /** for the log, when the engraving throws */
+  id: string
+  host: HTMLElement
+  score: Score
+  barsPerRow: Pref
+  pool?: RowPool<EngravedRow>
+}
+const panels: Panel[] = []
+
+function draw(panel: Panel): void {
+  // `show` replaces the host's children on every call anyway, so the previous SVGs are dropped
+  // regardless — but the pool itself must not keep owning rows it no longer draws into.
+  panel.pool?.invalidate()
+  panel.pool = undefined
+  try {
+    panel.pool = show(panel.host, panel.score, panel.barsPerRow)
+  } catch (err) {
+    // One broken figure must not hide the others: the page keeps going and says which one failed.
+    log(`${panel.id}: ${String(err)}`)
+    console.error(panel.id, err)
+  }
+}
+
+// The width the panels are drawn for: `fit` reads it synchronously in `show`, so the value taken
+// here is the one every panel below is laid out on.
+let drawnW = document.body.clientWidth
+
 const sections = document.getElementById('sections') as HTMLElement
 for (const fig of GALLERY) {
   const { el, host } = section(fig)
   sections.appendChild(el)
-  try {
-    show(host, fig.score, fig.barsPerRow ?? 'auto')
-  } catch (err) {
-    // One broken figure must not hide the others: the page keeps going and says which one failed.
-    log(`${fig.id}: ${String(err)}`)
-    console.error(fig.id, err)
-  }
+  const panel: Panel = { id: fig.id, host, score: fig.score, barsPerRow: fig.barsPerRow ?? 'auto' }
+  panels.push(panel)
+  draw(panel)
 }
 
 const pick = document.getElementById('pick') as HTMLSelectElement
@@ -85,19 +110,37 @@ for (const score of SCORES) {
   option.textContent = score.source ? `${score.title} — ${score.source}` : score.title
   pick.appendChild(option)
 }
-const library = document.getElementById('library') as HTMLElement
-// `show` replaces the host's children on every call anyway, so the previous SVGs are dropped
-// regardless — but the pool itself must not keep owning rows it no longer draws into.
-let libraryPool: RowPool<EngravedRow> | undefined
+const library: Panel = {
+  id: 'library',
+  host: document.getElementById('library') as HTMLElement,
+  score: SCORES[0],
+  barsPerRow: 'auto',
+}
+panels.push(library)
 const showPicked = () => {
-  const score = SCORES.find((s) => s.id === pick.value) ?? SCORES[0]
-  libraryPool?.invalidate()
-  libraryPool = show(library, score)
+  library.score = SCORES.find((s) => s.id === pick.value) ?? SCORES[0]
+  draw(library)
 }
 pick.addEventListener('change', showPicked)
 // The book page first: 50 Workout #43 is the one piece with rests, dotted spellings and two repeated sections.
 pick.value = 'workout-43'
 showPicked()
+
+/** Rotating the iPad emits many resizes in a row, and every one would re-engrave twelve figures and the library. */
+const RESIZE_DEBOUNCE_MS = 150
+// The width decides bars per row and scale (`fit`), so a rotation or a narrower window is a new
+// layout for every panel, as it is for the app's frame in `ScoreView`. Width only: the gallery has
+// no viewport height, every row of every figure is on the page — and the body's height changes
+// with every panel drawn, which is exactly what must not redraw them again.
+let pendingResize = 0
+new ResizeObserver(() => {
+  clearTimeout(pendingResize)
+  pendingResize = window.setTimeout(() => {
+    if (document.body.clientWidth === drawnW) return
+    drawnW = document.body.clientWidth
+    for (const panel of panels) draw(panel)
+  }, RESIZE_DEBOUNCE_MS)
+}).observe(document.body)
 
 // --- Measurements: dev-only, `performance.now()` is fine here (nothing in the app reads these) ---
 
