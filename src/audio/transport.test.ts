@@ -2,17 +2,9 @@ import { describe, expect, it } from 'bun:test'
 import type { Bar, Score } from '../score/types'
 import { clampBpm, DEFAULT_BPM, MAX_BPM, MIN_BPM, Transport } from './transport'
 
-const bar = (extra: Partial<Bar> = {}): Bar => ({
-  ...extra,
-  parts: { pad: { voices: [{ stem: 'up', items: [{ duration: { base: 1 }, rest: true }] }] } },
-})
+const bar = (extra: Partial<Bar> = {}): Bar => ({ ...extra, items: [{ duration: { base: 1 }, rest: true }] })
 /** Two bars of 4/4 at 120 to the quarter: a whole note is 2 s, the piece 4 s. */
-const TWO = (): Score => ({
-  id: 't',
-  title: 't',
-  parts: [{ id: 'pad', kind: 'drumset' }],
-  bars: [bar({ meter: [4, 4], tempo: { bpm: 120 } }), bar()],
-})
+const TWO = (): Score => ({ id: 't', title: 't', bars: [bar({ meter: [4, 4] }), bar()] })
 const make = (score = TWO(), bpm = 120) => {
   const clock = { currentTime: 0 }
   return { clock, t: new Transport(clock, score, bpm) }
@@ -85,23 +77,18 @@ describe('Transport', () => {
     expect(t.secondsAt(31.5)).toBe(1)
   })
 
-  it('seek to a pass the bar is skipped on falls back to its first pass; an unknown bar to 0', () => {
+  it('seek to a pass lands on that pass; a pass the bar has not got falls back to its first; an unknown bar to 0', () => {
     const score: Score = {
       id: 'e',
       title: 'e',
-      parts: [{ id: 'pad', kind: 'drumset' }],
-      bars: [
-        bar({ meter: [4, 4], tempo: { bpm: 120 }, repeat: { start: true } }),
-        bar({ ending: [1], repeat: { end: {} } }),
-        bar({ ending: [2] }),
-      ],
+      bars: [bar({ meter: [4, 4], repeat: { start: true } }), bar({ repeat: { end: {} } }), bar()],
     }
     const { t } = make(score)
-    // playback: bar 0 (pass 1), bar 1, bar 0 (pass 2), bar 2
-    expect(t.starts).toEqual([0, 1, 2, 3])
+    // playback: bar 0 (pass 1), bar 1 (pass 1), bar 0 (pass 2), bar 1 (pass 2), bar 2
+    expect(t.starts).toEqual([0, 1, 2, 3, 4])
     t.seek(0, 2)
     expect(t.positionAt(0)).toBe(2)
-    t.seek(1, 2)
+    t.seek(1, 3)
     expect(t.positionAt(0)).toBe(1)
     t.seek(7)
     expect(t.positionAt(0)).toBe(0)

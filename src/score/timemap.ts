@@ -1,6 +1,6 @@
 import { barLength, metersOf } from './events'
 import { type Fraction, lengthOf, toNumber } from './fraction'
-import type { Score, Tempo } from './types'
+import type { Duration, Meter, NoteBase, Score } from './types'
 import type { PlaybackBar } from './unroll'
 
 export interface TimeMap {
@@ -12,25 +12,20 @@ export interface TimeMap {
   endPosition: number
 }
 
-const DEFAULT_TEMPO: Tempo = { bpm: 120, unit: 4 }
-
-/** Seconds one whole note lasts under `t`: 60 / bpm is one beat, and a beat is `unit` (dotted or not) of a whole. */
-export function secondsPerWhole(t: Tempo): number {
-  const unit = toNumber(lengthOf({ base: t.unit ?? 4, dots: t.dotted ? 1 : 0 }))
-  return 60 / t.bpm / unit
+/**
+ * The beat the bpm counts: the denominator's note — a quarter in x/4, a half in x/2, an eighth in
+ * 3/8 — dotted in a compound meter (6/8, 9/8, 12/8: a dotted quarter), which is a denominator of 8
+ * or shorter with a numerator that is a multiple of 3 above 3. With tempo marks gone from the
+ * model the transport's bpm is the only tempo, and this is what it means on every meter.
+ */
+export function beatOf(meter: Meter): Duration {
+  const [num, den] = meter
+  const compound = den >= 8 && num > 3 && num % 3 === 0
+  return compound ? { base: (den / 2) as NoteBase, dots: 1 } : { base: den as NoteBase }
 }
 
-/** The earliest mark of the piece; 120 to the quarter when there is none. It is what the user's bpm scales. */
-export const firstTempo = (score: Score): Tempo => score.bars.find((b) => b.tempo)?.tempo ?? DEFAULT_TEMPO
-
-/** The tempo in force on every written bar: the last mark at or before it; before the first mark, the first mark. */
-export function temposOf(score: Score): Tempo[] {
-  let current = firstTempo(score)
-  return score.bars.map((bar) => {
-    if (bar.tempo) current = bar.tempo
-    return current
-  })
-}
+/** Seconds one whole note lasts: 60 / bpm is one beat, and a beat is `beatOf(meter)` of a whole. */
+export const secondsPerWhole = (meter: Meter, bpm: number): number => 60 / bpm / toNumber(lengthOf(beatOf(meter)))
 
 interface Segment {
   pos: number
@@ -39,16 +34,13 @@ interface Segment {
   spw: number
 }
 
-export function buildTimeMap(score: Score, playback: PlaybackBar[], userBpm?: number): TimeMap {
+export function buildTimeMap(score: Score, playback: PlaybackBar[], bpm: number): TimeMap {
   const meters = metersOf(score)
-  const tempos = temposOf(score)
-  // The user's bpm names the first mark's speed; every other mark keeps its ratio to it.
-  const factor = userBpm === undefined ? 1 : userBpm / firstTempo(score).bpm
   const segs: Segment[] = []
   let pos = 0
   let sec = 0
   for (const pb of playback) {
-    const spw = secondsPerWhole(tempos[pb.barIndex]) / factor
+    const spw = secondsPerWhole(meters[pb.barIndex], bpm)
     segs.push({ pos, sec, spw })
     const len = toNumber(barLength(meters[pb.barIndex]))
     pos += len
