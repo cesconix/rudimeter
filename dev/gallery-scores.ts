@@ -191,7 +191,7 @@ export const GALLERY: Figure[] = [
   figure(
     'text',
     'Text above the note, above an accent, above a tuplet number, above a rest',
-    '"Flam tap" above beat 1 and "Fill" above beat 3, above the stems; on beat 3 the note is accented and the text sits above the accent. Bar 2 opens with an eighth triplet whose first note carries "Roll": it sits above the "3"; then a quarter rest with "Rest" above it, above the middle line; two quarters.',
+    '"Flam tap" above beat 1 and "Fill" above beat 3, above the stems; on beat 3 the note is accented and the text sits above the accent. Bar 2 opens with an eighth triplet whose first note carries "Roll": it sits under the bracket, between the 3 and the beam, clear of both; then a quarter rest with "Rest" above it, above the middle line; two quarters.',
     [
       bar([N(4, { text: 'Flam tap' }), N(4), N(4, { text: 'Fill', accent: true }), N(4)]),
       bar([T(3, 2, [N(8, { text: 'Roll' }), N(8), N(8)]), R(4, undefined, { text: 'Rest' }), N(4), N(4)]),
@@ -237,6 +237,7 @@ export const GALLERY: Figure[] = [
       ),
       bar(q4(), { meter: [4, 4] }),
     ],
+    2,
   ),
 ]
 

@@ -113,7 +113,7 @@ describe('fit: scale and rows', () => {
     expect(fit(847, 600, { barsPerRow: 'auto', zoom: 0.75 }, STONE).rowsVisible).toBe(
       Math.floor(600 / (0.75 * SYSTEM_H)),
     )
-    expect(fit(847, 600, { barsPerRow: 'auto', zoom: 2 }, STONE).rowsVisible).toBe(1)
+    expect(fit(847, 600, { barsPerRow: 'auto', zoom: 2 }, STONE).rowsVisible).toBe(Math.floor(600 / (2 * SYSTEM_H)))
     expect(fit(847, 50, AUTO, STONE).rowsVisible).toBe(1)
   })
 

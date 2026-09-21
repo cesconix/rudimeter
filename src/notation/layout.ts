@@ -44,26 +44,20 @@ export const LINE_PX = 10
 export const STAFF_LINES = 5
 export const STAFF_H = (STAFF_LINES - 1) * LINE_PX
 /**
- * Above the staff: stems, beams, accents, tuplet numbers, text, a volta bracket, a tempo mark. Below
- * it: the feet's stems (35 px past the notehead), the sticking, a dynamic, a hairpin. Both are
- * constants for the whole piece, measured once in the gallery on the worst-case row and never per
- * exercise: the bands must stack.
+ * Above the staff: stems, beams, accents, tuplet numbers, grace notes, a text. Below it: the
+ * sticking. Both are constants for the whole piece, measured once in the gallery on the pad worst
+ * case and never per exercise: the bands must stack.
  *
- * Measured on the worst-case row (gallery, "Measure band"): ink from −7.5 to 242 px in a 190 px
- * band with the top line at 70 → 78 px above the top line, 132 below the bottom one; above that,
- * 24 px for the tempo mark and the volta bracket, which VexFlow would otherwise draw inside the
- * stack: 78 + 24 = 102 → 110. Below: 80 + 52 + 4 = 136 → 140 (next multiple of LINE_PX: VexFlow
- * reads `spaceAboveStaffLn` in line spaces).
- *
- * Re-measured 2026-09-20, after the hands' sticking moved above the staff in two-voice bars (plan
- * 11, task 4): the gallery's "Measure band" now reads ink from 0.5 to 242.0 px in a [0, 290] band
- * with the top line at 110 — STAFF_TOP still gives 0 overflow above, unchanged. Below, the sticking
- * and its dynamics left the bottom of the band: ink bottom 242 px − the bottom line at
- * STAFF_TOP + STAFF_H = 150 → 92 px below the bottom line, + 4 px of air = 96 → 100 (next multiple
- * of LINE_PX).
+ * Measured 2026-09-21 (gallery, "Measure band", Chrome on the Mac at dpr 2): ink 70.0 px above the
+ * top line and 24.0 px below the bottom one on the worst-case row — a text over an accented eighth
+ * triplet, a flam and a drag under accents, three slashes, a buzz, thirty-seconds, sticking under
+ * everything. Plus 4 px of air, up to the next multiple of LINE_PX (VexFlow reads
+ * `spaceAboveStaffLn` in line spaces): 70 + 4 → 80, 24 + 4 → 30. The kit's band was 110 / 100
+ * (spec 09): the feet's stems, the dynamics, the hairpins, the volta bracket and the tempo mark
+ * went with the kit.
  */
-export const STAFF_TOP = 110
-export const STAFF_BELOW = 100
+export const STAFF_TOP = 80
+export const STAFF_BELOW = 30
 export const SYSTEM_H = STAFF_TOP + STAFF_H + STAFF_BELOW
 /** Notehead width at natural scale: the cursor is as wide as it, and the readability floor is measured on it. */
 export const NOTEHEAD_PX = 11.8
@@ -79,13 +73,14 @@ export const SNARE_LINE = 2.5
 export const REST_LINE = 2
 
 /**
- * How far the cursor band overflows above and below the staff, natural px: the hi-hat and crash
- * heads sit up to 10 px above the top line, the kick's stem ends 30 px below the bottom one. The
- * band crosses the staff instead of stopping at it so it is the NOTE that is marked, not the row;
- * semi-transparent (`.score-cursor`) so the heads stay readable underneath.
+ * How far the cursor band overflows above and below the staff, natural px, so the band marks the
+ * NOTE — head, stem and sticking letter — and not just the staff; semi-transparent (`.score-cursor`)
+ * so the head stays readable underneath. Measured 2026-09-21 (gallery, "Measure cursor", Chrome on
+ * the Mac at dpr 2) on a quarter with its R: the stem tip 20.0 px above the top line, the letter's
+ * bottom 24.0 px below the bottom one, plus 4 px of air: 24 / 28.
  */
-export const CURSOR_ABOVE = 30
-export const CURSOR_BELOW = 30
+export const CURSOR_ABOVE = 24
+export const CURSOR_BELOW = 28
 
 export interface ViewSpec {
   barsPerRow: number

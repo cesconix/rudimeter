@@ -52,6 +52,6 @@ describe('gallery scores', () => {
 
   it('the figures whose sentences name a barline pin their bars per row', () => {
     const pinned = Object.fromEntries(GALLERY.filter((f) => f.barsPerRow).map((f) => [f.id, f.barsPerRow]))
-    expect(pinned).toEqual({ ties: 4 })
+    expect(pinned).toEqual({ ties: 4, meters: 2 })
   })
 })
