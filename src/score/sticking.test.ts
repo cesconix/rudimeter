@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import { EXERCISES_JSON } from '../data/exercises'
 import type { ExerciseJson } from '../engine/types'
-import { flattenVoice } from './events'
+import { flattenBar } from './events'
 import { fromSticking } from './sticking'
 import type { Event, Item } from './types'
 import { validate } from './validate'
@@ -14,11 +14,9 @@ const ex = (steps: string, extra: Partial<ExerciseJson> = {}): ExerciseJson => (
   repeats: 1,
   ...extra,
 })
-const items = (steps: string, extra?: Partial<ExerciseJson>): Item[] =>
-  fromSticking(ex(steps, extra)).bars[0].parts?.pad.voices[0].items ?? []
+const items = (steps: string, extra?: Partial<ExerciseJson>): Item[] => fromSticking(ex(steps, extra)).bars[0].items
 const snare = (base: 4 | 8 | 16 | 32, sticking: 'R' | 'L', extra: Partial<Event> = {}): Event => ({
   duration: { base },
-  notes: [{ instrument: 'snare' }],
   sticking,
   ...extra,
 })
@@ -63,27 +61,24 @@ describe('fromSticking', () => {
       snare(16, 'L'),
     ])
   })
-  it('writes the grace hand only when it is not the opposite hand', () => {
-    expect(items('f(R)R L L L')[0]).toEqual(snare(4, 'R', { grace: { kind: 'flam', sticking: 'R' } }))
+  it('parses the grace hand and leaves it out of the score', () => {
+    expect(items('f(R)R L L L')[0]).toEqual(snare(4, 'R', { grace: { kind: 'flam' } }))
     expect(items('d(L)R L L L')[0]).toEqual(snare(4, 'R', { grace: { kind: 'drag' } }))
   })
-  it('puts the meter on the first bar and the repeats on the piece', () => {
+  it('puts the meter on the first bar and the repeats on the piece, in the flat shape', () => {
     const s = fromSticking(ex('RL RL | RL RL', { timeSignature: [2, 4], repeats: 20, source: 'Stick Control, p. 5' }))
-    expect(s).toMatchObject({
-      id: 't',
-      title: 'T',
-      source: 'Stick Control, p. 5',
-      parts: [{ id: 'pad', kind: 'drumset' }],
-    })
+    expect(Object.keys(s)).toEqual(['id', 'title', 'source', 'bars'])
+    expect(s).toMatchObject({ id: 't', title: 'T', source: 'Stick Control, p. 5' })
     expect(s.bars).toHaveLength(2)
     expect(s.bars[0].meter).toEqual([2, 4])
     expect(s.bars[1].meter).toBeUndefined()
     expect(s.bars[0].repeat).toEqual({ start: true })
     expect(s.bars[1].repeat).toEqual({ end: { times: 20 } })
-    expect(Object.keys(s.bars[0])).toEqual(['meter', 'repeat', 'parts'])
+    expect(Object.keys(s.bars[0])).toEqual(['meter', 'repeat', 'items'])
+    expect(Object.keys(s.bars[1])).toEqual(['repeat', 'items'])
     const once = fromSticking(ex('R R R R'))
     expect(once.bars[0].repeat).toBeUndefined()
-    expect('source' in once).toBe(false)
+    expect(Object.keys(once)).toEqual(['id', 'title', 'bars'])
     const oneBar = fromSticking(ex('R R R R', { repeats: 4 }))
     expect(oneBar.bars[0].repeat).toEqual({ start: true, end: { times: 4 } })
   })
@@ -100,9 +95,7 @@ describe('fromSticking', () => {
     for (const json of EXERCISES_JSON) {
       const s = fromSticking(json)
       expect({ id: s.id, problems: validate(s) }).toEqual({ id: json.id, problems: [] })
-      const sounding = s.bars
-        .flatMap((b) => flattenVoice(b.parts?.pad.voices[0] ?? { stem: 'up', items: [] }))
-        .filter((f) => !f.event.rest)
+      const sounding = s.bars.flatMap(flattenBar).filter((f) => !f.event.rest)
       expect(sounding.length).toBeGreaterThan(0)
     }
   })

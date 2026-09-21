@@ -2,7 +2,6 @@ import { fromSticking } from '../score/sticking'
 import type { Score } from '../score/types'
 import { parseScore } from '../score/validate'
 import { EXERCISES_JSON } from './exercises'
-import kitEnding from './scores/kit-ending.json'
 import pyramidDoubles from './scores/pyramid-doubles.json'
 import pyramidSingles from './scores/pyramid-singles.json'
 import workout43 from './scores/workout-43.json'
@@ -14,5 +13,5 @@ import workout43 from './scores/workout-43.json'
  */
 export const SCORES: Score[] = [
   ...EXERCISES_JSON.map(fromSticking),
-  ...[pyramidSingles, pyramidDoubles, workout43, kitEnding].map(parseScore),
+  ...[pyramidSingles, pyramidDoubles, workout43].map(parseScore),
 ]
