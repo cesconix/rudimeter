@@ -1,8 +1,7 @@
-import { barLength, flattenVoice, metersOf } from '../score/events'
+import { barLength, flattenBar, metersOf } from '../score/events'
 import { add, type Fraction, toNumber, ZERO } from '../score/fraction'
 import { type EventId, keyOf } from '../score/ids'
 import type { Meter, Score } from '../score/types'
-import { sourceOf } from '../score/unroll'
 
 /**
  * Natural px: the geometry is computed once at this size and the engraver scales the whole row.
@@ -45,26 +44,20 @@ export const LINE_PX = 10
 export const STAFF_LINES = 5
 export const STAFF_H = (STAFF_LINES - 1) * LINE_PX
 /**
- * Above the staff: stems, beams, accents, tuplet numbers, text, a volta bracket, a tempo mark. Below
- * it: the feet's stems (35 px past the notehead), the sticking, a dynamic, a hairpin. Both are
- * constants for the whole piece, measured once in the gallery on the worst-case row and never per
- * exercise: the bands must stack.
+ * Above the staff: stems, beams, accents, tuplet numbers, grace notes, a text. Below it: the
+ * sticking. Both are constants for the whole piece, measured once in the gallery on the pad worst
+ * case and never per exercise: the bands must stack.
  *
- * Measured on the worst-case row (gallery, "Measure band"): ink from −7.5 to 242 px in a 190 px
- * band with the top line at 70 → 78 px above the top line, 132 below the bottom one; above that,
- * 24 px for the tempo mark and the volta bracket, which VexFlow would otherwise draw inside the
- * stack: 78 + 24 = 102 → 110. Below: 80 + 52 + 4 = 136 → 140 (next multiple of LINE_PX: VexFlow
- * reads `spaceAboveStaffLn` in line spaces).
- *
- * Re-measured 2026-09-20, after the hands' sticking moved above the staff in two-voice bars (plan
- * 11, task 4): the gallery's "Measure band" now reads ink from 0.5 to 242.0 px in a [0, 290] band
- * with the top line at 110 — STAFF_TOP still gives 0 overflow above, unchanged. Below, the sticking
- * and its dynamics left the bottom of the band: ink bottom 242 px − the bottom line at
- * STAFF_TOP + STAFF_H = 150 → 92 px below the bottom line, + 4 px of air = 96 → 100 (next multiple
- * of LINE_PX).
+ * Measured 2026-09-21 (gallery, "Measure band", Chrome on the Mac at dpr 2): ink 70.0 px above the
+ * top line and 24.0 px below the bottom one on the worst-case row — a text over an accented eighth
+ * triplet, a flam and a drag under accents, three slashes, a buzz, thirty-seconds, sticking under
+ * everything. Plus 4 px of air, up to the next multiple of LINE_PX (VexFlow reads
+ * `spaceAboveStaffLn` in line spaces): 70 + 4 → 80, 24 + 4 → 30. The kit's band was 110 / 100
+ * (spec 09): the feet's stems, the dynamics, the hairpins, the volta bracket and the tempo mark
+ * went with the kit.
  */
-export const STAFF_TOP = 110
-export const STAFF_BELOW = 100
+export const STAFF_TOP = 80
+export const STAFF_BELOW = 30
 export const SYSTEM_H = STAFF_TOP + STAFF_H + STAFF_BELOW
 /** Notehead width at natural scale: the cursor is as wide as it, and the readability floor is measured on it. */
 export const NOTEHEAD_PX = 11.8
@@ -72,11 +65,22 @@ export const NOTEHEAD_PX = 11.8
 export const MIN_NOTEHEAD_PX = 8
 
 /**
- * Where a rest sits, in staff lines from the bottom. Alone in the bar, on the middle line; with a
- * second voice the hands' rests move up and the feet's down, so the two never print on top of each
- * other. The engraver turns these into VexFlow keys; the overlay reads them for a rest's highlight.
+ * Staff lines counted from the bottom: 0 is the first line, halves are the spaces. The snare sits
+ * in the third space (PAS / Weinberg), every rest on the middle line. The engraver turns these into
+ * VexFlow keys; the overlay reads them for a highlight's vertical extent.
  */
-export const REST_LINE = { single: 2, up: 3, down: 1 } as const
+export const SNARE_LINE = 2.5
+export const REST_LINE = 2
+
+/**
+ * How far the cursor band overflows above and below the staff, natural px, so the band marks the
+ * NOTE — head, stem and sticking letter — and not just the staff; semi-transparent (`.score-cursor`)
+ * so the head stays readable underneath. Measured 2026-09-21 (gallery, "Measure cursor", Chrome on
+ * the Mac at dpr 2) on a quarter with its R: the stem tip 20.0 px above the top line, the letter's
+ * bottom 24.0 px below the bottom one, plus 4 px of air: 24 / 28.
+ */
+export const CURSOR_ABOVE = 24
+export const CURSOR_BELOW = 28
 
 export interface ViewSpec {
   barsPerRow: number
@@ -93,7 +97,7 @@ export interface ViewSpec {
 export interface EventBox {
   id: EventId
   row: number
-  /** natural px: the event's slice of the time grid, not the glyph's extent. The notes of a chord share one box. */
+  /** natural px: the event's slice of the time grid, not the glyph's extent */
   x: number
   width: number
   /** written position from the start of the piece, whole-note units */
@@ -112,7 +116,6 @@ export interface BarLayout {
   head: number
   showClef: boolean
   showMeter: boolean
-  bracket?: { numbers: number[]; first: boolean; last: boolean }
 }
 
 export interface RowLayout {
@@ -126,7 +129,7 @@ export interface RowLayout {
 
 export interface Layout {
   rows: RowLayout[]
-  /** keyOf(EventId) → box, one per written event. A simile bar carries the boxes of the bar it repeats, under its own bar index. */
+  /** keyOf(EventId) → box, one per written event */
   boxes: Map<string, EventBox>
   /** bar index → row index */
   rowOfBar: number[]
@@ -138,25 +141,7 @@ export interface Layout {
 }
 
 export const hasGrace = (score: Score): boolean =>
-  score.bars.some((bar) =>
-    Object.values(bar.parts ?? {}).some((part) =>
-      part.voices.some((voice) => flattenVoice(voice).some((f) => f.event.grace !== undefined)),
-    ),
-  )
-
-const sameEnding = (a?: number[], b?: number[]): boolean =>
-  a !== undefined && b !== undefined && a.length === b.length && a.every((x, i) => x === b[i])
-
-/** The volta bracket a bar sits under: consecutive bars with the same ending numbers share one. */
-function bracketOf(score: Score, b: number): BarLayout['bracket'] {
-  const ending = score.bars[b].ending
-  if (!ending) return undefined
-  return {
-    numbers: ending,
-    first: !sameEnding(ending, score.bars[b - 1]?.ending),
-    last: !sameEnding(ending, score.bars[b + 1]?.ending),
-  }
-}
+  score.bars.some((bar) => flattenBar(bar).some((f) => f.event.grace !== undefined))
 
 /** A bar packed on a row, before the grid is stretched: what it prints before its grid and how long it lasts. */
 interface Packed {
@@ -166,7 +151,6 @@ interface Packed {
   head: number
   showClef: boolean
   showMeter: boolean
-  bracket?: BarLayout['bracket']
 }
 
 /**
@@ -187,7 +171,7 @@ function stretchToFill(packed: Packed[][], fillWidth: number | undefined): numbe
 
 /**
  * Rows of bars on the time grid, natural px, and one box per written event. Pure: the engraver
- * draws what this says, the overlay (plan 11) reads the boxes, nobody reads the DOM.
+ * draws what this says, the overlay reads the boxes, nobody reads the DOM.
  */
 export function buildLayout(score: Score, spec: ViewSpec): Layout {
   const meters = metersOf(score)
@@ -211,10 +195,7 @@ export function buildLayout(score: Score, spec: ViewSpec): Layout {
     }
     const first = row.length === 0
     const head = first ? gridX0 : changed ? METER_PX : BAR_PAD
-    const p: Packed = { barIndex: b, len: toNumber(barLength(meter)), head, showClef: first, showMeter: changed }
-    const bracket = bracketOf(score, b)
-    if (bracket) p.bracket = bracket
-    row.push(p)
+    row.push({ barIndex: b, len: toNumber(barLength(meter)), head, showClef: first, showMeter: changed })
   })
   if (row.length > 0) packed.push(row)
   const stretch = stretchToFill(packed, spec.fillWidth)
@@ -237,7 +218,6 @@ export function buildLayout(score: Score, spec: ViewSpec): Layout {
         showClef: p.showClef,
         showMeter: p.showMeter,
       }
-      if (p.bracket) lb.bracket = p.bracket
       bars.push(lb)
       layoutOfBar[p.barIndex] = lb
       rowOfBar[p.barIndex] = rows.length
@@ -248,25 +228,19 @@ export function buildLayout(score: Score, spec: ViewSpec): Layout {
 
   const boxes = new Map<string, EventBox>()
   let position = ZERO
-  score.bars.forEach((_bar, b) => {
+  score.bars.forEach((bar, b) => {
     const lb = layoutOfBar[b]
-    // A simile bar draws a sign, but the cursor and the highlight need the events it stands for, under its own index: that is how `eventsOf` keys them.
-    const source = score.bars[sourceOf(score, b)]
-    for (const part of score.parts) {
-      source.parts?.[part.id]?.voices.forEach((voice, v) => {
-        for (const f of flattenVoice(voice)) {
-          const id: EventId = { bar: b, part: part.id, voice: v, item: f.item }
-          if (f.sub !== undefined) id.sub = f.sub
-          boxes.set(keyOf(id), {
-            id,
-            row: rowOfBar[b],
-            x: lb.x + toNumber(f.offset) * PX_PER_WHOLE * stretch,
-            width: toNumber(f.length) * PX_PER_WHOLE * stretch,
-            position: add(position, f.offset),
-            length: f.length,
-            rest: f.event.rest === true,
-          })
-        }
+    for (const f of flattenBar(bar)) {
+      const id: EventId = { bar: b, item: f.item }
+      if (f.sub !== undefined) id.sub = f.sub
+      boxes.set(keyOf(id), {
+        id,
+        row: rowOfBar[b],
+        x: lb.x + toNumber(f.offset) * PX_PER_WHOLE * stretch,
+        width: toNumber(f.length) * PX_PER_WHOLE * stretch,
+        position: add(position, f.offset),
+        length: f.length,
+        rest: f.event.rest === true,
       })
     }
     position = add(position, barLength(meters[b]))

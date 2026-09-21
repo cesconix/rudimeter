@@ -12,7 +12,9 @@ import {
   MIN_NOTEHEAD_PX,
   NOTEHEAD_PX,
   PX_PER_WHOLE,
+  REST_LINE,
   RIGHT_PAD,
+  SNARE_LINE,
   STAFF_BELOW,
   STAFF_H,
   STAFF_LINES,
@@ -20,29 +22,12 @@ import {
   SYSTEM_H,
 } from './layout'
 
-const n = (base: NoteBase, dots?: 1 | 2): Event =>
-  dots
-    ? { duration: { base, dots }, notes: [{ instrument: 'snare' }] }
-    : { duration: { base }, notes: [{ instrument: 'snare' }] }
+const n = (base: NoteBase, dots?: 1 | 2): Event => (dots ? { duration: { base, dots } } : { duration: { base } })
 const quarters = (): Item[] => [n(4), n(4), n(4), n(4)]
-/** A `pad` bar: hands up, and feet down when given. */
-const bar = (up: Item[], extra: Partial<Bar> = {}, down?: Item[]): Bar => ({
-  ...extra,
-  parts: {
-    pad: {
-      voices: down
-        ? [
-            { stem: 'up', items: up },
-            { stem: 'down', items: down },
-          ]
-        : [{ stem: 'up', items: up }],
-    },
-  },
-})
+const bar = (items: Item[], extra: Partial<Bar> = {}): Bar => ({ ...extra, items })
 const piece = (bars: Bar[]): Score => ({
   id: 'p',
   title: 'p',
-  parts: [{ id: 'pad', kind: 'drumset' }],
   bars: bars.map((b, i) => (i === 0 && !b.meter ? { meter: [4, 4], ...b } : b)),
 })
 const W = PX_PER_WHOLE
@@ -55,6 +40,10 @@ describe('constants', () => {
     // VexFlow reads the space above and below the staff in line spaces (`spaceAboveStaffLn`).
     expect(STAFF_TOP % LINE_PX).toBe(0)
     expect(STAFF_BELOW % LINE_PX).toBe(0)
+  })
+  it('the snare sits in the third space and a rest on the middle line', () => {
+    expect(SNARE_LINE).toBe(2.5)
+    expect(REST_LINE).toBe(2)
   })
 })
 
@@ -200,7 +189,7 @@ describe('justification', () => {
     expect(layout.rows[0].bars[0]).toMatchObject({ x: HEAD_PX, width: W * s, head: HEAD_PX })
     expect(layout.rows[0].bars[1]).toMatchObject({ x: HEAD_PX + W * s + BAR_PAD, width: W * s, head: BAR_PAD })
     // The boxes are the stretched grid's slices: the second quarter of bar 2 starts a quarter (stretched) into it.
-    expect(layout.boxes.get('b1/pad/0/1')).toMatchObject({
+    expect(layout.boxes.get('b1/1')).toMatchObject({
       x: HEAD_PX + W * s + BAR_PAD + (W / 4) * s,
       width: (W / 4) * s,
       position: frac(5, 4),
@@ -252,8 +241,8 @@ describe('boxes', () => {
   it("are the event's slice of the grid: dotted values take their dotted width", () => {
     const layout = buildLayout(piece([bar([n(4, 1), n(8), n(4), n(4)])]), { barsPerRow: 4, auto: true })
     const box = (k: string) => layout.boxes.get(k)
-    expect(box('b0/pad/0/0')).toEqual({
-      id: { bar: 0, part: 'pad', voice: 0, item: 0 },
+    expect(box('b0/0')).toEqual({
+      id: { bar: 0, item: 0 },
       row: 0,
       x: HEAD_PX,
       width: (3 * W) / 8,
@@ -261,38 +250,34 @@ describe('boxes', () => {
       length: frac(3, 8),
       rest: false,
     })
-    expect(box('b0/pad/0/1')).toMatchObject({ x: HEAD_PX + (3 * W) / 8, width: W / 8, position: frac(3, 8) })
-    expect(box('b0/pad/0/2')).toMatchObject({ x: HEAD_PX + W / 2, width: W / 4, position: frac(1, 2) })
-    expect(box('b0/pad/0/3')).toMatchObject({ x: HEAD_PX + (3 * W) / 4, width: W / 4, position: frac(3, 4) })
+    expect(box('b0/1')).toMatchObject({ x: HEAD_PX + (3 * W) / 8, width: W / 8, position: frac(3, 8) })
+    expect(box('b0/2')).toMatchObject({ x: HEAD_PX + W / 2, width: W / 4, position: frac(1, 2) })
+    expect(box('b0/3')).toMatchObject({ x: HEAD_PX + (3 * W) / 4, width: W / 4, position: frac(3, 4) })
     expect(layout.boxes.size).toBe(4)
+  })
+
+  it('a rest has a box and is a rest', () => {
+    const layout = buildLayout(piece([bar([n(4), { duration: { base: 4 }, rest: true }, n(2)])]), {
+      barsPerRow: 4,
+      auto: true,
+    })
+    expect(layout.boxes.get('b0/1')).toMatchObject({ x: HEAD_PX + W / 4, width: W / 4, rest: true })
+    expect(layout.boxes.get('b0/2')).toMatchObject({ x: HEAD_PX + W / 2, width: W / 2, rest: false })
+    expect(layout.boxes.size).toBe(3)
   })
 
   it('a tuplet scales its items and keys them with their sub index', () => {
     const triplet: Item = { tuplet: { actual: 3, normal: 2 }, items: [n(8), n(8), n(8)] }
     const layout = buildLayout(piece([bar([triplet, n(4), n(4), n(4)])]), { barsPerRow: 4, auto: true })
-    expect(layout.boxes.get('b0/pad/0/0.0')).toMatchObject({
-      id: { bar: 0, part: 'pad', voice: 0, item: 0, sub: 0 },
+    expect(layout.boxes.get('b0/0.0')).toMatchObject({
+      id: { bar: 0, item: 0, sub: 0 },
       x: HEAD_PX,
       width: W / 12,
       length: frac(1, 12),
     })
-    expect(layout.boxes.get('b0/pad/0/0.1')).toMatchObject({ x: HEAD_PX + W / 12, position: frac(1, 12) })
-    expect(layout.boxes.get('b0/pad/0/0.2')).toMatchObject({ x: HEAD_PX + W / 6, position: frac(1, 6) })
-    expect(layout.boxes.get('b0/pad/0/1')).toMatchObject({ x: HEAD_PX + W / 4, position: frac(1, 4) })
-  })
-
-  it('two voices at the same instant share x; a hidden rest has a box and is a rest', () => {
-    const down: Item[] = [
-      { duration: { base: 4 }, notes: [{ instrument: 'kick' }] },
-      { duration: { base: 4 }, rest: true, hidden: true },
-      { duration: { base: 4 }, notes: [{ instrument: 'kick' }] },
-      { duration: { base: 4 }, rest: true, hidden: true },
-    ]
-    const layout = buildLayout(piece([bar(quarters(), {}, down)]), { barsPerRow: 4, auto: true })
-    expect(layout.boxes.get('b0/pad/1/0')?.x).toBe(layout.boxes.get('b0/pad/0/0')?.x)
-    expect(layout.boxes.get('b0/pad/1/1')).toMatchObject({ x: HEAD_PX + W / 4, width: W / 4, rest: true })
-    expect(layout.boxes.get('b0/pad/0/1')).toMatchObject({ rest: false })
-    expect(layout.boxes.size).toBe(8)
+    expect(layout.boxes.get('b0/0.1')).toMatchObject({ x: HEAD_PX + W / 12, position: frac(1, 12) })
+    expect(layout.boxes.get('b0/0.2')).toMatchObject({ x: HEAD_PX + W / 6, position: frac(1, 6) })
+    expect(layout.boxes.get('b0/1')).toMatchObject({ x: HEAD_PX + W / 4, position: frac(1, 4) })
   })
 
   it('across rows a box carries its row, its x inside the row and its written position in the piece', () => {
@@ -300,36 +285,17 @@ describe('boxes', () => {
       barsPerRow: 2,
       auto: true,
     })
-    expect(layout.boxes.get('b1/pad/0/0')).toMatchObject({ row: 0, x: HEAD_PX + W + BAR_PAD, position: frac(1) })
-    expect(layout.boxes.get('b2/pad/0/0')).toMatchObject({ row: 1, x: HEAD_PX, position: frac(2) })
-    expect(layout.boxes.get('b3/pad/0/3')).toMatchObject({
+    expect(layout.boxes.get('b1/0')).toMatchObject({ row: 0, x: HEAD_PX + W + BAR_PAD, position: frac(1) })
+    expect(layout.boxes.get('b2/0')).toMatchObject({ row: 1, x: HEAD_PX, position: frac(2) })
+    expect(layout.boxes.get('b3/3')).toMatchObject({
       row: 1,
       x: HEAD_PX + W + BAR_PAD + (3 * W) / 4,
       position: frac(15, 4),
     })
   })
 
-  it('a simile bar gets the boxes of the bar it repeats, under its own bar index', () => {
-    const layout = buildLayout(piece([bar([n(4, 1), n(8), n(2)]), { simile: true }, { simile: true }]), {
-      barsPerRow: 4,
-      auto: true,
-    })
-    expect(layout.boxes.get('b1/pad/0/0')).toMatchObject({
-      id: { bar: 1, part: 'pad', voice: 0, item: 0 },
-      x: HEAD_PX + W + BAR_PAD,
-      width: (3 * W) / 8,
-      position: frac(1),
-    })
-    expect(layout.boxes.get('b2/pad/0/2')).toMatchObject({
-      id: { bar: 2, part: 'pad', voice: 0, item: 2 },
-      x: HEAD_PX + 2 * W + 2 * BAR_PAD + W / 2,
-      position: frac(5, 2),
-    })
-    expect(layout.boxes.size).toBe(9)
-  })
-
   it('the grace gutter moves the origin of every row only when the piece has a grace note', () => {
-    const flam: Item = { duration: { base: 4 }, notes: [{ instrument: 'snare' }], grace: { kind: 'flam' } }
+    const flam: Item = { duration: { base: 4 }, grace: { kind: 'flam' } }
     const plainPiece = piece([bar(quarters()), bar(quarters())])
     const gracedPiece = piece([bar(quarters()), bar([flam, n(4), n(4), n(4)])])
     expect(hasGrace(plainPiece)).toBe(false)
@@ -339,28 +305,6 @@ describe('boxes', () => {
     expect(plain.gridX0).toBe(HEAD_PX)
     expect(graced.gridX0).toBe(HEAD_PX + GRACE_GUTTER)
     expect(graced.rows.map((r) => r.bars[0].x)).toEqual([HEAD_PX + GRACE_GUTTER, HEAD_PX + GRACE_GUTTER])
-    expect(graced.boxes.get('b1/pad/0/0')?.x).toBe(HEAD_PX + GRACE_GUTTER)
-  })
-})
-
-describe('brackets', () => {
-  it('consecutive bars under the same ending numbers form one bracket; different numbers, another', () => {
-    const bars = [
-      bar(quarters(), { repeat: { start: true } }),
-      bar(quarters(), { ending: [1] }),
-      bar(quarters(), { ending: [1], repeat: { end: {} } }),
-      bar(quarters(), { ending: [2] }),
-      bar(quarters(), { ending: [1, 2] }),
-      bar(quarters()),
-    ]
-    const brackets = buildLayout(piece(bars), { barsPerRow: 8, auto: true }).rows[0].bars.map((b) => b.bracket)
-    expect(brackets).toEqual([
-      undefined,
-      { numbers: [1], first: true, last: false },
-      { numbers: [1], first: false, last: true },
-      { numbers: [2], first: true, last: true },
-      { numbers: [1, 2], first: true, last: true },
-      undefined,
-    ])
+    expect(graced.boxes.get('b1/0')?.x).toBe(HEAD_PX + GRACE_GUTTER)
   })
 })

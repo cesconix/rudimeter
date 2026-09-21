@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { flattenVoice } from '../score/events'
+import { flattenBar } from '../score/events'
 import { add, type Fraction, ZERO } from '../score/fraction'
 import type { Bar, Score } from '../score/types'
 import { validate } from '../score/validate'
@@ -12,14 +12,12 @@ const byId = (id: string): Score => {
 }
 const isBeat = (x: Fraction): boolean => (x.num * 4) % x.den === 0
 
-/** A pad bar as the sticking it was written from: hands joined per quarter, beats separated by a space, `-` for a rest. */
+/** A bar as the sticking it was written from: hands joined per quarter, beats separated by a space, `-` for a rest. */
 function stickingOf(bar: Bar): string {
-  const voice = bar.parts?.pad.voices[0]
-  if (!voice) throw new Error('not a pad bar')
   const beats: string[] = []
   let acc = ''
   let filled = ZERO
-  for (const f of flattenVoice(voice)) {
+  for (const f of flattenBar(bar)) {
     acc += f.event.sticking ?? '-'
     filled = add(filled, f.length)
     if (isBeat(filled)) {
@@ -35,18 +33,23 @@ const rowsOf = (s: Score): string[] => {
   for (let i = 0; i < s.bars.length; i += 2) rows.push(`${stickingOf(s.bars[i])} | ${stickingOf(s.bars[i + 1])}`)
   return rows
 }
-const sounding = (s: Score) =>
-  s.bars
-    .flatMap((b) => Object.values(b.parts ?? {}).flatMap((p) => p.voices.flatMap(flattenVoice)))
-    .filter((f) => !f.event.rest)
+const sounding = (s: Score) => s.bars.flatMap(flattenBar).filter((f) => !f.event.rest)
 
 describe('SCORES', () => {
   it('validates every entry and keeps the ids unique', () => {
     for (const s of SCORES) expect({ id: s.id, problems: validate(s) }).toEqual({ id: s.id, problems: [] })
     expect(new Set(SCORES.map((s) => s.id)).size).toBe(SCORES.length)
   })
-  it('starts with the sticking library, in its order', () => {
-    expect(SCORES.slice(0, 4).map((s) => s.id)).toEqual(['stone-1', 'stone-3', 'stone-5', 'reading-4-4'])
+  it('starts with the sticking library, in its order, then the three pad pieces', () => {
+    expect(SCORES.map((s) => s.id)).toEqual([
+      'stone-1',
+      'stone-3',
+      'stone-5',
+      'reading-4-4',
+      'pyramid-singles',
+      'pyramid-doubles',
+      'workout-43',
+    ])
   })
 })
 
@@ -99,10 +102,8 @@ describe('50 Workout #43', () => {
   const s = byId('workout-43')
   /** The bar's onsets on the sixteenth grid, beat by beat: what the rhythm is, whatever the spelling. */
   const grid = (bar: Bar): string => {
-    const voice = bar.parts?.pad.voices[0]
-    if (!voice) throw new Error('not a pad bar')
     const cells = Array.from({ length: 16 }, () => '-')
-    for (const f of flattenVoice(voice)) if (!f.event.rest) cells[(f.offset.num * 16) / f.offset.den] = 'x'
+    for (const f of flattenBar(bar)) if (!f.event.rest) cells[(f.offset.num * 16) / f.offset.den] = 'x'
     return cells.join('').replace(/(.{4})(?=.)/g, '$1 ')
   }
   it('is the sixteen patterns of the page, two repeated sections, two bars per row', () => {
@@ -132,7 +133,7 @@ describe('50 Workout #43', () => {
   })
   it("uses the book's spellings, not the grid's", () => {
     const spell = (bar: Bar) =>
-      flattenVoice(bar.parts?.pad.voices[0] ?? { stem: 'up', items: [] })
+      flattenBar(bar)
         .slice(0, 4)
         .map((f) => `${f.event.rest ? 'r' : 'n'}${f.event.duration.base}${f.event.duration.dots ? '.' : ''}`)
     expect(spell(s.bars[1]).slice(0, 2)).toEqual(['r16', 'n8.'])
@@ -141,19 +142,5 @@ describe('50 Workout #43', () => {
     expect(spell(s.bars[13]).slice(0, 3)).toEqual(['n16', 'n8', 'n16'])
     expect(spell(s.bars[14]).slice(0, 4)).toEqual(['n16', 'n16', 'n16', 'n16'])
     expect(sounding(s)).toHaveLength(4 + 4 + 4 + 4 + 8 + 8 + 8 + 8 + 8 + 8 + 12 + 12 + 12 + 12 + 8 + 8)
-  })
-})
-
-describe('kit-ending', () => {
-  const s = byId('kit-ending')
-  it('has two voices, a chord, a triplet and a simile bar', () => {
-    expect(s.bars).toHaveLength(4)
-    expect(s.bars[0].parts?.kit.voices.map((v) => v.stem)).toEqual(['up', 'down'])
-    expect(s.bars[0].parts?.kit.voices[0].items[2]).toMatchObject({
-      notes: [{ instrument: 'hihat' }, { instrument: 'snare' }],
-      accent: true,
-    })
-    expect(s.bars[1].parts?.kit.voices[0].items[4]).toMatchObject({ tuplet: { actual: 3, normal: 2 } })
-    expect(s.bars[3]).toEqual({ simile: true })
   })
 })

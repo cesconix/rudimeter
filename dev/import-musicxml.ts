@@ -1,28 +1,12 @@
 // Dev tool: a MusicXML file (written in MuseScore) → one JSON score under src/data/scores/. The app
-// bundles the JSON and never sees XML. Partwise files only, first part only, one staff.
+// bundles the JSON and never sees XML. Partwise files only, first part only, voice 1 only: a pad
+// piece has one voice and one stroke at a time, so a second voice or a chord is an error, not a
+// warning; every note is a stroke on the snare, whatever MuseScore calls it; marks the model has no
+// place for (dynamics, wedges, tempo marks, endings, noteheads…) are dropped with a warning.
 
 import { parseArgs } from 'node:util'
 import { XMLParser } from 'fast-xml-parser'
-import { CATALOGUE, INSTRUMENT_IDS } from '../src/score/instruments'
-import type {
-  Bar,
-  Dots,
-  Dynamic,
-  Event,
-  Grace,
-  Hairpin,
-  Hand,
-  InstrumentId,
-  Item,
-  Meter,
-  Note,
-  NoteBase,
-  Notehead,
-  Score,
-  Tempo,
-  TupletGroup,
-  Voice,
-} from '../src/score/types'
+import type { Bar, Dots, Event, Hand, Item, Meter, NoteBase, Roll, Score, TupletGroup } from '../src/score/types'
 import { parseScore } from '../src/score/validate'
 
 /** With `preserveOrder` every element is `{ [tag]: children[], ':@'?: attributes }` and text is `{ '#text': string }`: order inside a measure is the music. */
@@ -46,104 +30,20 @@ const text = (n: XNode | undefined): string =>
 const textOf = (n: XNode, tag: string): string => text(child(n, tag))
 
 const TYPES: Record<string, NoteBase> = { whole: 1, half: 2, quarter: 4, eighth: 8, '16th': 16, '32nd': 32 }
-const HEADS: Record<string, Notehead> = {
-  normal: 'normal',
-  x: 'x',
-  'circle-x': 'circle-x',
-  diamond: 'diamond',
-  triangle: 'triangle',
-  slash: 'slash',
-}
-const DYNAMICS = new Set<string>(['pp', 'p', 'mp', 'mf', 'f', 'ff'])
-const WEDGES: Record<string, Hairpin> = { crescendo: 'cresc', diminuendo: 'dim', stop: 'stop' }
+/** MuseScore's names for the snare; any other name is read as a stroke, with a warning. */
+const SNARE = /snare/i
 /** Notations we read or knowingly skip; anything else is worth a warning. */
 const KNOWN_NOTATIONS = new Set(['tied', 'tuplet', 'articulations', 'technical', 'ornaments'])
 /** Measure children read by a pass of their own before the music walk; the rest are handled there or warned about. */
 const KNOWN_MEASURE_CHILDREN = new Set(['attributes', 'barline', 'print'])
 
-/** A whole note in 128ths: the smallest unit in which every written value below, dotted or not, is a whole number. */
-const WHOLE_UNITS = 128
-/** Written rest values, longest first: every base with one dot then none. */
-const REST_VALUES: { base: NoteBase; dots?: Dots; units: number }[] = ([1, 2, 4, 8, 16, 32] as NoteBase[]).flatMap(
-  (base) => [
-    { base, dots: 1 as Dots, units: (WHOLE_UNITS / base) * 1.5 },
-    { base, units: WHOLE_UNITS / base },
-  ],
-)
-
-/**
- * A bar filled with hidden rests, in the largest written values that fit. A bar whose only MusicXML
- * voice is 2 still has to produce two voices, because everything downstream pairs voices across
- * bars by index (`validate` walks voice 0 then voice 1; the layout will too): emitted alone, the
- * feet of that bar would sit in the hands' slot and a tie into the next bar's kick would be
- * reported against the wrong voice. Single dots only — 7/8 is written dotted half + eighth, not
- * double-dotted half.
- */
-function fillBar(meter: Meter): Item[] {
-  let left = (meter[0] * WHOLE_UNITS) / meter[1]
-  const out: Item[] = []
-  while (left > 0) {
-    const value = REST_VALUES.find((v) => v.units <= left)
-    // Unreachable for a meter `validate` accepts (a 32nd is 4 units, every bar length a multiple of
-    // 4); the guard is there so a meter it would refuse cannot spin this loop for ever.
-    if (!value) break
-    const duration = value.dots ? { base: value.base, dots: value.dots } : { base: value.base }
-    out.push({ duration, rest: true, hidden: true })
-    left -= value.units
-  }
-  return out
-}
-
-/** MuseScore's drumset names → ours. Order matters: "Ride Bell" before "Ride", "Pedal Hi-Hat" before "Hi-Hat", "Low Floor Tom" before "Floor". */
-const NAMES: [RegExp, InstrumentId, Partial<Note>?][] = [
-  [/ride bell|\bbell\b/i, 'ride-bell'],
-  [/ride/i, 'ride'],
-  [/pedal hi|hi-?hat.*(pedal|foot)/i, 'hihat-pedal'],
-  [/open hi/i, 'hihat', { open: true }],
-  [/hi-?hat/i, 'hihat'],
-  [/crash|china|splash/i, 'crash'],
-  [/side stick|cross|rim ?click/i, 'cross-stick'],
-  [/snare/i, 'snare'],
-  [/bass|kick/i, 'kick'],
-  [/low floor|floor tom 2|floor 2/i, 'tom-floor-low'],
-  [/floor/i, 'tom-floor'],
-  [/high tom|hi tom|tom 1\b|high-mid|hi-mid/i, 'tom-high'],
-  [/mid|low tom|tom 2\b|tom 3\b/i, 'tom-mid'],
-]
-
-/** Staff line of a display step on the percussion staff, read as treble: E4 is the first line, each letter is half a line. */
-function lineOf(step: string, octave: number): number {
-  const index = octave * 7 + 'CDEFGAB'.indexOf(step.toUpperCase())
-  return (index - 30) / 2
-}
-
 type Warn = (message: string) => void
 
-/** The instrument of a note: by MuseScore's name when the file has one, else by position and notehead; a snare with a warning when neither works. */
-function noteOf(n: XNode, names: Map<string, string>, warn: Warn): Note {
+/** A pad piece has one instrument. A note MuseScore names something else — a tom, a cymbal — is still a stroke, said out loud. */
+function checkInstrument(n: XNode, names: Map<string, string>, warn: Warn): void {
   const ref = child(n, 'instrument')
   const name = ref ? (names.get(attrs(ref).id) ?? '') : ''
-  const headEl = child(n, 'notehead')
-  const head = HEADS[text(headEl)]
-  const match = name ? NAMES.find(([re]) => re.test(name)) : undefined
-  let id: InstrumentId | undefined = match?.[1]
-  if (!id) {
-    const up = child(n, 'unpitched')
-    if (up) {
-      const line = lineOf(textOf(up, 'display-step'), Number(textOf(up, 'display-octave')))
-      const h: Notehead = head ?? 'normal'
-      id = INSTRUMENT_IDS.find((i) => CATALOGUE[i].line === line && CATALOGUE[i].head === h)
-    }
-  }
-  if (!id) {
-    warn(`instrument "${name || '?'}" unknown, written as snare`)
-    id = 'snare'
-  }
-  const note: Note = { instrument: id }
-  if (match?.[2]?.open) note.open = true
-  if (headEl && attrs(headEl).parentheses === 'yes') note.ghost = true
-  if (head && head !== CATALOGUE[id].head) note.head = head
-  return note
+  if (name && !SNARE.test(name)) warn(`instrument "${name}" read as a stroke`)
 }
 
 const handOf = (n: XNode): Hand | undefined => {
@@ -157,25 +57,12 @@ const handOf = (n: XNode): Hand | undefined => {
   return t === 'R' || t === 'L' ? t : undefined
 }
 
-interface VoiceState {
-  items: Item[]
-  open: TupletGroup | null
-  graces: XNode[]
-  last: Event | null
-}
-interface Pending {
-  dynamic?: Dynamic
-  hairpin?: Hairpin
-  text?: string
-}
-
-/** Bar keys in reading order, so the JSON reads like the spec. */
+/** Bar keys in reading order, so the JSON reads like the type. */
 function ordered(bar: Bar): Bar {
-  const out: Bar = {}
-  for (const k of ['meter', 'beams', 'tempo', 'repeat', 'ending', 'simile', 'newRow', 'parts'] as const) {
+  const out: Partial<Bar> = {}
+  for (const k of ['meter', 'beams', 'repeat', 'newRow', 'items'] as const)
     if (bar[k] !== undefined) Object.assign(out, { [k]: bar[k] })
-  }
-  return out
+  return out as Bar
 }
 
 export function importMusicXml(
@@ -196,12 +83,17 @@ export function importMusicXml(
 
   const bars: Bar[] = []
   let meter: Meter | undefined
-  let ending: number[] | null = null
-  let simileOpen = false
   for (const m of children(part, 'measure')) {
     const number = attrs(m).number ?? String(bars.length + 1)
-    const warn: Warn = (message) => warnings.push(`measure ${number}: ${message}`)
-    const bar: Bar = {}
+    const warn: Warn = (message) => {
+      const line = `measure ${number}: ${message}`
+      // Once per measure and message: nine "<notehead> ignored" on nine notes would bury the one line that matters.
+      if (!warnings.includes(line)) warnings.push(line)
+    }
+    const fail = (message: string): never => {
+      throw new Error(`measure ${number}: ${message}`)
+    }
+    const bar: Bar = { items: [] }
 
     for (const a of children(m, 'attributes')) {
       const t = child(a, 'time')
@@ -210,12 +102,8 @@ export function importMusicXml(
         if (!meter || next[0] !== meter[0] || next[1] !== meter[1]) bar.meter = next
         meter = next
       }
-      const style = child(a, 'measure-style')
-      const mr = style && child(style, 'measure-repeat')
-      if (mr) {
-        simileOpen = attrs(mr).type === 'start'
-        if (simileOpen && text(mr) !== '1') warn(`measure-repeat of ${text(mr)} bars read as one`)
-      }
+      // A measure-repeat ("%") has no notes of its own: the bar comes out empty and `parseScore` refuses it by name.
+      if (has(a, 'measure-style')) warn('<measure-style> ignored')
     }
     if (bars.length === 0 && !bar.meter) {
       if (!meter) warn('no time signature, assuming 4/4')
@@ -230,90 +118,33 @@ export function importMusicXml(
         if (attrs(rep).direction === 'forward') bar.repeat = { ...bar.repeat, start: true }
         else bar.repeat = { ...bar.repeat, end: attrs(rep).times ? { times: Number(attrs(rep).times) } : {} }
       }
-      const en = child(bl, 'ending')
-      if (en) {
-        const spelled = attrs(en).number
-        if (spelled === undefined) throw new Error(`measure ${number}: <ending> without a number`)
-        const numbers = spelled
-          .split(/[,\s]+/)
-          .filter(Boolean)
-          .map(Number)
-        const type = attrs(en).type
-        if (type === 'start') ending = numbers
-        // "continue" sits on the right barline of a bracket's intermediate bars: the bracket is
-        // still open, and closing it here would leave the bars after it outside the volta.
-        else if (type !== 'continue') {
-          bar.ending = ending ?? numbers
-          ending = null
-        }
-      }
-    }
-    if (ending) bar.ending = ending
-
-    if (simileOpen) {
-      bar.simile = true
-      bars.push(ordered(bar))
-      continue
+      if (has(bl, 'ending')) warn('<ending> ignored')
     }
 
-    const voices = new Map<number, VoiceState>()
-    const voiceOf = (k: number): VoiceState => {
-      let v = voices.get(k)
-      if (!v) {
-        v = { items: [], open: null, graces: [], last: null }
-        voices.set(k, v)
-      }
-      return v
-    }
-    let pending: Pending = {}
-    // Divisions the notes read since the bar start (or since the last `<backup>`) account for: what
-    // a `<backup>` is expected to give back.
-    let consumed = 0
+    const items: Item[] = []
+    let open: TupletGroup | null = null
+    let graces = 0
+    let pendingText: string | undefined
     for (const el of kids(m)) {
       const tag = tagOf(el)
-      if (tag === 'backup') {
-        const d = Number(textOf(el, 'duration') || '0')
-        if (d !== consumed) warn(`<backup> of ${d} divisions does not return to the bar start (${consumed} consumed)`)
-        consumed = 0
-        continue
-      }
-      if (tag === 'forward') {
-        // Nothing in the model stands for an empty stretch of a voice, so the bar comes out short
-        // and `validate` refuses it: better a named error than a hole nobody sees.
-        warn(`<forward> of ${textOf(el, 'duration')} divisions ignored`)
+      if (tag === 'backup' || tag === 'forward') {
+        // Nothing in the model stands for a jump in time: a <forward> leaves the bar short and
+        // `parseScore` refuses it; a <backup> precedes a second voice, which the next note refuses.
+        warn(`<${tag}> of ${textOf(el, 'duration')} divisions ignored`)
         continue
       }
       if (tag === 'sound') {
-        if (attrs(el).tempo && !bar.tempo) bar.tempo = { bpm: Number(attrs(el).tempo) }
+        if (attrs(el).tempo) warn('<sound tempo> ignored')
         continue
       }
       if (tag === 'direction') {
         for (const dt of children(el, 'direction-type')) {
-          const met = child(dt, 'metronome')
-          if (met) {
-            const tempo: Tempo = { bpm: Number(textOf(met, 'per-minute')) }
-            const unit = TYPES[textOf(met, 'beat-unit')]
-            if (unit && unit !== 4) tempo.unit = unit
-            if (has(met, 'beat-unit-dot')) tempo.dotted = true
-            bar.tempo = tempo
-          }
-          const dyn = child(dt, 'dynamics')
-          if (dyn) {
-            const d = tagOf(kids(dyn)[0] ?? {})
-            if (DYNAMICS.has(d)) pending.dynamic = d as Dynamic
-            else warn(`dynamic "${d}" ignored`)
-          }
-          const wedge = child(dt, 'wedge')
-          if (wedge) {
-            const w = WEDGES[attrs(wedge).type]
-            if (w) pending.hairpin = w
-            else warn(`wedge "${attrs(wedge).type}" ignored`)
-          }
+          for (const mark of ['dynamics', 'wedge', 'metronome']) if (has(dt, mark)) warn(`<${mark}> ignored`)
           const words = child(dt, 'words')
-          if (words) pending.text = text(words)
+          if (words) pendingText = text(words)
         }
         const sound = child(el, 'sound')
-        if (sound && attrs(sound).tempo && !bar.tempo) bar.tempo = { bpm: Number(attrs(sound).tempo) }
+        if (sound && attrs(sound).tempo) warn('<sound tempo> ignored')
         continue
       }
       if (tag !== 'note') {
@@ -321,21 +152,14 @@ export function importMusicXml(
         continue
       }
       const voiceNo = Number(textOf(el, 'voice') || '1')
-      const v = voiceOf(voiceNo)
+      if (voiceNo !== 1) fail(`a note in voice ${voiceNo}: a pad piece has one voice`)
+      if (has(el, 'chord')) fail('a chord: a pad piece has one stroke at a time')
       if (has(el, 'grace')) {
-        v.graces.push(el)
+        graces++
         continue
       }
-      if (!has(el, 'chord')) consumed += Number(textOf(el, 'duration') || '0')
       const rest = has(el, 'rest')
-      const note = rest ? null : noteOf(el, names, warn)
-      if (has(el, 'chord') && v.last) {
-        if (note) {
-          v.last.notes ??= []
-          v.last.notes.push(note)
-        }
-        continue
-      }
+      if (!rest) checkInstrument(el, names, warn)
       const base = TYPES[textOf(el, 'type')]
       if (!base) {
         warn(`note type "${textOf(el, 'type')}" unsupported, skipped`)
@@ -343,84 +167,66 @@ export function importMusicXml(
       }
       const dots = children(el, 'dot').length as Dots
       const e: Event = { duration: dots ? { base, dots } : { base } }
-      if (note) e.notes = [note]
-      else {
-        e.rest = true
-        if (attrs(el)['print-object'] === 'no') e.hidden = true
-      }
+      if (rest) e.rest = true
+      if (attrs(el)['print-object'] === 'no') warn('print-object="no" ignored: the model has no hidden rest')
+      let tie = false
+      let accent = false
+      let roll: Roll | undefined
       let tupletStop = false
       for (const nt of children(el, 'notations')) {
-        if (note && children(nt, 'tied').some((t) => attrs(t).type === 'start')) note.tie = true
+        if (children(nt, 'tied').some((t) => attrs(t).type === 'start')) tie = true
         const art = child(nt, 'articulations')
-        if (art && (has(art, 'accent') || has(art, 'strong-accent'))) e.accent = true
+        if (art && (has(art, 'accent') || has(art, 'strong-accent'))) accent = true
         const tech = child(nt, 'technical')
-        if (tech && note) {
-          if (has(tech, 'open') || has(tech, 'open-string')) note.open = true
-          if (has(tech, 'stopped')) note.closed = true
-        }
+        if (tech) for (const k of kids(tech)) if (tagOf(k) !== 'fingering') warn(`<${tagOf(k)}> ignored`)
         const orn = child(nt, 'ornaments')
         const tr = orn && child(orn, 'tremolo')
         if (tr) {
           const slashes = Math.min(3, Math.max(1, Number(text(tr)) || 1)) as 1 | 2 | 3
-          e.roll = attrs(tr).type === 'unmeasured' ? { kind: 'buzz' } : { kind: 'tremolo', slashes }
+          roll = attrs(tr).type === 'unmeasured' ? { kind: 'buzz' } : { kind: 'tremolo', slashes }
         }
         if (children(nt, 'tuplet').some((t) => attrs(t).type === 'stop')) tupletStop = true
         for (const k of kids(nt)) if (!KNOWN_NOTATIONS.has(tagOf(k))) warn(`<${tagOf(k)}> ignored`)
       }
+      if (has(el, 'notehead')) warn('<notehead> ignored')
+      // Keys in the order of `Event` in types.ts, so the JSON reads like the type.
+      if (accent) e.accent = true
       const hand = handOf(el)
       if (hand) e.sticking = hand
+      if (graces > 0) {
+        if (graces > 2) warn(`${graces} grace notes, kept as a drag`)
+        e.grace = { kind: graces === 1 ? 'flam' : 'drag' }
+        graces = 0
+      }
+      if (roll) e.roll = roll
+      if (tie) e.tie = true
+      if (pendingText !== undefined) {
+        e.text = pendingText
+        pendingText = undefined
+      }
       const beam = children(el, 'beam').find((b) => (attrs(b).number ?? '1') === '1')
       const mark = beam ? text(beam) : ''
       if (mark === 'begin' || mark === 'continue' || mark === 'end') e.beam = mark
-      if (v.graces.length > 0) {
-        const graces = v.graces
-        v.graces = []
-        if (graces.length > 2) warn(`${graces.length} grace notes, kept as a drag`)
-        const grace: Grace = { kind: graces.length === 1 ? 'flam' : 'drag' }
-        const gn = noteOf(graces[0], names, warn)
-        if (note && gn.instrument !== note.instrument) grace.instrument = gn.instrument
-        const gh = handOf(graces[0])
-        if (gh) grace.sticking = gh
-        e.grace = grace
-      }
-      // Directions (dynamics, hairpins, words) belong to the next event of voice 1, rest or note.
-      if (voiceNo === 1) {
-        Object.assign(e, pending)
-        pending = {}
-      }
       const tm = child(el, 'time-modification')
-      if (tm && !v.open) {
-        v.open = {
+      if (tm && !open) {
+        open = {
           tuplet: { actual: Number(textOf(tm, 'actual-notes')), normal: Number(textOf(tm, 'normal-notes')) },
           items: [],
         }
-        v.items.push(v.open)
-      } else if (!tm && v.open) v.open = null
-      if (v.open) v.open.items.push(e)
-      else v.items.push(e)
-      if (tupletStop) v.open = null
-      v.last = e
+        items.push(open)
+      } else if (!tm && open) open = null
+      if (open) open.items.push(e)
+      else items.push(e)
+      if (tupletStop) open = null
     }
-    if (voices.has(2) && !voices.has(1)) {
-      warn('no voice 1, filled with hidden rests')
-      voices.set(1, { items: fillBar(meter ?? [4, 4]), open: null, graces: [], last: null })
-    }
-    const numbers = [...voices.keys()].sort((a, b) => a - b)
-    for (const k of numbers) {
-      const left = voices.get(k)?.graces.length ?? 0
-      if (left > 0) warn(`${left} grace note(s) before the bar line dropped`)
-    }
-    if (numbers.length > 2) warn(`${numbers.length} voices, only the first two kept`)
-    const voiceList: Voice[] = numbers
-      .slice(0, 2)
-      .map((k) => ({ stem: k === 1 ? 'up' : 'down', items: (voices.get(k) as VoiceState).items }))
-    bar.parts = { kit: { voices: voiceList } }
+    if (graces > 0) warn(`${graces} grace note(s) before the bar line dropped`)
+    if (pendingText !== undefined) warn(`text "${pendingText}" with no note after it dropped`)
+    bar.items = items
     bars.push(ordered(bar))
   }
 
   const title = opts.title ?? (textOf(partwise, 'movement-title') || opts.id)
-  const score: Score = { id: opts.id, title, parts: [{ id: 'kit', kind: 'drumset' }], bars }
-  if (opts.source) score.source = opts.source
+  const score: Score = { id: opts.id, title, ...(opts.source ? { source: opts.source } : {}), bars }
   return { score: parseScore(score), warnings }
 }
 

@@ -1,20 +1,29 @@
 // Dev page: one section per notation the engraver draws, each a small score that isolates what its
 // title promises — the manual check of `src/notation/engrave.ts`, which `bun test` cannot run (no
-// DOM). Tasks 6 and 7 add the library and the measurements the layout constants come from.
+// DOM) — plus the library whole and the measurements the layout constants come from.
 
 import { SCORES } from '../src/data/scores'
 import { type EngravedRow, engraveRow, measureHead, measureInk, measurePad } from '../src/notation/engrave'
 import { fit, type Pref } from '../src/notation/fit'
 import { notationFontsReady } from '../src/notation/fonts'
-import { BAR_PAD, buildLayout, HEAD_PX, METER_PX, STAFF_TOP, SYSTEM_H } from '../src/notation/layout'
+import {
+  BAR_PAD,
+  buildLayout,
+  CURSOR_ABOVE,
+  CURSOR_BELOW,
+  HEAD_PX,
+  METER_PX,
+  STAFF_H,
+  STAFF_TOP,
+  SYSTEM_H,
+} from '../src/notation/layout'
 import { playbackBarAt } from '../src/notation/overlay'
 import { deferEnsure, RowPool } from '../src/notation/rows'
 import { toNumber } from '../src/score/fraction'
-import { resolveInstruments } from '../src/score/instruments'
 import { buildTimeMap } from '../src/score/timemap'
 import type { Score } from '../src/score/types'
 import { barStarts, unroll } from '../src/score/unroll'
-import { type Figure, GALLERY, WORST_CASE } from './gallery-scores'
+import { CURSOR_PROBE, type Figure, GALLERY, WORST_CASE } from './gallery-scores'
 
 /** Engraves a whole score into `host` at the scale that fits its width, every row alive; the caller owns the pool. */
 function show(host: HTMLElement, score: Score, barsPerRow: Pref = 'auto'): RowPool<EngravedRow> {
@@ -27,10 +36,7 @@ function show(host: HTMLElement, score: Score, barsPerRow: Pref = 'auto'): RowPo
   const layout = buildLayout(score, { barsPerRow: f.barsPerRow, auto: true, fillWidth: availW / f.scale })
   host.replaceChildren()
   host.style.height = `${layout.rows.length * SYSTEM_H * f.scale}px`
-  const catalogue = resolveInstruments(score)
-  const pool = new RowPool(layout.rows.length, (r) =>
-    engraveRow(host, score, catalogue, layout, layout.rows[r], f.scale),
-  )
+  const pool = new RowPool(layout.rows.length, (r) => engraveRow(host, score, layout, layout.rows[r], f.scale))
   pool.ensure(0, layout.rows.length - 1)
   return pool
 }
@@ -89,8 +95,8 @@ const showPicked = () => {
   libraryPool = show(library, score)
 }
 pick.addEventListener('change', showPicked)
-// The kit groove first: the one piece with two voices and an ending, the spec's "full two-voice kit exercise".
-pick.value = 'kit-ending'
+// The book page first: 50 Workout #43 is the one piece with rests, dotted spellings and two repeated sections.
+pick.value = 'workout-43'
 showPicked()
 
 // --- Measurements: dev-only, `performance.now()` is fine here (nothing in the app reads these) ---
@@ -118,12 +124,33 @@ on('measure-band', () => {
   const layout = buildLayout(WORST_CASE.score, { barsPerRow: 8, auto: true })
   host.replaceChildren()
   host.style.height = `${SYSTEM_H}px`
-  const catalogue = resolveInstruments(WORST_CASE.score)
-  engraveRow(host, WORST_CASE.score, catalogue, layout, layout.rows[0], 1)
-  const { top, bottom } = measureInk(WORST_CASE.score, catalogue, layout, layout.rows[0])
+  engraveRow(host, WORST_CASE.score, layout, layout.rows[0], 1)
+  const { top, bottom } = measureInk(WORST_CASE.score, layout, layout.rows[0])
   log(
     `band: ink from y = ${top.toFixed(1)} to ${bottom.toFixed(1)} px (pixels); band is [0, ${SYSTEM_H}] with the top line at ${STAFF_TOP}; ` +
+      `ink ${(STAFF_TOP - top).toFixed(1)} px above the top line, ${(bottom - STAFF_TOP - STAFF_H).toFixed(1)} px below the bottom one; ` +
       `overflow above ${Math.max(0, -top).toFixed(1)} px, below ${Math.max(0, bottom - SYSTEM_H).toFixed(1)} px`,
+  )
+})
+
+on('measure-cursor', () => {
+  const host = document.getElementById('cursor') as HTMLElement
+  const layout = buildLayout(CURSOR_PROBE.score, { barsPerRow: 2, auto: true })
+  host.replaceChildren()
+  host.style.height = `${SYSTEM_H}px`
+  engraveRow(host, CURSOR_PROBE.score, layout, layout.rows[0], 1)
+  // The second bar only: the first carries the clef, the signature and the bar number, which the cursor does not cover.
+  const second = layout.rows[0].bars[1]
+  const { top, bottom } = measureInk(CURSOR_PROBE.score, layout, layout.rows[0], [
+    second.x - second.head,
+    second.x + second.width,
+  ])
+  const above = STAFF_TOP - top
+  const below = bottom - (STAFF_TOP + STAFF_H)
+  log(
+    `cursor: ink ${above.toFixed(1)} px above the top line, ${below.toFixed(1)} px below the bottom one (pixels, second bar); ` +
+      `CURSOR_ABOVE is ${CURSOR_ABOVE}, CURSOR_BELOW is ${CURSOR_BELOW}; ` +
+      `overflow above ${Math.max(0, above - CURSOR_ABOVE).toFixed(1)} px, below ${Math.max(0, below - CURSOR_BELOW).toFixed(1)} px`,
   )
 })
 
@@ -135,11 +162,10 @@ function timed(host: HTMLElement, viewport: HTMLElement, score: Score) {
   const rowH = SYSTEM_H * f.scale
   host.replaceChildren()
   host.style.height = `${layout.rows.length * rowH}px`
-  const catalogue = resolveInstruments(score)
   const times: number[] = []
   const pool = new RowPool(layout.rows.length, (r) => {
     const t = performance.now()
-    const row = engraveRow(host, score, catalogue, layout, layout.rows[r], f.scale)
+    const row = engraveRow(host, score, layout, layout.rows[r], f.scale)
     times.push(performance.now() - t)
     return row
   })
@@ -165,8 +191,7 @@ on('measure-engrave', () => {
  * The viewport follows the row the cursor would be on at 120 bpm, through the pool, off the frame
  * step (`deferEnsure`), for 30 s: in scroll mode the row anchors at the top, in pages mode the page
  * turns when the row leaves it and the next page is kept engraved. What is measured is whether
- * engraving on demand fits between frames — the question the canvas-rows task waits on — not the
- * cursor, which is plan 11.
+ * engraving on demand fits between frames — not the cursor, which is the app's.
  */
 
 /** One motion run at a time: a second click would drive two loops through one pool and count each other's frames. */

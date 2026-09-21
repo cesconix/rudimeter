@@ -20,17 +20,16 @@ export function beamGroups(meter: Meter, beams?: number[]): Fraction[] {
   return out
 }
 
-/** Eighths and shorter can carry a beam; a hidden rest takes time but draws nothing, so it cannot. */
-const beamable = (f: FlatEvent): boolean => f.event.duration.base >= 8 && !f.event.hidden
+/** Eighths and shorter can carry a beam. */
+const beamable = (f: FlatEvent): boolean => f.event.duration.base >= 8
 
 /**
- * A beam mark for every flat event of a voice-bar. Explicit marks on any event switch the whole
- * voice-bar to explicit mode (the importer writes them all); otherwise the groups come from the
- * meter. Inside a group, a rest at either edge stays outside the beam and a rest in the middle is
- * beamed over — what today's renderer does, and what keeps the beat readable. A hidden rest or a
- * note too long to carry a beam splits the group into runs instead of just trimming: it draws
- * nothing (or nothing short), so a beam crossing it would join notes across a gap the other voice
- * fills, or a note that was never eligible in the first place.
+ * A beam mark for every flat event of a bar. Explicit marks on any event switch the whole bar to
+ * explicit mode (the importer writes them all); otherwise the groups come from the meter. Inside
+ * a group, a rest at either edge stays outside the beam and a rest in the middle is beamed over —
+ * what keeps the beat readable. A note too long to carry a beam splits the group into runs
+ * instead of just trimming: it was never eligible, and a beam crossing it would join the notes on
+ * either side of it into a group the music does not have.
  *
  * A tuplet is a run of its own, whole, whatever the beat groups say: the bracket already reads as
  * one unit, so cutting it on a beat line — or letting its notes beam to the neighbours outside it —
@@ -43,7 +42,7 @@ export function resolveBeams(meter: Meter, beams: number[] | undefined, flat: Fl
   const marks: (BeamMark | null)[] = flat.map(() => null)
 
   // The end offset of every beat group; `groupOf` is the index of the group an offset falls in, −1
-  // past the last one (a voice that overflows the bar — validation reports it — beams nothing there).
+  // past the last one (a bar that overflows its meter — validation reports it — beams nothing there).
   const ends: Fraction[] = []
   let edge = ZERO
   for (const group of beamGroups(meter, beams)) {

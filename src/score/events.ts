@@ -1,9 +1,9 @@
 import { add, type Fraction, frac, lengthOf, mul, ZERO } from './fraction'
-import { type Event, isTuplet, type Meter, type Score, type TupletGroup, type Voice } from './types'
+import { type Bar, type Event, isTuplet, type Meter, type Score, type TupletGroup } from './types'
 
 export interface FlatEvent {
   event: Event
-  /** index in `Voice.items` */
+  /** index in `Bar.items` */
   item: number
   /** position inside the tuplet group, when the item is one */
   sub?: number
@@ -14,15 +14,15 @@ export interface FlatEvent {
   tuplet?: TupletGroup
 }
 
-/** The events of a voice in order, tuplets opened, each with where it starts and how long it sounds. */
-export function flattenVoice(voice: Voice): FlatEvent[] {
+/** The events of a bar in order, tuplets opened, each with where it starts and how long it sounds. */
+export function flattenBar(bar: Bar): FlatEvent[] {
   const out: FlatEvent[] = []
   let offset = ZERO
-  voice.items.forEach((item, i) => {
+  bar.items.forEach((item, i) => {
     if (isTuplet(item)) {
       // Three eighths in the time of two: every item is worth 2/3 of what is written.
       const factor = frac(item.tuplet.normal, item.tuplet.actual)
-      item.items.forEach((event, sub) => {
+      item.items.forEach((event: Event, sub) => {
         const length = mul(lengthOf(event.duration), factor)
         out.push({ event, item: i, sub, offset, length, tuplet: item })
         offset = add(offset, length)
@@ -35,8 +35,6 @@ export function flattenVoice(voice: Voice): FlatEvent[] {
   })
   return out
 }
-
-export const voiceLength = (voice: Voice): Fraction => flattenVoice(voice).reduce((acc, f) => add(acc, f.length), ZERO)
 
 export const barLength = (meter: Meter): Fraction => frac(meter[0], meter[1])
 

@@ -7,18 +7,13 @@ const AUTO: Prefs = { barsPerRow: 'auto', zoom: 1 }
 /** Notehead the user sees, rounded to the tenth like the on-screen measurements. */
 const notehead = (scale: number) => Math.round(NOTEHEAD_PX * scale * 10) / 10
 
-const quarters = (beats: number): Item[] =>
-  Array.from({ length: beats }, () => ({ duration: { base: 4 }, notes: [{ instrument: 'snare' }] }))
+const quarters = (beats: number): Item[] => Array.from({ length: beats }, () => ({ duration: { base: 4 } }))
 const piece = (beats: number, bars: number): Score => ({
   id: 'p',
   title: 'p',
-  parts: [{ id: 'pad', kind: 'drumset' }],
   bars: Array.from(
     { length: bars },
-    (_, i): Bar => ({
-      ...(i === 0 ? { meter: [beats, 4] } : {}),
-      parts: { pad: { voices: [{ stem: 'up', items: quarters(beats) }] } },
-    }),
+    (_, i): Bar => ({ ...(i === 0 ? { meter: [beats, 4] } : {}), items: quarters(beats) }),
   ),
 })
 
@@ -27,7 +22,7 @@ const STONE = piece(2, 40)
 /** The same with a flam on the first beat: the grace gutter is paid. */
 const STONE_FLAM = (() => {
   const s = piece(2, 40)
-  ;(s.bars[0].parts?.pad.voices[0].items[0] as Event).grace = { kind: 'flam' }
+  ;(s.bars[0].items[0] as Event).grace = { kind: 'flam' }
   return s
 })()
 /** Natural px of a row of `n` bars of 2/4: heads, pads and the right pad included. */
@@ -118,7 +113,7 @@ describe('fit: scale and rows', () => {
     expect(fit(847, 600, { barsPerRow: 'auto', zoom: 0.75 }, STONE).rowsVisible).toBe(
       Math.floor(600 / (0.75 * SYSTEM_H)),
     )
-    expect(fit(847, 600, { barsPerRow: 'auto', zoom: 2 }, STONE).rowsVisible).toBe(1)
+    expect(fit(847, 600, { barsPerRow: 'auto', zoom: 2 }, STONE).rowsVisible).toBe(Math.floor(600 / (2 * SYSTEM_H)))
     expect(fit(847, 50, AUTO, STONE).rowsVisible).toBe(1)
   })
 

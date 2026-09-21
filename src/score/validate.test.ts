@@ -1,235 +1,182 @@
 import { describe, expect, it } from 'bun:test'
-import type { Bar, Event, Score } from './types'
+import type { Bar, Event, Item, NoteBase, Score } from './types'
 import { parseScore, validate } from './validate'
 
-const snare = (base: 4 | 8 | 16 = 4, extra: Partial<Event> = {}): Event => ({
-  duration: { base },
-  notes: [{ instrument: 'snare' }],
-  ...extra,
-})
-const rest = (base: 4 | 8 | 16 = 4, extra: Partial<Event> = {}): Event => ({ duration: { base }, rest: true, ...extra })
-const kick = (base: 4 | 8 = 4): Event => ({ duration: { base }, notes: [{ instrument: 'kick' }] })
+const n = (base: NoteBase = 4, extra: Partial<Event> = {}): Event => ({ duration: { base }, ...extra })
+const r = (base: NoteBase = 4, extra: Partial<Event> = {}): Event => ({ duration: { base }, rest: true, ...extra })
+const twoFour = (items: Item[], extra: Partial<Bar> = {}): Bar => ({ meter: [2, 4], ...extra, items })
+const triplet = (): Item => ({ tuplet: { actual: 3, normal: 2 }, items: [n(8), n(8), n(8)] })
 
-/** A valid 2/4 piece: one bar, hands and feet. Every test breaks one thing in a copy of it. */
-function valid(): Score {
-  return {
-    id: 'valid',
-    title: 'Valid',
-    parts: [{ id: 'kit', kind: 'drumset' }],
-    bars: [
-      {
-        meter: [2, 4],
-        parts: {
-          kit: {
-            voices: [
-              { stem: 'up', items: [snare(), snare(8), snare(8)] },
-              { stem: 'down', items: [kick(), { duration: { base: 4 }, rest: true, hidden: true }] },
-            ],
-          },
-        },
-      },
-    ],
-  }
-}
+/** A valid 2/4 piece: one bar, a quarter and two eighths. Every test breaks one thing in a copy of it. */
+const valid = (): Score => ({ id: 'valid', title: 'Valid', bars: [twoFour([n(), n(8), n(8)])] })
 const withBars = (...bars: Bar[]): Score => ({ ...valid(), bars })
-const twoFour = (items: Event[]): Bar => ({ meter: [2, 4], parts: { kit: { voices: [{ stem: 'up', items }] } } })
 const paths = (s: Score) => validate(s).map((p) => p.path)
+/** What the type system refuses and a JSON file can still say: a wrong type, a key the model does not have. */
+const loose = (s: unknown): Score => s as Score
+/** The fixture with one event replaced: `at(0, { rest: 'yes' })` is bar 0, item 0. */
+const at = (i: number, event: unknown): Score => {
+  const s = valid()
+  ;(s.bars[0].items as unknown[])[i] = event
+  return s
+}
+const E0 = 'bars[0].items[0]'
 
 describe('validate', () => {
-  it('accepts the fixture', () => {
+  it('accepts the fixture, and a source', () => {
     expect(validate(valid())).toEqual([])
+    expect(validate({ ...valid(), source: 'Stick Control, p. 5' })).toEqual([])
   })
 
-  it('checks ids', () => {
+  it('1. the id matches [a-z0-9-]+ and the source is a string', () => {
     expect(paths({ ...valid(), id: 'Not Valid' })).toEqual(['id'])
-    expect(paths({ ...valid(), parts: [{ id: 'a/b', kind: 'drumset' }] })).toContain('parts[0].id')
-    // No parts at all: `kit` in the bar becomes an unknown part.
-    expect(paths({ ...valid(), parts: [] })).toEqual(['parts', 'bars[0].parts.kit'])
-    const dup = valid()
-    dup.parts = [dup.parts[0], { ...dup.parts[0] }]
-    expect(paths(dup)).toContain('parts[1].id')
+    expect(paths(loose({ ...valid(), source: 12 }))).toEqual(['source'])
   })
 
-  it('checks the meter and the first bar', () => {
+  it('2. needs at least one bar and a meter on the first', () => {
     expect(paths({ ...valid(), bars: [] })).toEqual(['bars'])
-    const noMeter = valid()
-    delete noMeter.bars[0].meter
-    expect(paths(noMeter)).toEqual(['bars[0].meter'])
-    expect(paths(withBars({ ...twoFour([snare(), snare()]), meter: [3, 6] }))).toEqual(['bars[0].meter'])
-    expect(paths(withBars({ ...twoFour([snare(), snare()]), meter: [0, 4] }))).toContain('bars[0].meter')
-    expect(paths(withBars({ meter: [2, 4], simile: true }))).toEqual(['bars[0].simile', 'bars[0].meter'])
-    expect(paths(withBars(twoFour([snare(), snare()]), { simile: true, meter: [3, 4] }))).toEqual(['bars[1].meter'])
-    expect(paths(withBars({ ...twoFour([snare(), snare()]), beams: [1, 2] }))).toEqual(['bars[0].beams'])
+    // No meter, no sum against the 4/4 `metersOf` assumes: one problem.
+    expect(paths(withBars({ items: [n(), n()] }))).toEqual(['bars[0].meter'])
   })
 
-  it('checks that every voice fills the bar', () => {
-    expect(paths(withBars(twoFour([snare()])))).toEqual(['bars[0].parts.kit.voices[0]'])
-    expect(validate(withBars(twoFour([snare(), snare(), snare(8)])))[0].message).toBe('sums to 5/8, the bar is 1/2')
-    const triplet: Event[] = [{ duration: { base: 8 }, notes: [{ instrument: 'snare' }] }]
-    expect(
-      paths(
-        withBars(
-          twoFour([
-            snare(),
-            { tuplet: { actual: 3, normal: 2 }, items: [...triplet, ...triplet, ...triplet] } as never,
-          ]),
-        ),
-      ),
-    ).toEqual([])
+  it('3. checks the meter, and reports a bad one once, without a sum or a beams check against it', () => {
+    expect(paths(withBars({ meter: [3, 6], items: [n()] }))).toEqual(['bars[0].meter'])
+    expect(paths(withBars({ meter: [0, 4], items: [n()] }))).toEqual(['bars[0].meter'])
+    expect(paths(withBars({ meter: [4, 64], items: [n()] }))).toEqual(['bars[0].meter'])
+    expect(paths(withBars({ meter: [3, 6], beams: [1, 2], items: [n()] }))).toEqual(['bars[0].meter'])
+    expect(paths(loose({ ...valid(), bars: [{ meter: 4, items: [n()] }] }))).toEqual(['bars[0].meter'])
+    // The meter in force is inherited: bar 2 is checked against bar 1's 2/4.
+    expect(paths(withBars(twoFour([n(), n()]), { items: [n(), n(), n()] }))).toEqual(['bars[1].items'])
   })
 
-  it('checks the parts of every bar', () => {
-    expect(paths(withBars({ meter: [2, 4], parts: {} }))).toEqual(['bars[0].parts.kit'])
-    expect(paths(withBars({ meter: [2, 4], parts: { kit: { voices: [] } } }))).toEqual(['bars[0].parts.kit.voices'])
-    const three = twoFour([snare(), snare()])
-    three.parts?.kit.voices.push({ stem: 'down', items: [kick(), kick()] }, { stem: 'down', items: [kick(), kick()] })
-    expect(paths(withBars(three))).toEqual(['bars[0].parts.kit.voices'])
-    expect(
-      paths(
-        withBars({
-          ...twoFour([snare(), snare()]),
-          parts: { ...twoFour([snare(), snare()]).parts, other: { voices: [] } },
-        }),
-      ),
-    ).toEqual(['bars[0].parts.other'])
-    expect(paths(withBars(twoFour([snare(), snare()]), { simile: true, parts: {} }))).toEqual(['bars[1].parts'])
+  it('4. beams are positive integers summing to the numerator', () => {
+    expect(paths(withBars(twoFour([n(), n()], { beams: [1, 2] })))).toEqual(['bars[0].beams'])
+    expect(paths(withBars(twoFour([n(), n()], { beams: [0, 2] })))).toEqual(['bars[0].beams'])
+    expect(paths(withBars(twoFour([n(), n()], { beams: [1, 1] })))).toEqual([])
   })
 
-  it('checks rests and notes', () => {
-    expect(paths(withBars(twoFour([rest(4, { notes: [{ instrument: 'snare' }] }), snare()])))).toEqual([
-      'bars[0].parts.kit.voices[0].items[0].notes',
-    ])
-    expect(paths(withBars(twoFour([rest(4, { accent: true }), snare()])))).toEqual([
-      'bars[0].parts.kit.voices[0].items[0]',
-    ])
-    expect(paths(withBars(twoFour([snare(4, { hidden: true }), snare()])))).toEqual([
-      'bars[0].parts.kit.voices[0].items[0].hidden',
-    ])
-    expect(paths(withBars(twoFour([{ duration: { base: 4 }, notes: [] }, snare()])))).toEqual([
-      'bars[0].parts.kit.voices[0].items[0].notes',
-    ])
-    expect(
-      paths(withBars(twoFour([{ duration: { base: 4 }, notes: [{ instrument: 'gong' as never }] }, snare()]))),
-    ).toEqual(['bars[0].parts.kit.voices[0].items[0].notes[0].instrument'])
-    expect(
-      paths(
-        withBars(
-          twoFour([{ duration: { base: 4 }, notes: [{ instrument: 'snare' }, { instrument: 'snare' }] }, snare()]),
-        ),
-      ),
-    ).toEqual(['bars[0].parts.kit.voices[0].items[0].notes[1].instrument'])
-    expect(
-      paths(
-        withBars(
-          twoFour([{ duration: { base: 4 }, notes: [{ instrument: 'hihat', open: true, closed: true }] }, snare()]),
-        ),
-      ),
-    ).toEqual(['bars[0].parts.kit.voices[0].items[0].notes[0]'])
-    expect(paths(withBars(twoFour([snare(4, { duration: { base: 3 as never } }), snare()])))).toEqual([
-      'bars[0].parts.kit.voices[0].items[0].duration.base',
-    ])
-    expect(paths(withBars(twoFour([snare(4, { duration: { base: 4, dots: 3 as never } }), snare()])))).toEqual([
-      'bars[0].parts.kit.voices[0].items[0].duration.dots',
-    ])
-    expect(paths(withBars(twoFour([snare(4, { roll: { kind: 'tremolo', slashes: 4 as never } }), snare()])))).toEqual([
-      'bars[0].parts.kit.voices[0].items[0].roll.slashes',
-    ])
-    expect(
-      paths(withBars(twoFour([snare(4, { grace: { kind: 'flam', instrument: 'gong' as never } }), snare()]))),
-    ).toEqual(['bars[0].parts.kit.voices[0].items[0].grace.instrument'])
-  })
-
-  it('checks tuplets', () => {
-    const bad = { tuplet: { actual: 0, normal: 2 }, items: [snare(8), snare(8), snare(8)] }
-    expect(paths(withBars(twoFour([snare(), bad as never])))).toEqual(['bars[0].parts.kit.voices[0].items[1].tuplet'])
-    const nested = {
-      tuplet: { actual: 3, normal: 2 },
-      items: [snare(8), snare(8), { tuplet: { actual: 3, normal: 2 }, items: [] }],
-    }
-    expect(paths(withBars(twoFour([snare(), nested as never])))).toEqual([
-      'bars[0].parts.kit.voices[0].items[1].items[2]',
-    ])
-    const empty = { tuplet: { actual: 3, normal: 2 }, items: [] }
-    expect(paths(withBars(twoFour([snare(), empty as never])))).toEqual(['bars[0].parts.kit.voices[0].items[1].items'])
-  })
-
-  it('checks ties, hairpins and explicit beams along the voice', () => {
-    const tied = twoFour([{ duration: { base: 4 }, notes: [{ instrument: 'snare', tie: true }] }, kick()])
-    expect(paths(withBars(tied))).toEqual(['bars[0].parts.kit.voices[0].items[0].notes[0].tie'])
-    const tiedAcross = withBars(
-      twoFour([snare(), { duration: { base: 4 }, notes: [{ instrument: 'snare', tie: true }] }]),
-      twoFour([snare(), snare()]),
-    )
-    expect(paths(tiedAcross)).toEqual([])
-    const tiedIntoRest = withBars(
-      twoFour([snare(), { duration: { base: 4 }, notes: [{ instrument: 'snare', tie: true }] }]),
-      twoFour([rest(), snare()]),
-    )
-    expect(paths(tiedIntoRest)).toEqual(['bars[0].parts.kit.voices[0].items[1].notes[0].tie'])
-    expect(paths(withBars(twoFour([snare(4, { hairpin: 'cresc' }), snare()])))).toEqual([
-      'bars[0].parts.kit.voices[0].items[0].hairpin',
-    ])
-    expect(paths(withBars(twoFour([snare(4, { hairpin: 'stop' }), snare()])))).toEqual([
-      'bars[0].parts.kit.voices[0].items[0].hairpin',
-    ])
-    expect(paths(withBars(twoFour([snare(4, { hairpin: 'cresc' }), snare(4, { hairpin: 'dim' })])))).toEqual([
-      'bars[0].parts.kit.voices[0].items[1].hairpin',
-    ])
-    expect(paths(withBars(twoFour([snare(4, { hairpin: 'cresc' }), snare(4, { hairpin: 'stop' })])))).toEqual([])
-    // The unmarked eighth is reported as the voice goes; the beam left open is reported on the event that began it.
-    expect(paths(withBars(twoFour([snare(8, { beam: 'begin' }), snare(8), snare()])))).toEqual([
-      'bars[0].parts.kit.voices[0].items[1].beam',
-      'bars[0].parts.kit.voices[0].items[0].beam',
-    ])
-    expect(paths(withBars(twoFour([snare(8, { beam: 'end' }), snare(8, { beam: 'begin' }), snare()])))).toEqual([
-      'bars[0].parts.kit.voices[0].items[0].beam',
-      'bars[0].parts.kit.voices[0].items[1].beam',
-    ])
-    expect(
-      paths(withBars(twoFour([snare(8, { beam: 'begin' }), snare(8, { beam: 'end' }), snare(4, { beam: 'begin' })]))),
-    ).toEqual(['bars[0].parts.kit.voices[0].items[2].beam'])
-  })
-
-  it('checks repeats and endings', () => {
-    const b = () => twoFour([snare(), snare()])
+  it('5. repeats do not nest and play at least twice', () => {
+    const b = () => twoFour([n(), n()])
     expect(paths(withBars({ ...b(), repeat: { start: true } }, { ...b(), repeat: { start: true } }))).toEqual([
       'bars[1].repeat.start',
     ])
     expect(paths(withBars({ ...b(), repeat: { end: { times: 1 } } }))).toEqual(['bars[0].repeat.end.times'])
-    expect(paths(withBars({ ...b(), ending: [1] }))).toEqual(['bars[0].ending'])
-    expect(paths(withBars({ ...b(), repeat: { start: true } }, { ...b(), ending: [0], repeat: { end: {} } }))).toEqual([
-      'bars[1].ending',
+    expect(paths(withBars({ ...b(), repeat: { end: { times: 2.5 } } }))).toEqual(['bars[0].repeat.end.times'])
+    expect(paths(withBars({ ...b(), repeat: { start: true, end: {} } }))).toEqual([])
+    expect(paths(withBars({ ...b(), repeat: { start: true } }, { ...b(), repeat: { end: { times: 3 } } }))).toEqual([])
+  })
+
+  it('6. durations and tuplets are well formed', () => {
+    expect(paths(at(0, n(3 as never)))).toEqual([`${E0}.duration.base`])
+    expect(paths(at(0, { duration: { base: 4, dots: 3 } }))).toEqual([`${E0}.duration.dots`])
+    expect(paths(at(0, { rest: true }))).toEqual([`${E0}.duration`])
+    const bad = { tuplet: { actual: 0, normal: 2 }, items: [n(8), n(8), n(8)] }
+    expect(paths(withBars(twoFour([n(), bad as never])))).toEqual(['bars[0].items[1].tuplet'])
+    const empty = { tuplet: { actual: 3, normal: 2 }, items: [] }
+    expect(paths(withBars(twoFour([n(), empty as never])))).toEqual(['bars[0].items[1].items'])
+    const nested = { tuplet: { actual: 3, normal: 2 }, items: [n(8), n(8), triplet()] }
+    expect(paths(withBars(twoFour([n(), nested as never])))).toEqual(['bars[0].items[1].items[2]'])
+    expect(paths(withBars(twoFour([n(), triplet()])))).toEqual([])
+  })
+
+  it('7. a rest carries no accent, sticking, grace, roll or tie; a text is fine', () => {
+    for (const extra of [
+      { accent: true },
+      { sticking: 'R' },
+      { grace: { kind: 'flam' } },
+      { roll: { kind: 'buzz' } },
+      { tie: true },
+    ] as Partial<Event>[])
+      expect(paths(at(0, r(4, extra)))).toEqual([E0])
+    expect(paths(at(0, r(4, { text: 'Rest' })))).toEqual([])
+  })
+
+  it('8. every value is one of the ones the model has, and a flag is true', () => {
+    expect(paths(at(0, n(4, { sticking: 'X' as never })))).toEqual([`${E0}.sticking`])
+    expect(paths(at(0, n(4, { grace: { kind: 'ruff' as never } })))).toEqual([`${E0}.grace.kind`])
+    expect(paths(at(0, n(4, { roll: { kind: 'x' } as never })))).toEqual([`${E0}.roll.kind`])
+    expect(paths(at(0, n(4, { roll: { kind: 'tremolo', slashes: 4 as never } })))).toEqual([`${E0}.roll.slashes`])
+    expect(paths(at(0, n(4, { beam: 'middle' as never })))).toEqual([`${E0}.beam`])
+    expect(paths(at(0, n(4, { text: 5 as never })))).toEqual([`${E0}.text`])
+    expect(paths(at(0, { duration: { base: 4 }, rest: 'yes' }))).toEqual([`${E0}.rest`])
+    expect(paths(at(0, { duration: { base: 4 }, accent: false }))).toEqual([`${E0}.accent`])
+    expect(paths(at(0, { duration: { base: 4 }, tie: 1 }))).toEqual([`${E0}.tie`])
+    expect(paths(loose({ ...valid(), bars: [{ ...valid().bars[0], newRow: 'yes' }] }))).toEqual(['bars[0].newRow'])
+    expect(paths(loose({ ...valid(), bars: [{ ...valid().bars[0], repeat: { start: 1 } }] }))).toEqual([
+      'bars[0].repeat.start',
     ])
-    expect(paths(withBars({ ...b(), repeat: { start: true } }, { ...b(), ending: [3], repeat: { end: {} } }))).toEqual([
-      'bars[1].ending',
+  })
+
+  it('9. the items sum to the meter', () => {
+    expect(paths(withBars(twoFour([n()])))).toEqual(['bars[0].items'])
+    expect(validate(withBars(twoFour([n(), n(), n(8)])))[0].message).toBe('sums to 5/8, the bar is 1/2')
+    expect(paths(withBars(twoFour([n(), triplet()])))).toEqual([])
+  })
+
+  it('10. explicit beams: well nested, every beamable event marked, nothing longer than an eighth marked', () => {
+    // The unmarked eighth is reported as the bar goes; the beam left open is reported on the event that began it.
+    expect(paths(withBars(twoFour([n(8, { beam: 'begin' }), n(8), n()])))).toEqual([
+      'bars[0].items[1].beam',
+      'bars[0].items[0].beam',
     ])
+    expect(paths(withBars(twoFour([n(8, { beam: 'end' }), n(8, { beam: 'begin' }), n()])))).toEqual([
+      'bars[0].items[0].beam',
+      'bars[0].items[1].beam',
+    ])
+    expect(paths(withBars(twoFour([n(8, { beam: 'begin' }), n(8, { beam: 'end' }), n(4, { beam: 'begin' })])))).toEqual(
+      ['bars[0].items[2].beam'],
+    )
+    expect(paths(withBars(twoFour([n(8, { beam: 'begin' }), n(8, { beam: 'end' }), n()])))).toEqual([])
+  })
+
+  it('11. a tie reaches the next stroke of the piece, across the barline', () => {
+    expect(paths(withBars(twoFour([n(4, { tie: true }), n()])))).toEqual([])
+    expect(paths(withBars(twoFour([n(), n(4, { tie: true })]), twoFour([n(), n()])))).toEqual([])
+    expect(paths(withBars(twoFour([n(), n(4, { tie: true })]), twoFour([r(), n()])))).toEqual(['bars[0].items[1].tie'])
+    const last = validate(withBars(twoFour([n(), n(4, { tie: true })])))
+    expect(last).toEqual([
+      { path: 'bars[0].items[1].tie', message: 'the last event of the piece has nothing to tie to' },
+    ])
+  })
+
+  it('12. an unknown key at any level is a problem named by its path', () => {
+    const bar0 = valid().bars[0]
+    expect(paths(loose({ ...valid(), parts: [] }))).toEqual(['parts'])
+    expect(paths(loose({ ...valid(), instruments: {} }))).toEqual(['instruments'])
+    for (const key of ['tempo', 'ending', 'simile', 'parts'])
+      expect(paths(loose({ ...valid(), bars: [{ ...bar0, [key]: true }] }))).toEqual([`bars[0].${key}`])
+    expect(paths(loose({ ...valid(), bars: [{ ...bar0, repeat: { start: true, times: 2 } }] }))).toEqual([
+      'bars[0].repeat.times',
+    ])
+    expect(paths(loose({ ...valid(), bars: [{ ...bar0, repeat: { end: { count: 2 } } }] }))).toEqual([
+      'bars[0].repeat.end.count',
+    ])
+    for (const key of ['notes', 'hidden', 'dynamic', 'hairpin', 'stiking'])
+      expect(paths(at(0, { duration: { base: 4 }, [key]: true }))).toEqual([`${E0}.${key}`])
+    expect(paths(at(0, { duration: { base: 4, dot: 1 } }))).toEqual([`${E0}.duration.dot`])
+    expect(paths(at(0, { duration: { base: 4 }, grace: { kind: 'flam', instrument: 'snare' } }))).toEqual([
+      `${E0}.grace.instrument`,
+    ])
+    expect(paths(at(0, { duration: { base: 4 }, grace: { kind: 'flam', sticking: 'L' } }))).toEqual([
+      `${E0}.grace.sticking`,
+    ])
+    expect(paths(at(0, { duration: { base: 4 }, roll: { kind: 'buzz', slashes: 1 } }))).toEqual([`${E0}.roll.slashes`])
+    expect(paths(withBars(twoFour([n(), { ...triplet(), beam: 'begin' } as never])))).toEqual(['bars[0].items[1].beam'])
     expect(
       paths(
         withBars(
-          { ...b(), repeat: { start: true } },
-          { ...b(), ending: [1], repeat: { end: {} } },
-          { ...b(), ending: [2] },
+          twoFour([n(), { tuplet: { actual: 3, normal: 2, ratio: '3:2' }, items: [n(8), n(8), n(8)] } as never]),
         ),
       ),
-    ).toEqual([])
-    expect(
-      paths(
-        withBars({ ...b(), repeat: { start: true } }, { ...b(), ending: [1], repeat: { end: {} } }, b(), {
-          ...b(),
-          ending: [2],
-        }),
-      ),
-    ).toEqual(['bars[3].ending'])
-  })
-
-  it('checks the tempo', () => {
-    expect(paths(withBars({ ...twoFour([snare(), snare()]), tempo: { bpm: 0 } }))).toEqual(['bars[0].tempo.bpm'])
-    expect(paths(withBars({ ...twoFour([snare(), snare()]), tempo: { bpm: 100, unit: 3 as never } }))).toEqual([
-      'bars[0].tempo.unit',
-    ])
-    expect(paths(withBars({ ...twoFour([snare(), snare()]), tempo: { bpm: 100, dotted: false as never } }))).toEqual([
-      'bars[0].tempo.dotted',
-    ])
+    ).toEqual(['bars[0].items[1].tuplet.ratio'])
+    // A file in the kit shape fails by name: the part list, the bar's parts, and the items it does not have.
+    const kit = {
+      id: 'kit',
+      title: 'Kit',
+      parts: [{ id: 'kit', kind: 'drumset' }],
+      bars: [{ meter: [4, 4], parts: { kit: { voices: [{ stem: 'up', items: [n(1)] }] } } }],
+    }
+    expect(paths(loose(kit))).toEqual(['parts', 'bars[0].parts', 'bars[0].items'])
+    expect(validate(loose(kit))[0]).toEqual({ path: 'parts', message: 'unknown key' })
   })
 })
 
@@ -241,16 +188,19 @@ describe('parseScore', () => {
   it('refuses what is not a score object', () => {
     expect(() => parseScore(null)).toThrow('not a score')
     expect(() => parseScore({ id: 'x' })).toThrow('not a score')
+    expect(() => parseScore({ id: 'x', title: 'x', bars: 'none' })).toThrow('not a score')
   })
   it('names every problem', () => {
     const s = valid()
     s.id = 'Bad Id'
-    s.bars[0].tempo = { bpm: -1 }
-    expect(() => parseScore(s)).toThrow('Bad Id: id: must match [a-z0-9-]+; bars[0].tempo.bpm: must be positive')
+    s.bars[0].repeat = { end: { times: 1 } }
+    expect(() => parseScore(s)).toThrow(
+      'Bad Id: id: must match [a-z0-9-]+; bars[0].repeat.end.times: must be an integer ≥ 2',
+    )
   })
   it('turns a crash on a malformed bar into a named error', () => {
     const s = valid() as unknown as { bars: unknown[] }
-    s.bars[0] = { meter: [2, 4], parts: { kit: { voices: [null] } } }
+    s.bars[0] = { meter: [2, 4], items: [null] }
     expect(() => parseScore(s)).toThrow('valid: malformed score')
   })
 })

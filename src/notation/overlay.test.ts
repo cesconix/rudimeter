@@ -2,43 +2,28 @@ import { describe, expect, it } from 'bun:test'
 import { SCORES } from '../data/scores'
 import { barLength, metersOf } from '../score/events'
 import { add, toNumber, ZERO } from '../score/fraction'
-import { resolveInstruments } from '../score/instruments'
-import type { Bar, Event, InstrumentId, Item, Score } from '../score/types'
+import type { Bar, Event, Item, NoteBase, Score } from '../score/types'
 import { eventsOf, unroll } from '../score/unroll'
-import { BAR_PAD, type BarLayout, buildLayout, HEAD_PX, LINE_PX, METER_PX, PX_PER_WHOLE, STAFF_TOP } from './layout'
 import {
-  cursorPoints,
-  HIGHLIGHT_PAD,
-  type HighlightRect,
-  highlightAt,
-  highlightRects,
-  playbackBarAt,
-  transportHighlights,
-} from './overlay'
+  BAR_PAD,
+  type BarLayout,
+  buildLayout,
+  HEAD_PX,
+  LINE_PX,
+  METER_PX,
+  PX_PER_WHOLE,
+  REST_LINE,
+  SNARE_LINE,
+  STAFF_TOP,
+} from './layout'
+import { cursorPoints, HIGHLIGHT_PAD, highlightAt, highlightRects, playbackBarAt, transportHighlights } from './overlay'
 
-const N = (base: 1 | 2 | 4 | 8 | 16, ids: InstrumentId | InstrumentId[] = 'snare'): Event => ({
-  duration: { base },
-  notes: (Array.isArray(ids) ? ids : [ids]).map((instrument) => ({ instrument })),
-})
-const R = (base: 1 | 2 | 4 | 8, hidden = false): Event =>
-  hidden ? { duration: { base }, rest: true, hidden: true } : { duration: { base }, rest: true }
-const bar = (up: Item[], down?: Item[], extra: Partial<Bar> = {}): Bar => ({
-  ...extra,
-  parts: {
-    kit: {
-      voices: down
-        ? [
-            { stem: 'up', items: up },
-            { stem: 'down', items: down },
-          ]
-        : [{ stem: 'up', items: up }],
-    },
-  },
-})
+const N = (base: NoteBase, extra: Partial<Event> = {}): Event => ({ duration: { base }, ...extra })
+const R = (base: NoteBase): Event => ({ duration: { base }, rest: true })
+const bar = (items: Item[], extra: Partial<Bar> = {}): Bar => ({ ...extra, items })
 const piece = (bars: Bar[]): Score => ({
   id: 'p',
   title: 'p',
-  parts: [{ id: 'kit', kind: 'drumset' }],
   bars: bars.map((b, i) => (i === 0 && !b.meter ? { meter: [4, 4], ...b } : b)),
 })
 const q4 = () => [N(4), N(4), N(4), N(4)]
@@ -83,8 +68,11 @@ describe('cursorPoints', () => {
     const layout = buildLayout(score, { barsPerRow: 2, auto: true })
     const pts = cursorPoints(layout, score, unroll(score))
     // Not the barline (HEAD_PX + W): the end point sits on bar 2's grid start, so the last quarter's
-    // slide covers the barline and the pad, and bar 2's first event dedups against it.
-    expect(pts.filter((p) => p.t === 1)).toEqual([{ t: 1, x: HEAD_PX + W + BAR_PAD, row: 0 }])
+    // slide covers the barline and the pad; bar 2's first event lands on the same point right after it.
+    expect(pts.filter((p) => p.t === 1)).toEqual([
+      { t: 1, x: HEAD_PX + W + BAR_PAD, row: 0 },
+      { t: 1, x: HEAD_PX + W + BAR_PAD, row: 0 },
+    ])
     expect(pts[pts.length - 1]).toEqual({ t: 2, x: HEAD_PX + 2 * W + BAR_PAD, row: 0 })
   })
 
@@ -92,11 +80,7 @@ describe('cursorPoints', () => {
     // Bars 1–2 repeat: after bar 2 the cursor goes back to bar 1, not on to bar 3, so bar 2's end
     // point is its own barline (a slide towards bar 3's pad would point the wrong way), and bar 3's
     // pad is crossed only on the last pass, when bar 3 really follows.
-    const score = piece([
-      bar(q4(), undefined, { repeat: { start: true } }),
-      bar(q4(), undefined, { repeat: { end: {} } }),
-      bar(q4()),
-    ])
+    const score = piece([bar(q4(), { repeat: { start: true } }), bar(q4(), { repeat: { end: {} } }), bar(q4())])
     const layout = buildLayout(score, { barsPerRow: 4, auto: true })
     const pts = cursorPoints(layout, score, unroll(score))
     const bar2End = HEAD_PX + 2 * W + BAR_PAD
@@ -104,11 +88,14 @@ describe('cursorPoints', () => {
       { t: 2, x: bar2End, row: 0 },
       { t: 2, x: HEAD_PX, row: 0 },
     ])
-    expect(pts.filter((p) => p.t === 4)).toEqual([{ t: 4, x: bar2End + BAR_PAD, row: 0 }])
+    expect(pts.filter((p) => p.t === 4)).toEqual([
+      { t: 4, x: bar2End + BAR_PAD, row: 0 },
+      { t: 4, x: bar2End + BAR_PAD, row: 0 },
+    ])
   })
 
   it('a meter gutter mid-row is two points at the same t: the cursor jumps over it', () => {
-    const score = piece([bar(q4()), bar([N(4), N(4), N(4)], undefined, { meter: [3, 4] })])
+    const score = piece([bar(q4()), bar([N(4), N(4), N(4)], { meter: [3, 4] })])
     const layout = buildLayout(score, { barsPerRow: 2, auto: true })
     const pts = cursorPoints(layout, score, unroll(score))
     expect(pts.filter((p) => p.t === 1)).toEqual([
@@ -117,8 +104,8 @@ describe('cursorPoints', () => {
     ])
   })
 
-  it('two voices at the same instant are one point; a repeat plays the bars again at later t', () => {
-    const score = piece([bar(q4(), [N(2, 'kick'), N(2, 'kick')], { repeat: { end: {} } })])
+  it('a repeat plays the bar again at later t; the end point comes before the next first point at the same t', () => {
+    const score = piece([bar(q4(), { repeat: { end: {} } })])
     const layout = buildLayout(score, { barsPerRow: 1, auto: true })
     const pts = cursorPoints(layout, score, unroll(score))
     expect(pts.map((p) => p.t)).toEqual([0, 0.25, 0.5, 0.75, 1, 1, 1.25, 1.5, 1.75, 2])
@@ -127,20 +114,7 @@ describe('cursorPoints', () => {
     expect(pts[5]).toEqual({ t: 1, x: HEAD_PX, row: 0 })
   })
 
-  it('a simile bar has its own points, on its own row, at the source bar x offsets', () => {
-    const score = piece([bar(q4()), { simile: true }])
-    const layout = buildLayout(score, { barsPerRow: 1, auto: true })
-    const pts = cursorPoints(layout, score, unroll(score))
-    expect(pts.filter((p) => p.row === 1).map((p) => [p.t, p.x])).toEqual([
-      [1, HEAD_PX],
-      [1.25, HEAD_PX + Q],
-      [1.5, HEAD_PX + 2 * Q],
-      [1.75, HEAD_PX + 3 * Q],
-      [2, HEAD_PX + W],
-    ])
-  })
-
-  it('no interval of cursorAt crosses rows: a bar-end point closes every emitted bar, whole library', () => {
+  it('the points never go back in time and no interval crosses rows: a bar-end point closes every emitted bar, whole library', () => {
     for (const score of SCORES) {
       for (const barsPerRow of [1, 2, 4, 8] as const) {
         for (const auto of [true, false]) {
@@ -149,9 +123,14 @@ describe('cursorPoints', () => {
           const pts = cursorPoints(layout, score, playback)
           const label = `${score.id} barsPerRow=${barsPerRow} auto=${auto}`
 
+          // Time order by construction — one voice, walked bar by bar in playback order — with no
+          // sort behind it: `cursorAt` binary-searches on `t`.
+          for (let i = 1; i < pts.length; i++)
+            expect(pts[i].t >= pts[i - 1].t, `${label}: t goes back at ${i}`).toBe(true)
+
           // D3: no adjacent pair straddles a row wrap with a positive-length interval between —
           // that is the wrap branch of `cursorAt`, which needs the view's `rowEndX` (passed as 0
-          // here) and would send the cursor backwards instead.
+          // there) and would send the cursor backwards instead.
           for (let i = 1; i < pts.length; i++) {
             const a = pts[i - 1]
             const b = pts[i]
@@ -186,22 +165,16 @@ describe('cursorPoints', () => {
 })
 
 describe('highlightAt / transportHighlights', () => {
-  const groove = piece([
-    bar(
-      [N(8, 'hihat'), N(8, 'hihat'), N(8, ['hihat', 'snare']), N(8, 'hihat'), N(4), N(4)],
-      [N(4, 'kick'), R(4, true), N(4, 'kick'), R(4)],
-    ),
-  ])
-  const events = eventsOf(groove, unroll(groove))
+  const study = piece([bar([N(8), N(8), N(8, { accent: true }), N(8), N(4), R(4)])])
+  const events = eventsOf(study, unroll(study))
 
-  it('every non-hidden event whose [start, end) holds the position: one per voice', () => {
-    expect(highlightAt(events, 0)).toEqual(['b0/kit/0/0@1', 'b0/kit/1/0@1'])
-    expect(highlightAt(events, 0.125)).toEqual(['b0/kit/0/1@1', 'b0/kit/1/0@1'])
-    // the feet's hidden rest on beat 2 is never highlighted
-    expect(highlightAt(events, 0.25)).toEqual(['b0/kit/0/2@1'])
-    expect(highlightAt(events, 0.3)).toEqual(['b0/kit/0/2@1'])
-    // a drawn rest is
-    expect(highlightAt(events, 0.75)).toEqual(['b0/kit/0/5@1', 'b0/kit/1/3@1'])
+  it('the one event whose [start, end) holds the position; a rest too', () => {
+    expect(highlightAt(events, 0)).toEqual(['b0/0@1'])
+    expect(highlightAt(events, 0.125)).toEqual(['b0/1@1'])
+    expect(highlightAt(events, 0.25)).toEqual(['b0/2@1'])
+    expect(highlightAt(events, 0.3)).toEqual(['b0/2@1'])
+    expect(highlightAt(events, 0.5)).toEqual(['b0/4@1'])
+    expect(highlightAt(events, 0.75)).toEqual(['b0/5@1'])
   })
 
   it('at the end of the piece nothing sounds', () => {
@@ -209,9 +182,9 @@ describe('highlightAt / transportHighlights', () => {
   })
 
   it('a repeat carries the pass in the key', () => {
-    const twice = piece([bar(q4(), undefined, { repeat: { end: {} } })])
+    const twice = piece([bar(q4(), { repeat: { end: {} } })])
     const ev = eventsOf(twice, unroll(twice))
-    expect(highlightAt(ev, 1.5)).toEqual(['b0/kit/0/2@2'])
+    expect(highlightAt(ev, 1.5)).toEqual(['b0/2@2'])
   })
 
   it('transportHighlights is the same answer, precomputed', () => {
@@ -222,56 +195,48 @@ describe('highlightAt / transportHighlights', () => {
   it('tuplet boundaries are exact: the third triplet eighth starts where the second ends', () => {
     const trip = piece([bar([{ tuplet: { actual: 3, normal: 2 }, items: [N(8), N(8), N(8)] }, N(4), N(4), N(4)])])
     const ev = eventsOf(trip, unroll(trip))
-    expect(highlightAt(ev, toNumber(ev[2].position))).toEqual(['b0/kit/0/0.2@1'])
+    expect(highlightAt(ev, toNumber(ev[2].position))).toEqual(['b0/0.2@1'])
   })
 })
 
 describe('highlightRects', () => {
   const y = (line: number) => STAFF_TOP + (4 - line) * LINE_PX
-  const catalogue = resolveInstruments({})
 
-  it('the event slice of the time grid, from the highest head to the lowest, padded', () => {
-    const score = piece([bar([N(4), N(4, ['hihat', 'snare']), N(2, 'kick')])])
+  it("a stroke's box spans the snare's line, a rest's the middle line, each the event's slice of the grid, padded", () => {
+    const score = piece([bar([N(4), R(4), N(2)])])
     const layout = buildLayout(score, { barsPerRow: 1, auto: true })
-    const rects = highlightRects(score, catalogue, layout, unroll(score))
-    // snare on line 2.5
-    expect(rects.get('b0/kit/0/0@1')).toEqual({
+    const rects = highlightRects(score, layout, unroll(score))
+    expect(rects.get('b0/0@1')).toEqual({
       row: 0,
       x: HEAD_PX - HIGHLIGHT_PAD,
       width: Q + 2 * HIGHLIGHT_PAD,
-      y: y(2.5) - LINE_PX / 2 - HIGHLIGHT_PAD,
+      y: y(SNARE_LINE) - LINE_PX / 2 - HIGHLIGHT_PAD,
       height: LINE_PX + 2 * HIGHLIGHT_PAD,
     })
-    // hi-hat (4.5) over snare (2.5): one box from the top head to the bottom one
-    const chord = rects.get('b0/kit/0/1@1')
-    expect(chord?.y).toBe(y(4.5) - LINE_PX / 2 - HIGHLIGHT_PAD)
-    expect(chord?.height).toBe(y(2.5) + LINE_PX / 2 + HIGHLIGHT_PAD - (y(4.5) - LINE_PX / 2 - HIGHLIGHT_PAD))
+    expect(rects.get('b0/1@1')).toEqual({
+      row: 0,
+      x: HEAD_PX + Q - HIGHLIGHT_PAD,
+      width: Q + 2 * HIGHLIGHT_PAD,
+      y: y(REST_LINE) - LINE_PX / 2 - HIGHLIGHT_PAD,
+      height: LINE_PX + 2 * HIGHLIGHT_PAD,
+    })
     // a half note's slice is half the bar
-    expect(rects.get('b0/kit/0/2@1')?.width).toBe(W / 2 + 2 * HIGHLIGHT_PAD)
+    expect(rects.get('b0/2@1')?.width).toBe(W / 2 + 2 * HIGHLIGHT_PAD)
+    expect(rects.size).toBe(3)
   })
 
-  it('rests sit on their rest line: middle alone, up and down with two voices; hidden rests have no rect', () => {
-    const score = piece([bar([N(4), R(4), N(2)]), bar([R(2), N(2)], [N(2, 'kick'), R(4), R(4, true)])])
-    const layout = buildLayout(score, { barsPerRow: 2, auto: true })
-    const rects = highlightRects(score, catalogue, layout, unroll(score))
-    expect(rects.get('b0/kit/0/1@1')?.y).toBe(y(2) - LINE_PX / 2 - HIGHLIGHT_PAD)
-    expect(rects.get('b1/kit/0/0@1')?.y).toBe(y(3) - LINE_PX / 2 - HIGHLIGHT_PAD)
-    expect(rects.get('b1/kit/1/1@1')?.y).toBe(y(1) - LINE_PX / 2 - HIGHLIGHT_PAD)
-    expect(rects.has('b1/kit/1/2@1')).toBe(false)
-  })
-
-  it('every pass of a repeat has its rects, and a simile bar has the source bar rects under its own index', () => {
-    const score = piece([bar(q4(), undefined, { repeat: { end: {} } }), { simile: true }])
+  it('every pass of a repeat has its rects, on the bar row', () => {
+    const score = piece([bar(q4(), { repeat: { end: {} } }), bar(q4())])
     const layout = buildLayout(score, { barsPerRow: 1, auto: true })
     const playback = unroll(score)
-    const rects = highlightRects(score, catalogue, layout, playback)
+    const rects = highlightRects(score, layout, playback)
     expect(playback.map((pb) => [pb.barIndex, pb.pass])).toEqual([
       [0, 1],
       [0, 2],
       [1, 1],
     ])
-    expect(rects.get('b0/kit/0/0@2')?.row).toBe(0)
-    expect(rects.get('b1/kit/0/3@1')).toEqual({ ...(rects.get('b0/kit/0/3@1') as HighlightRect), row: 1 })
+    expect(rects.get('b0/0@2')).toEqual(rects.get('b0/0@1'))
+    expect(rects.get('b1/3@1')?.row).toBe(1)
     expect(rects.size).toBe(12)
   })
 })

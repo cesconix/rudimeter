@@ -1,11 +1,10 @@
-import { barLength, flattenVoice, metersOf } from '../score/events'
+import { barLength, flattenBar, metersOf } from '../score/events'
 import { add, toNumber, ZERO } from '../score/fraction'
 import { type EventId, keyOf, playbackKey } from '../score/ids'
-import type { Catalogue } from '../score/instruments'
 import type { Score } from '../score/types'
 import type { PlaybackBar, PlaybackEvent } from '../score/unroll'
 import type { CursorPoint } from './cursor'
-import { BAR_PAD, type BarLayout, type Layout, LINE_PX, REST_LINE, STAFF_LINES, STAFF_TOP } from './layout'
+import { BAR_PAD, type BarLayout, type Layout, LINE_PX, REST_LINE, SNARE_LINE, STAFF_LINES, STAFF_TOP } from './layout'
 
 /**
  * Everything here is in PLAYBACK POSITION (whole-note units), never seconds: inside a row x is
@@ -28,11 +27,11 @@ export function playbackBarAt(starts: number[], position: number): number {
 /**
  * One point per event of every emitted bar, plus one at each bar's END (x = where the bar's grid
  * ends: the row's `rowEndX` on the row's last bar). Rows differ in width and a playback jump is
- * not always a row wrap — back to a repeat's start, over a skipped ending, over a meter gutter —
- * so the cursor slides to the bar's end during its last event and jumps from there, instead of
- * interpolating across the score towards wherever it lands. The end point and the next bar's
- * first point share one `t`: `cursorAt` lands on the later of the two at that instant, and never
- * has an interval that crosses rows. Natural px.
+ * not always a row wrap — back to a repeat's start, over a meter gutter — so the cursor slides to
+ * the bar's end during its last event and jumps from there, instead of interpolating across the
+ * score towards wherever it lands. The end point and the next bar's first point share one `t`:
+ * `cursorAt` lands on the later of the two at that instant, and never has an interval that
+ * crosses rows. Natural px.
  *
  * One exception to "the grid's end": when the bar that plays next is the next written bar on the
  * same row with nothing but `BAR_PAD` before its grid, the end point sits at that bar's grid start
@@ -40,6 +39,9 @@ export function playbackBarAt(starts: number[], position: number): number {
  * every barline would read as a tick; the slide costs a twelfth of the speed on a quarter and half
  * of it on a sixteenth, only inside the bar's last event. A meter gutter keeps the jump: 53 px in
  * one sixteenth is a lurch, not a slide.
+ *
+ * The points come out in time order by construction — one voice, walked bar by bar in playback
+ * order — so nothing is sorted or deduplicated; `overlay.test.ts` pins that over the library.
  */
 export function cursorPoints(layout: Layout, score: Score, playback: PlaybackBar[]): CursorPoint[] {
   const meters = metersOf(score)
@@ -50,17 +52,11 @@ export function cursorPoints(layout: Layout, score: Score, playback: PlaybackBar
   playback.forEach((pb, i) => {
     const lb = barOf.get(pb.barIndex)
     const row = layout.rowOfBar[pb.barIndex]
-    // A simile bar carries the boxes of the bar it repeats under its own index (layout.ts).
-    const source = score.bars[pb.sourceBarIndex]
-    for (const part of score.parts) {
-      source.parts?.[part.id]?.voices.forEach((voice, v) => {
-        for (const f of flattenVoice(voice)) {
-          const id: EventId = { bar: pb.barIndex, part: part.id, voice: v, item: f.item }
-          if (f.sub !== undefined) id.sub = f.sub
-          const box = layout.boxes.get(keyOf(id))
-          if (box) out.push({ t: toNumber(add(start, f.offset)), x: box.x, row })
-        }
-      })
+    for (const f of flattenBar(score.bars[pb.barIndex])) {
+      const id: EventId = { bar: pb.barIndex, item: f.item }
+      if (f.sub !== undefined) id.sub = f.sub
+      const box = layout.boxes.get(keyOf(id))
+      if (box) out.push({ t: toNumber(add(start, f.offset)), x: box.x, row })
     }
     const end = add(start, barLength(meters[pb.barIndex]))
     // `lb` is always found — every playback bar has a `BarLayout` — but the guard stays loud
@@ -75,31 +71,26 @@ export function cursorPoints(layout: Layout, score: Score, playback: PlaybackBar
     }
     start = end
   })
-  // Stable sort: at one `t` the insertion order stands — a bar's end before the next bar's first
-  // event — which is what puts the cursor on the next bar at that instant. Two voices at the same
-  // instant give the same point twice — the walk above pushes one voice's events, then the next
-  // voice's, of the same bar, back to back, so the duplicates land adjacent once the sort is
-  // stable — and the second is dropped; reordering the loops (part before voice, say) would scatter
-  // the duplicates apart and this adjacent-pair filter would need a full dedup instead.
-  out.sort((a, b) => a.t - b.t)
-  return out.filter((p, i) => i === 0 || p.t !== out[i - 1].t || p.x !== out[i - 1].x || p.row !== out[i - 1].row)
+  return out
 }
 
-/** The playback keys sounding at a position. The transport-driven one is the only source in this plan; the judge, later, is another. */
+/** The playback keys sounding at a position. The transport-driven one is the only source today; the judge, later, is another. */
 export type HighlightSource = (position: number) => string[]
 
 /**
- * `[start, end)` per non-hidden event, computed once: `end` is the exact fraction turned into a
- * number, so it is the same float as the next event's `start` and a boundary is never in both.
+ * `[start, end)` per event, computed once: `end` is the exact fraction turned into a number, so
+ * it is the same float as the next event's `start` and a boundary is never in both.
  */
 export function transportHighlights(events: PlaybackEvent[]): HighlightSource {
-  const spans = events
-    .filter((e) => !e.hidden)
-    .map((e) => ({ key: e.key, start: toNumber(e.position), end: toNumber(add(e.position, e.length)) }))
+  const spans = events.map((e) => ({
+    key: e.key,
+    start: toNumber(e.position),
+    end: toNumber(add(e.position, e.length)),
+  }))
   return (position) => spans.filter((s) => s.start <= position && position < s.end).map((s) => s.key)
 }
 
-/** The playback keys of every non-hidden event whose `[start, end)` holds `position`: one per voice with something on. */
+/** The playback keys of every event whose `[start, end)` holds `position`: one, with one voice. */
 export const highlightAt = (events: PlaybackEvent[], position: number): string[] =>
   transportHighlights(events)(position)
 
@@ -108,7 +99,7 @@ export interface HighlightRect {
   /** natural px inside the row: the event's slice of the time grid, padded */
   x: number
   width: number
-  /** natural px from the row top: from the highest head to the lowest, padded */
+  /** natural px from the row top: the line the head sits on, padded */
   y: number
   height: number
 }
@@ -116,49 +107,31 @@ export interface HighlightRect {
 /** Air around a highlight box, natural px: enough to clear the head, not enough to reach the neighbour. */
 export const HIGHLIGHT_PAD = 4
 
-/** y of a staff line counted from the bottom (`InstrumentSpec.line`), natural px from the row top. */
+/** y of a staff line counted from the bottom (`SNARE_LINE`, `REST_LINE`), natural px from the row top. */
 const lineY = (line: number): number => STAFF_TOP + (STAFF_LINES - 1 - line) * LINE_PX
 
 /**
- * One rectangle per non-hidden event of every emitted bar, keyed by playback key. The vertical
- * extent comes from the catalogue — the highest and lowest head of the event, a rest on its rest
- * line — so a kick and a snare at the same instant are two boxes, one under the other, and never
- * one band across the staff. Geometry only: nothing here reads the SVG.
+ * One rectangle per event of every emitted bar, keyed by playback key: a stroke's on the snare's
+ * line, a rest's on the rest line, half a line space above and below plus the pad. Geometry only:
+ * nothing here reads the SVG.
  */
-export function highlightRects(
-  score: Score,
-  catalogue: Catalogue,
-  layout: Layout,
-  playback: PlaybackBar[],
-): Map<string, HighlightRect> {
+export function highlightRects(score: Score, layout: Layout, playback: PlaybackBar[]): Map<string, HighlightRect> {
   const out = new Map<string, HighlightRect>()
   for (const pb of playback) {
-    const source = score.bars[pb.sourceBarIndex]
-    for (const part of score.parts) {
-      const pbar = source.parts?.[part.id]
-      if (!pbar) continue
-      const two = pbar.voices.length > 1
-      pbar.voices.forEach((voice, v) => {
-        for (const f of flattenVoice(voice)) {
-          if (f.event.hidden) continue
-          const id: EventId = { bar: pb.barIndex, part: part.id, voice: v, item: f.item }
-          if (f.sub !== undefined) id.sub = f.sub
-          const box = layout.boxes.get(keyOf(id))
-          if (!box) continue
-          const lines = f.event.rest
-            ? [REST_LINE[two ? voice.stem : 'single']]
-            : (f.event.notes ?? []).map((n) => catalogue[n.instrument].line)
-          if (lines.length === 0) continue
-          const top = lineY(Math.max(...lines)) - LINE_PX / 2 - HIGHLIGHT_PAD
-          const bottom = lineY(Math.min(...lines)) + LINE_PX / 2 + HIGHLIGHT_PAD
-          out.set(playbackKey(id, pb.pass), {
-            row: box.row,
-            x: box.x - HIGHLIGHT_PAD,
-            width: box.width + 2 * HIGHLIGHT_PAD,
-            y: top,
-            height: bottom - top,
-          })
-        }
+    for (const f of flattenBar(score.bars[pb.barIndex])) {
+      const id: EventId = { bar: pb.barIndex, item: f.item }
+      if (f.sub !== undefined) id.sub = f.sub
+      const box = layout.boxes.get(keyOf(id))
+      if (!box) continue
+      const line = f.event.rest ? REST_LINE : SNARE_LINE
+      const top = lineY(line) - LINE_PX / 2 - HIGHLIGHT_PAD
+      const bottom = lineY(line) + LINE_PX / 2 + HIGHLIGHT_PAD
+      out.set(playbackKey(id, pb.pass), {
+        row: box.row,
+        x: box.x - HIGHLIGHT_PAD,
+        width: box.width + 2 * HIGHLIGHT_PAD,
+        y: top,
+        height: bottom - top,
       })
     }
   }

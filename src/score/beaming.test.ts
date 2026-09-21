@@ -1,18 +1,12 @@
 import { describe, expect, it } from 'bun:test'
 import { beamGroups, resolveBeams } from './beaming'
-import { flattenVoice } from './events'
+import { flattenBar } from './events'
 import { frac } from './fraction'
 import type { Event, Item, Meter } from './types'
 
-const n = (base: 4 | 8 | 16, extra: Partial<Event> = {}): Event => ({
-  duration: { base },
-  notes: [{ instrument: 'snare' }],
-  ...extra,
-})
-const r = (base: 4 | 8 | 16, hidden = false): Event =>
-  hidden ? { duration: { base }, rest: true, hidden: true } : { duration: { base }, rest: true }
-const marks = (meter: Meter, items: Item[], beams?: number[]) =>
-  resolveBeams(meter, beams, flattenVoice({ stem: 'up', items }))
+const n = (base: 4 | 8 | 16, extra: Partial<Event> = {}): Event => ({ duration: { base }, ...extra })
+const r = (base: 4 | 8 | 16): Event => ({ duration: { base }, rest: true })
+const marks = (meter: Meter, items: Item[], beams?: number[]) => resolveBeams(meter, beams, flattenBar({ items }))
 
 describe('beamGroups', () => {
   it('is one beat per group on quarter and half denominators', () => {
@@ -63,8 +57,8 @@ describe('resolveBeams', () => {
   it('gives flags to a group with fewer than two notes', () => {
     expect(marks([2, 4], [r(8), n(8), n(8), r(8)])).toEqual([null, null, null, null])
   })
-  it('never beams a hidden rest', () => {
-    expect(marks([1, 4], [n(16), r(16, true), n(16), n(16)])).toEqual([null, null, 'begin', 'end'])
+  it('a quarter splits the group: nothing beams across it', () => {
+    expect(marks([2, 4], [n(8), n(4), n(8)])).toEqual([null, null, null])
   })
   it('beams a tuplet as one unit', () => {
     const triplet: Item = { tuplet: { actual: 3, normal: 2 }, items: [n(8), n(8), n(8)] }
