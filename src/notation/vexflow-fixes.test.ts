@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import {
+  Annotation,
+  AnnotationHorizontalJustify,
   BarlineType,
   Beam,
   Element,
@@ -132,6 +134,30 @@ function drawBeamedBeat(fix: boolean): { notes: StaveNote[]; calls: Call[] } {
 const stemLeft = (n: StaveNote) => n.getStemX() - Stem.WIDTH / 2
 const stemRight = (n: StaveNote) => n.getStemX() + Stem.WIDTH / 2
 
+/**
+ * How far left of its quarter a flam's grace note is drawn, the quarter carrying a text of
+ * `textWidth` px above it, centred on it as the engraver's are, or starting on it and running
+ * right. The width is set by hand: the canvas above measures every text at 0 px. A text that runs
+ * right stands in for the dots, which VexFlow counts on the same side and cannot build without a
+ * DOM (`Dot` parses its font through a `<span>`): the dots are measured in the gallery.
+ */
+function flamOffset(Group: typeof GraceNoteGroup, textWidth = 0, runsRight = false): number {
+  const { ctx } = recorder()
+  const stave = new Stave(0, 0, 300)
+  const note = snare('q')
+  const grace = new GraceNote({ keys: ['c/5'], duration: '8', slash: true, stemDirection: Stem.UP })
+  note.addModifier(new Group([grace], true).beamNotes(), 0)
+  if (textWidth > 0) {
+    const text = new Annotation('Flam accent').setWidth(textWidth)
+    if (runsRight) text.setJustification(AnnotationHorizontalJustify.LEFT)
+    note.addModifier(text, 0)
+  }
+  const voice = new Voice({ numBeats: 1, beatValue: 4 }).addTickables([note])
+  new Formatter().joinVoices([voice]).formatToStave([voice], stave)
+  voice.draw(ctx, stave)
+  return note.getAbsoluteX() - grace.getAbsoluteX()
+}
+
 // These fail when a VexFlow upgrade no longer has the defect a fix stands for: that is the signal
 // to delete the fix in `vexflow-fixes.ts`, not to change the test.
 describe('VexFlow 5.0.0 defects the fixes stand for', () => {
@@ -161,6 +187,13 @@ describe('VexFlow 5.0.0 defects the fixes stand for', () => {
     const last = notes[notes.length - 1]
     expect(Stem.WIDTH).toBe(1.5)
     expect(beamEnds(calls)).toEqual([stemLeft(last) + 1, stemLeft(last) + 1])
+  })
+
+  it("a text over a note pushes its grace notes left by the text's width, on both its sides — AlignedGraceNoteGroup's placement's reason", () => {
+    const plain = flamOffset(GraceNoteGroup)
+    // Centred, 40 px each side of the note: both halves are counted, plus VexFlow's 5 px of annotation padding on the left.
+    expect(flamOffset(GraceNoteGroup, 80)).toBeGreaterThan(plain + 40)
+    expect(flamOffset(GraceNoteGroup, 80, true)).toBeGreaterThan(plain)
   })
 
   it("formatting moves a beamed rest to its neighbours' line, and a tuplet one inside it — keepRestsOnTheirLines' reason", () => {
@@ -246,6 +279,13 @@ describe('the fixes', () => {
     const ends = beamEnds(calls)
     expect(ends.length).toBe(2)
     for (const end of ends) expect(end).toBe(stemRight(graces[1]))
+  })
+
+  it('AlignedGraceNoteGroup: a flam sits where it does on a bare note, whatever text its note carries', () => {
+    const plain = flamOffset(GraceNoteGroup)
+    expect(flamOffset(AlignedGraceNoteGroup)).toBe(plain)
+    expect(flamOffset(AlignedGraceNoteGroup, 80)).toBe(plain)
+    expect(flamOffset(AlignedGraceNoteGroup, 80, true)).toBe(plain)
   })
 
   it("anchorStems: an up stem starts at Bravura's stemUpSE anchor, 0.168 spaces above its notehead's centre, and ends where it did", () => {

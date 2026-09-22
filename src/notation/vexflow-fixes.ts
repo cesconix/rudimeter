@@ -2,6 +2,8 @@ import {
   Barline,
   Beam,
   GraceNoteGroup,
+  Modifier,
+  type Note,
   type RenderContext,
   Stave,
   type StaveNote,
@@ -131,11 +133,40 @@ export class AlignedBeam extends Beam {
 }
 
 /**
- * Grace notes whose beam is an `AlignedBeam`: `GraceNoteGroup.beamNotes` builds a plain `Beam`
- * inside VexFlow, out of the engraver's reach. Its beam is rebuilt as an `AlignedBeam` over the same
- * notes with the same options, so what VexFlow sets there (a thinner beam, a shorter stub) still holds.
+ * `GraceNoteGroup.format`'s air between a grace group and its note on a stave (`groupSpacingStave`),
+ * a local constant there: part of the left shift VexFlow reserves for the group.
+ */
+const GRACE_GROUP_SPACING = 4
+
+/**
+ * Grace notes that sit against their note, and whose beam is an `AlignedBeam`.
+ *
+ * Placement: VexFlow 5.0.0's `alignSubNotesWithNote` puts the group at the note's x minus every
+ * modifier width its note reserves on both sides (`modLeftPx + modRightPx`), where the group's own
+ * shift is only one of them: a text over the note (`Annotation.format` reserves half its width on
+ * each side) or the note's dots pushed the grace notes away from it — a flam 43 px left of a quarter
+ * under "Flam accent", 5 px per dot (measured in the gallery). Here the group's own shift is the only
+ * one, which is what VexFlow computes for a note that carries nothing else.
+ *
+ * Beam: `GraceNoteGroup.beamNotes` builds a plain `Beam` inside VexFlow, out of the engraver's reach.
+ * Its beam is rebuilt as an `AlignedBeam` over the same notes with the same options, so what VexFlow
+ * sets there (a thinner beam, a shorter stub) still holds.
  */
 export class AlignedGraceNoteGroup extends GraceNoteGroup {
+  override alignSubNotesWithNote(subNotes: Note[], note: Note, position = Modifier.Position.LEFT): void {
+    if (position !== Modifier.Position.LEFT) {
+      super.alignSubNotesWithNote(subNotes, note, position)
+      return
+    }
+    const ownShift = this.getWidth() + GRACE_GROUP_SPACING
+    const x = note.getTickContext().getX() - ownShift + this.getSpacingFromNextModifier()
+    const stave = note.getStave()
+    for (const sub of subNotes) {
+      if (stave) sub.setStave(stave)
+      sub.getTickContext().setXOffset(x)
+    }
+  }
+
   override beamNotes(graceNotes?: StemmableNote[]): this {
     super.beamNotes(graceNotes)
     this.beams = this.beams.map((beam) => {
