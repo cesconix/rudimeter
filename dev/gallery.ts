@@ -3,16 +3,29 @@
 // DOM) — plus the library whole and the measurements the layout constants come from.
 
 import { SCORES } from '../src/data/scores'
-import { type EngravedRow, engraveRow, measureHead, measureInk, measurePad } from '../src/notation/engrave'
+import {
+  type EngravedRow,
+  engraveRow,
+  measureGraceReach,
+  measureHead,
+  measureHeadInk,
+  measureInk,
+  measurePad,
+} from '../src/notation/engrave'
 import { fit } from '../src/notation/fit'
 import { notationFontsReady } from '../src/notation/fonts'
 import {
   BAR_PAD,
   buildLayout,
+  CLEF_PX,
   CURSOR_ABOVE,
   CURSOR_BELOW,
+  DRAG_PX,
+  FLAM_PX,
   HEAD_PX,
   METER_PX,
+  REPEAT_BAR_PX,
+  REPEAT_PX,
   STAFF_H,
   STAFF_TOP,
   SYSTEM_H,
@@ -173,7 +186,21 @@ on('measure-head', () => {
   const head = measureHead(true, '12/8')
   const meter = measureHead(false, '12/8')
   log(
-    `head: clef + 12/8 need ${head.toFixed(1)} px, HEAD_PX is ${HEAD_PX}; 12/8 alone needs ${meter.toFixed(1)} px, METER_PX is ${METER_PX}; clef + 4/4 need ${measureHead(true, '4/4').toFixed(1)} px; VexFlow's Stave.padding is ${measurePad().toFixed(1)} px, BAR_PAD is ${BAR_PAD}`,
+    `head: clef + 12/8 need ${head.toFixed(1)} px, HEAD_PX is ${HEAD_PX}; the clef alone needs ${measureHead(true, null).toFixed(1)} px, CLEF_PX is ${CLEF_PX}; 12/8 alone needs ${meter.toFixed(1)} px, METER_PX is ${METER_PX}; clef + 4/4 need ${measureHead(true, '4/4').toFixed(1)} px; VexFlow's Stave.padding is ${measurePad().toFixed(1)} px, BAR_PAD is ${BAR_PAD}`,
+  )
+  // A begin repeat, from pixels: where its dots end, plus the air a first note keeps from a plain
+  // barline (BAR_PAD less the barline's own ink), against the head the layout gives that bar.
+  const barline = measureHeadInk(false, null, false)
+  const air = BAR_PAD - barline
+  const repeat = (clef: boolean, meter: string | null, base: number, extra: number) =>
+    `${(measureHeadInk(clef, meter, true) + air).toFixed(1)} px against ${base + extra}`
+  log(
+    `repeat: a plain barline's ink ends at ${barline.toFixed(1)} px, so a first note keeps ${air.toFixed(1)} px from it; with a begin repeat the bar needs — ` +
+      `clef + 12/8: ${repeat(true, '12/8', HEAD_PX, REPEAT_PX)}; clef alone: ${repeat(true, null, CLEF_PX, REPEAT_PX)}; ` +
+      `12/8 mid-row: ${repeat(false, '12/8', METER_PX, REPEAT_PX)}; mid-row: ${repeat(false, null, BAR_PAD, REPEAT_BAR_PX)} (REPEAT_PX ${REPEAT_PX}, REPEAT_BAR_PX ${REPEAT_BAR_PX})`,
+  )
+  log(
+    `grace: a flam's ink reaches ${measureGraceReach('flam').toFixed(1)} px left of its note's head, FLAM_PX is ${FLAM_PX}; a drag's ${measureGraceReach('drag').toFixed(1)} px, DRAG_PX is ${DRAG_PX}`,
   )
 })
 

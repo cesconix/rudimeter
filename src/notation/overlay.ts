@@ -4,7 +4,7 @@ import { type EventId, keyOf, playbackKey } from '../score/ids'
 import type { Score } from '../score/types'
 import type { PlaybackBar, PlaybackEvent } from '../score/unroll'
 import type { CursorPoint } from './cursor'
-import { BAR_PAD, type BarLayout, type Layout, LINE_PX, restLine, SNARE_LINE, STAFF_LINES, STAFF_TOP } from './layout'
+import { type BarLayout, type Layout, LINE_PX, restLine, SNARE_LINE, STAFF_LINES, STAFF_TOP } from './layout'
 
 /**
  * Everything here is in PLAYBACK POSITION (whole-note units), never seconds: inside a row x is
@@ -34,11 +34,13 @@ export function playbackBarAt(starts: number[], position: number): number {
  * crosses rows. Natural px.
  *
  * One exception to "the grid's end": when the bar that plays next is the next written bar on the
- * same row with nothing but `BAR_PAD` before its grid, the end point sits at that bar's grid start
- * instead, so the last event's slide crosses the barline and the pad in one motion. A 12 px jump on
- * every barline would read as a tick; the slide costs a twelfth of the speed on a quarter and half
- * of it on a sixteenth, only inside the bar's last event. A meter gutter keeps the jump: 53 px in
- * one sixteenth is a lurch, not a slide.
+ * same row and draws no signature, the end point sits at that bar's grid start instead, so the last
+ * event's slide crosses the barline and the bar's head in one motion: the pad, a begin repeat, the
+ * grace notes of its first note (`barHeads`). A 12 px jump on every barline would read as a tick;
+ * the slide adds the head to the last event's run instead — 12 px to a quarter's 96 at natural size
+ * on a plain barline, up to 50 before a drag behind a repeat, half again the speed — only inside
+ * that event: a speed-up reads better than a jump. A meter gutter keeps the jump: 53 px in one
+ * sixteenth is a lurch, not a slide.
  *
  * The points come out in time order by construction — one voice, walked bar by bar in playback
  * order — so nothing is sorted or deduplicated; `overlay.test.ts` pins that over the library.
@@ -66,8 +68,8 @@ export function cursorPoints(layout: Layout, score: Score, playback: PlaybackBar
     if (lb) {
       const next = playback[i + 1]
       const nb = next && next.barIndex === pb.barIndex + 1 ? barOf.get(next.barIndex) : undefined
-      const padded = nb !== undefined && layout.rowOfBar[nb.barIndex] === row && nb.head === BAR_PAD
-      out.push({ t: toNumber(end), x: padded ? nb.x : lb.x + lb.width, row })
+      const slides = nb !== undefined && layout.rowOfBar[nb.barIndex] === row && !nb.showMeter
+      out.push({ t: toNumber(end), x: slides ? nb.x : lb.x + lb.width, row })
     }
     start = end
   })

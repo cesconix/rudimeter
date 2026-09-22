@@ -109,7 +109,7 @@ export const GALLERY: Figure[] = [
   figure(
     'head',
     'Percussion clef, meter, bar numbers, rows',
-    'Three rows of two bars. The percussion clef on every row; "4/4" only on the first; bar numbers 1, 3, 5 in grey above the clef; a thick final barline on the last bar. The three rows have the same width and their first notes sit on the same x.',
+    'Three rows of two bars. The percussion clef on every row; "4/4" only on the first; bar numbers 1, 3, 5 in grey above the clef; a thick final barline on the last bar. The three rows end on the same right edge; the first row\'s music starts after the "4/4", the other two right after the clef.',
     [bar(q4()), bar(q4()), bar(q4(), { newRow: true }), bar(q4()), bar(q4(), { newRow: true }), bar(q4())],
   ),
   figure(
@@ -123,8 +123,8 @@ export const GALLERY: Figure[] = [
   ),
   figure(
     'grace',
-    'Flam and drag: grace notes before the note; the gutter at a row start',
-    'Bar 1: a slashed grace eighth before the first quarter (flam), two beamed grace sixteenths before the second (drag), a flam with the sticking R under the main note, a plain quarter. Bar 2 starts a new row with a flam on beat 1: the grace note sits in the gutter, clear of the clef, and the first note of both rows is on the same x.',
+    'Flam and drag: grace notes before the note; room for them on a downbeat',
+    'Bar 1: a slashed grace eighth before the first quarter (flam), two beamed grace sixteenths before the second (drag), a flam with the sticking R under the main note, a plain quarter; the first flam sits after the "4/4". Bar 2, mid-row: a flam on beat 1, after the barline, not across it. Bars 3 and 4 open a repeat each with a drag on beat 1, at a row start and mid-row: both grace notes after the repeat\'s dots, clear of them.',
     [
       bar([
         N(4, { grace: { kind: 'flam' } }),
@@ -132,8 +132,11 @@ export const GALLERY: Figure[] = [
         N(4, { grace: { kind: 'flam' }, sticking: 'R' }),
         N(4),
       ]),
-      bar([N(4, { grace: { kind: 'flam' } }), N(4), N(4), N(4)], { newRow: true }),
+      bar([N(4, { grace: { kind: 'flam' } }), N(4), N(4), N(4)]),
+      bar([N(4, { grace: { kind: 'drag' } }), N(4), N(4), N(4)], { repeat: { start: true, end: {} } }),
+      bar([N(4, { grace: { kind: 'drag' } }), N(4), N(4), N(4)], { repeat: { start: true, end: {} } }),
     ],
+    2,
   ),
   figure(
     'rolls',
@@ -200,7 +203,7 @@ export const GALLERY: Figure[] = [
   figure(
     'repeats',
     'Repeat signs; ×3 on a repeat played three times; an end with no start',
-    'Bars 1–2 between a start sign and an end sign. Bars 3–5: a start sign, then an end sign with "×3" in grey above it. Bars 6–7: an end sign with no start before it (the section starts after the previous end, as 50 Workout prints it). The last bar ends with the repeat sign, not the thick final barline.',
+    'Bars 1–2 between a start sign and an end sign. Bars 3–5: a start sign, then an end sign with "×3" in grey above it. Bars 6–7: an end sign with no start before it (the section starts after the previous end, as 50 Workout prints it). Bar 8 starts a row in 12/8 with a start sign after the "12/8": its first note clear of the dots. The last bar ends with the repeat sign, not the thick final barline.',
     [
       bar(q4(), { repeat: { start: true } }),
       bar(q4(), { repeat: { end: {} } }),
@@ -209,6 +212,10 @@ export const GALLERY: Figure[] = [
       bar(q4(), { repeat: { end: { times: 3 } } }),
       bar(q4()),
       bar(q4(), { repeat: { end: { times: 2 } } }),
+      bar(
+        times(12, () => N(8)),
+        { meter: [12, 8], newRow: true, repeat: { start: true, end: {} } },
+      ),
     ],
   ),
   figure(

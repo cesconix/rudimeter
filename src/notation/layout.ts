@@ -1,7 +1,7 @@
 import { barLength, flattenBar, metersOf } from '../score/events'
 import { add, type Fraction, toNumber, ZERO } from '../score/fraction'
 import { type EventId, keyOf } from '../score/ids'
-import type { Meter, NoteBase, Score } from '../score/types'
+import type { NoteBase, Score } from '../score/types'
 
 /**
  * Natural px: the geometry is computed once at this size and the engraver scales the whole row.
@@ -10,21 +10,39 @@ import type { Meter, NoteBase, Score } from '../score/types'
  */
 export const PX_PER_WHOLE = 384
 /**
- * Clef + meter at the start of every row, drawn or not: one origin for every row keeps `gridX0` a
- * single number. Measured in the gallery ("Measurements") on the percussion clef + "12/8", the
- * widest signature in the library: 78.5 px to the first note, plus 4 px of air.
+ * A bar keeps free before its grid what it prints there, and nothing more (`barHeads`): a row that
+ * reprints only its clef starts its music sooner than the first one, which draws the signature too,
+ * as printed music does. Every width below is measured in the gallery ("Measurements", "Measure
+ * head") on what VexFlow draws, never chosen.
+ *
+ * Clef + meter, at the start of a row that draws a signature. Measured on the percussion clef +
+ * "12/8", the widest signature in the library: 78.5 px to the first note, plus 4 px of air.
  */
 export const HEAD_PX = 83
+/** The clef alone, at the start of a row that draws no signature. Measured like HEAD_PX: 32.3 px to the first note, plus 4 px of air. */
+export const CLEF_PX = 37
 /** A meter change mid-row: what the signature takes before the bar's grid starts. Measured like HEAD_PX, on "12/8" alone: 48.2 px, plus 4 px of air. */
 export const METER_PX = 53
 /**
- * Gutter to the left of the grid when the piece has a grace note: a flam is drawn BEFORE its note
- * and nothing on the time grid reserves that space (measured: 23.7 px to the left of the notehead),
- * so on the first beat of a row it would land on the clef. It is a translation of the whole grid,
- * not a local exception — the origin moves, the steps do not, and the cursor keeps its speed. Paid
- * only by a piece that has one: 24 px less music per row, in 2/4 on a phone, is a bar per row.
+ * A begin repeat after the clef or a signature, on top of their room. Its dots end 25.5 px past
+ * their ink — read from pixels: VexFlow's own note start does not count them — and the bar's first
+ * note keeps 11 px from the dots, the air it keeps from a plain barline (`BAR_PAD` less the
+ * barline's 1 px): 91.5 + 11 → 103 = HEAD_PX + 20 after the clef and "12/8", 45.5 + 11 → 57 =
+ * CLEF_PX + 20 after the clef alone, 61.5 + 11 → 73 = METER_PX + 20 after "12/8" mid-row.
  */
-export const GRACE_GUTTER = 24
+export const REPEAT_PX = 20
+/** A begin repeat where a plain barline would be, mid-row, on top of `BAR_PAD`: its dots end 10 px after the bar's start, the barline 1 px: 10 + 11 → 21 = BAR_PAD + 9. */
+export const REPEAT_BAR_PX = 9
+/**
+ * A grace note on a bar's first note is drawn BEFORE it, and nothing on the time grid reserves that
+ * space: across the barline, on the repeat's dots or on the clef, until the bar keeps it free before
+ * its grid — the grace notes then sit where the note alone would, as clear of what precedes them.
+ * Read from pixels, from the grace ink's left edge to its note's head: 24.2 px for a flam, 28.2 for
+ * a drag. Outside the grid like every head, so the grid's speed is untouched; a grace note later in
+ * the bar is drawn in the time before its note.
+ */
+export const FLAM_PX = 25
+export const DRAG_PX = 29
 /**
  * A row has no spacing on its perimeter: its ink starts on the SVG's left edge (the stave's first
  * line and barline at x = 0, the bar number anchored there) and ends on its right edge, so it sits
@@ -36,11 +54,12 @@ export const GRACE_GUTTER = 24
  */
 export const BARLINE_OVERHANG = 1
 /**
- * Air between a barline and the first note of the bar that follows it. The row head (`HEAD_PX`) and
- * the meter gutter (`METER_PX`) already carry it: both were measured as VexFlow's `getNoteStartX()`
- * plus its `Stave.padding`, which is 12 px (gallery, "Measure head"). A bar with neither had none,
- * so its first note printed against the barline. The pad is a head like the other two — the grid
- * starts after it — and the cursor slides through it during the previous bar's last event.
+ * Air between a barline and the first note of the bar that follows it. The row heads (`HEAD_PX`,
+ * `CLEF_PX`) and the meter gutter (`METER_PX`) already carry it: all three were measured as
+ * VexFlow's `getNoteStartX()` plus its `Stave.padding`, which is 12 px (gallery, "Measure head"). A
+ * bar with none of them had none, so its first note printed against the barline. The pad is a head
+ * like the others — the grid starts after it — and the cursor slides through it during the previous
+ * bar's last event.
  */
 export const BAR_PAD = 12
 /** VexFlow's distance between staff lines (`Tables.STAVE_LINE_DISTANCE`). */
@@ -95,9 +114,9 @@ export interface ViewSpec {
   /** automatic layout: a bar marked `newRow` starts a row. A user-fixed bars-per-row ignores the mark. */
   auto: boolean
   /**
-   * Natural px the rows may take: the viewport's width over the scale. The time grid stretches so
-   * that the widest row reaches it — justification, as print does — and never shrinks; absent, the
-   * grid keeps its natural `PX_PER_WHOLE`.
+   * Natural px the rows may take: the viewport's width over the scale. Each row's time grid
+   * stretches so the row reaches it — justification, as print does — and never shrinks (`stretches`);
+   * absent, the grid keeps its natural `PX_PER_WHOLE`.
    */
   fillWidth?: number
 }
@@ -120,7 +139,7 @@ export interface BarLayout {
   /** natural px: where the bar's time grid starts and how wide it is */
   x: number
   width: number
-  /** px of stave before the grid: the row head on the first bar, a meter gutter on a change mid-row, `BAR_PAD` otherwise */
+  /** px of stave before the grid: what the bar prints there (`barHeads`) */
   head: number
   showClef: boolean
   showMeter: boolean
@@ -133,6 +152,8 @@ export interface RowLayout {
   widthNatural: number
   /** where the next bar would start if the row kept going: the cursor slides to it during the wrap */
   rowEndX: number
+  /** the row's time grid over `PX_PER_WHOLE`: 1 at natural spacing, more when the row is justified to `fillWidth` */
+  stretch: number
 }
 
 export interface Layout {
@@ -142,14 +163,36 @@ export interface Layout {
   /** bar index → row index */
   rowOfBar: number[]
   systemH: number
-  /** natural px: clef + meter gutter, plus the grace gutter when the piece has a grace note */
-  gridX0: number
-  /** the time grid's factor over `PX_PER_WHOLE`: 1 at natural spacing, more when the rows are justified to `fillWidth` */
-  stretch: number
 }
 
-export const hasGrace = (score: Score): boolean =>
-  score.bars.some((bar) => flattenBar(bar).some((f) => f.event.grace !== undefined))
+/** What a bar keeps free before its grid, natural px, when it starts a row and when it follows another bar on one. */
+export interface BarHead {
+  first: number
+  after: number
+  /** the bar draws its time signature: the piece's first bar, and every bar whose meter differs from the previous one */
+  signature: boolean
+}
+
+/**
+ * Each bar's head: the clef when it starts a row, its signature, a begin repeat, the grace notes of
+ * its first note — each measured (the constants above), summed, and nothing else. `buildLayout`
+ * picks one of the two per bar; `fit` bounds a row by the largest of each.
+ */
+export function barHeads(score: Score): BarHead[] {
+  const meters = metersOf(score)
+  return score.bars.map((bar, b) => {
+    const meter = meters[b]
+    const previous = meters[b - 1]
+    // A bar that restates the meter in force draws nothing.
+    const signature = previous === undefined || meter[0] !== previous[0] || meter[1] !== previous[1]
+    const repeat = bar.repeat?.start === true
+    const kind = flattenBar(bar)[0]?.event.grace?.kind
+    const grace = kind === 'flam' ? FLAM_PX : kind === 'drag' ? DRAG_PX : 0
+    const first = (signature ? HEAD_PX : CLEF_PX) + (repeat ? REPEAT_PX : 0) + grace
+    const after = (signature ? METER_PX + (repeat ? REPEAT_PX : 0) : BAR_PAD + (repeat ? REPEAT_BAR_PX : 0)) + grace
+    return { first, after, signature }
+  })
+}
 
 /** A bar packed on a row, before the grid is stretched: what it prints before its grid and how long it lasts. */
 interface Packed {
@@ -162,19 +205,24 @@ interface Packed {
 }
 
 /**
- * One stretch for the whole piece — the cursor keeps one speed from the first row to the last —
- * chosen so that the row which would overrun first exactly reaches `fillWidth`; every other row
- * stays shorter, as the last system of a printed page does. Never below 1: the grid is stretched to
- * fill, not shrunk to fit — that is the scale's job, in `fit`.
+ * Each row's stretch: the factor that brings it exactly to `fillWidth`, so every row ends on the same
+ * right edge, as the systems of a printed page do. Rows keep different heads — a signature, a
+ * repeat, a flam on the downbeat — so their factors differ by a few percent, and the cursor changes
+ * speed a little at a row wrap, never inside a row. A row with fewer bars than the fullest (the
+ * piece's last, or one a `newRow` mark cuts short) is not spread across the width: it takes the
+ * smallest stretch of the full rows, or its own when that is smaller. Never below 1: the grid is
+ * stretched to fill, not shrunk to fit — that is the scale's job, in `fit`.
  */
-function stretchToFill(packed: Packed[][], fillWidth: number | undefined): number {
-  if (fillWidth === undefined || !Number.isFinite(fillWidth) || packed.length === 0) return 1
-  const factors = packed.map((row) => {
+function stretches(packed: Packed[][], fillWidth: number | undefined): number[] {
+  if (fillWidth === undefined || !Number.isFinite(fillWidth)) return packed.map(() => 1)
+  const own = packed.map((row) => {
     const fixed = row.reduce((sum, p) => sum + p.head, 0) + BARLINE_OVERHANG
     const music = row.reduce((sum, p) => sum + p.len, 0) * PX_PER_WHOLE
-    return (fillWidth - fixed) / music
+    return Math.max(1, (fillWidth - fixed) / music)
   })
-  return Math.max(1, Math.min(...factors))
+  const fullest = Math.max(...packed.map((row) => row.length))
+  const tightest = Math.min(...own.filter((_, r) => packed[r].length === fullest))
+  return own.map((s, r) => (packed[r].length === fullest ? s : Math.min(s, tightest)))
 }
 
 /**
@@ -183,36 +231,33 @@ function stretchToFill(packed: Packed[][], fillWidth: number | undefined): numbe
  */
 export function buildLayout(score: Score, spec: ViewSpec): Layout {
   const meters = metersOf(score)
-  const gridX0 = HEAD_PX + (hasGrace(score) ? GRACE_GUTTER : 0)
+  const heads = barHeads(score)
   // A user preference is a positive integer by construction; the guard is here because the function is exported.
   const perRow = Number.isFinite(spec.barsPerRow) ? Math.max(1, Math.floor(spec.barsPerRow)) : 1
 
   // Pass one: which bar goes on which row, and what each prints before its grid. The x positions
-  // wait for the stretch, which needs every row packed first.
+  // wait for the stretches, which need every row packed first.
   const packed: Packed[][] = []
   let row: Packed[] = []
-  let previous: Meter | undefined
   score.bars.forEach((bar, b) => {
-    const meter = meters[b]
-    // The signature is drawn on the first bar and where the meter changes; a bar that restates the meter in force draws nothing.
-    const changed = previous === undefined || meter[0] !== previous[0] || meter[1] !== previous[1]
-    previous = meter
     if (row.length >= perRow || (spec.auto && bar.newRow && row.length > 0)) {
       packed.push(row)
       row = []
     }
     const first = row.length === 0
-    const head = first ? gridX0 : changed ? METER_PX : BAR_PAD
-    row.push({ barIndex: b, len: toNumber(barLength(meter)), head, showClef: first, showMeter: changed })
+    const { signature } = heads[b]
+    const head = first ? heads[b].first : heads[b].after
+    row.push({ barIndex: b, len: toNumber(barLength(meters[b])), head, showClef: first, showMeter: signature })
   })
   if (row.length > 0) packed.push(row)
-  const stretch = stretchToFill(packed, spec.fillWidth)
+  const stretchOf = stretches(packed, spec.fillWidth)
 
-  // Pass two: the geometry, on the stretched grid.
+  // Pass two: the geometry, each row on its stretched grid.
   const rows: RowLayout[] = []
   const rowOfBar: number[] = []
   const layoutOfBar: BarLayout[] = []
   for (const r of packed) {
+    const stretch = stretchOf[rows.length]
     const bars: BarLayout[] = []
     let x = 0
     for (const p of r) {
@@ -231,13 +276,14 @@ export function buildLayout(score: Score, spec: ViewSpec): Layout {
       rowOfBar[p.barIndex] = rows.length
       x += width
     }
-    rows.push({ index: rows.length, bars, widthNatural: x + BARLINE_OVERHANG, rowEndX: x })
+    rows.push({ index: rows.length, bars, widthNatural: x + BARLINE_OVERHANG, rowEndX: x, stretch })
   }
 
   const boxes = new Map<string, EventBox>()
   let position = ZERO
   score.bars.forEach((bar, b) => {
     const lb = layoutOfBar[b]
+    const { stretch } = rows[rowOfBar[b]]
     for (const f of flattenBar(bar)) {
       const id: EventId = { bar: b, item: f.item }
       if (f.sub !== undefined) id.sub = f.sub
@@ -254,5 +300,5 @@ export function buildLayout(score: Score, spec: ViewSpec): Layout {
     position = add(position, barLength(meters[b]))
   })
 
-  return { rows, boxes, rowOfBar, systemH: SYSTEM_H, gridX0, stretch }
+  return { rows, boxes, rowOfBar, systemH: SYSTEM_H }
 }
