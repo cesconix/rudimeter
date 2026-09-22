@@ -13,7 +13,7 @@ import {
   type RenderContext,
   Renderer,
   RendererBackends,
-  type Stave,
+  Stave,
   StaveNote,
   StaveTie,
   Stem,
@@ -361,15 +361,79 @@ export function measurePad(): number {
 
 /**
  * Natural px from a stave's left edge to where its notes may start, for the given head: what
- * `HEAD_PX` (clef + meter) and `METER_PX` (meter alone) must cover, plus VexFlow's note padding.
- * A dev measurement for the gallery; nothing in the app calls it. Needs the fonts: the clef and
- * the signature are glyphs.
+ * `HEAD_PX` (clef + meter), `CLEF_PX` (clef alone) and `METER_PX` (meter alone) must cover, plus
+ * VexFlow's note padding. A dev measurement for the gallery; nothing in the app calls it. Needs the
+ * fonts: the clef and the signature are glyphs.
  */
 export function measureHead(clef: boolean, meter: string | null): number {
   const stave = new AlignedStave(0, 0, 400)
   if (clef) stave.addClef('percussion')
   if (meter) stave.addTimeSignature(meter)
   return stave.getNoteStartX() + Metrics.get('Stave.padding', 0)
+}
+
+/** Room on every side of what a measurement draws, natural px: ink that leaves the box is still read. */
+const MEASURE_PAD = 200
+
+/** An offscreen canvas `width` natural px wide and one band high, its context shifted by `MEASURE_PAD` on both axes. */
+function measureCanvas(width: number): { canvas: HTMLCanvasElement; ctx: RenderContext } {
+  const canvas = document.createElement('canvas')
+  const renderer = new Renderer(canvas, RendererBackends.CANVAS)
+  renderer.resize(width + 2 * MEASURE_PAD, SYSTEM_H + 2 * MEASURE_PAD)
+  const ctx = renderer.getContext()
+  // After `resize`, which applied the device pixel ratio: the shift is in natural px.
+  ;(canvas.getContext('2d') as CanvasRenderingContext2D).translate(MEASURE_PAD, MEASURE_PAD)
+  return { canvas, ctx }
+}
+
+/** The leftmost and rightmost painted columns of `canvas`, natural px in the shifted frame. */
+function inkColumns(canvas: HTMLCanvasElement): { left: number; right: number } {
+  const dpr = window.devicePixelRatio || 1
+  const image = (canvas.getContext('2d') as CanvasRenderingContext2D).getImageData(0, 0, canvas.width, canvas.height)
+  let left = image.width
+  let right = -1
+  for (let i = 3, x = 0; i < image.data.length; i += 4, x = (x + 1) % image.width) {
+    if (image.data[i] === 0) continue
+    if (x < left) left = x
+    if (x > right) right = x
+  }
+  return { left: left / dpr - MEASURE_PAD, right: (right + 1) / dpr - MEASURE_PAD }
+}
+
+/**
+ * Where the ink of a bar's head ends, natural px from the stave's start: the clef, the signature and
+ * a begin repeat, drawn as `engraveBar` draws them but without the staff lines, which run under
+ * everything. Read from pixels: VexFlow's `getNoteStartX` does not count a begin repeat's dots, so
+ * `measureHead` cannot say where they end. A dev measurement for the gallery; nothing in the app
+ * calls it. Needs the fonts.
+ */
+export function measureHeadInk(clef: boolean, meter: string | null, repeat: boolean): number {
+  const { canvas, ctx } = measureCanvas(400)
+  const stave = new AlignedStave(0, 0, 400)
+  if (clef) stave.addClef('percussion')
+  if (meter) stave.addTimeSignature(meter)
+  if (repeat) stave.setBegBarType(BarlineType.REPEAT_BEGIN)
+  stave.setEndBarType(BarlineType.NONE)
+  // VexFlow's own `draw`, which `AlignedStave.draw` extends with the lines: the lines hidden, the rest as drawn.
+  Stave.prototype.draw.call(stave.setContext(ctx))
+  return inkColumns(canvas).right
+}
+
+/**
+ * How far a grace group's ink reaches left of its note's head, natural px: what a bar whose first
+ * note carries one must keep free before its grid. The note is built as `engraveBar` builds it —
+ * the grace notes, their beam and their slur — and drawn alone, with no stave. A dev measurement
+ * for the gallery; nothing in the app calls it. Needs the fonts.
+ */
+export function measureGraceReach(kind: 'flam' | 'drag'): number {
+  const { canvas, ctx } = measureCanvas(400)
+  const stave = new AlignedStave(0, 0, 400)
+  const note = buildNote({ duration: { base: 4 }, grace: { kind } })
+  const voice = new Voice({ numBeats: 1, beatValue: 4 }).addTickables([note])
+  new Formatter().joinVoices([voice]).formatToStave([voice], stave)
+  anchorStems(note)
+  voice.draw(ctx, stave)
+  return note.getNoteHeadBeginX() - inkColumns(canvas).left
 }
 
 /**

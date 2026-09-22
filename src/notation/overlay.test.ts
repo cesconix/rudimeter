@@ -8,10 +8,14 @@ import {
   BAR_PAD,
   type BarLayout,
   buildLayout,
+  CLEF_PX,
+  DRAG_PX,
   HEAD_PX,
   LINE_PX,
   METER_PX,
   PX_PER_WHOLE,
+  REPEAT_BAR_PX,
+  REPEAT_PX,
   restLine,
   SNARE_LINE,
   STAFF_TOP,
@@ -52,13 +56,13 @@ describe('cursorPoints', () => {
       { t: 0.25, x: HEAD_PX + Q, row: 0 },
       { t: 0.5, x: HEAD_PX + 2 * Q, row: 0 },
       { t: 0.75, x: HEAD_PX + 3 * Q, row: 0 },
-      // the end of bar 1 is the row's rowEndX; then bar 2 starts again from the left on row 1
+      // the end of bar 1 is the row's rowEndX; then bar 2 starts again from the left on row 1, after the clef alone
       { t: 1, x: HEAD_PX + W, row: 0 },
-      { t: 1, x: HEAD_PX, row: 1 },
-      { t: 1.25, x: HEAD_PX + Q, row: 1 },
-      { t: 1.5, x: HEAD_PX + 2 * Q, row: 1 },
-      { t: 1.75, x: HEAD_PX + 3 * Q, row: 1 },
-      { t: 2, x: HEAD_PX + W, row: 1 },
+      { t: 1, x: CLEF_PX, row: 1 },
+      { t: 1.25, x: CLEF_PX + Q, row: 1 },
+      { t: 1.5, x: CLEF_PX + 2 * Q, row: 1 },
+      { t: 1.75, x: CLEF_PX + 3 * Q, row: 1 },
+      { t: 2, x: CLEF_PX + W, row: 1 },
     ])
     expect(layout.rows[0].rowEndX).toBe(HEAD_PX + W)
   })
@@ -83,14 +87,29 @@ describe('cursorPoints', () => {
     const score = piece([bar(q4(), { repeat: { start: true } }), bar(q4(), { repeat: { end: {} } }), bar(q4())])
     const layout = buildLayout(score, { barsPerRow: 4, auto: true })
     const pts = cursorPoints(layout, score, unroll(score))
-    const bar2End = HEAD_PX + 2 * W + BAR_PAD
+    const bar1 = HEAD_PX + REPEAT_PX
+    const bar2End = bar1 + 2 * W + BAR_PAD
     expect(pts.filter((p) => p.t === 2)).toEqual([
       { t: 2, x: bar2End, row: 0 },
-      { t: 2, x: HEAD_PX, row: 0 },
+      { t: 2, x: bar1, row: 0 },
     ])
     expect(pts.filter((p) => p.t === 4)).toEqual([
       { t: 4, x: bar2End + BAR_PAD, row: 0 },
       { t: 4, x: bar2End + BAR_PAD, row: 0 },
+    ])
+  })
+
+  it('the slide crosses any head that draws no signature: a begin repeat and a drag on the downbeat', () => {
+    const score = piece([
+      bar(q4()),
+      bar([N(4, { grace: { kind: 'drag' } }), N(4), N(4), N(4)], { repeat: { start: true, end: {} } }),
+    ])
+    const layout = buildLayout(score, { barsPerRow: 2, auto: true })
+    const pts = cursorPoints(layout, score, unroll(score))
+    const bar2 = HEAD_PX + W + BAR_PAD + REPEAT_BAR_PX + DRAG_PX
+    expect(pts.filter((p) => p.t === 1)).toEqual([
+      { t: 1, x: bar2, row: 0 },
+      { t: 1, x: bar2, row: 0 },
     ])
   })
 
@@ -153,7 +172,7 @@ describe('cursorPoints', () => {
             const row = layout.rowOfBar[pb.barIndex]
             const next = playback[i + 1]
             const nb = next && next.barIndex === pb.barIndex + 1 ? barOf.get(next.barIndex) : undefined
-            const endX = nb && layout.rowOfBar[nb.barIndex] === row && nb.head === BAR_PAD ? nb.x : lb.x + lb.width
+            const endX = nb && layout.rowOfBar[nb.barIndex] === row && !nb.showMeter ? nb.x : lb.x + lb.width
             const found = pts.some((p) => p.t === t && p.x === endX && p.row === row)
             expect(found, `${label}: bar ${pb.barIndex} (pass ${pb.pass}) has no end point at t=${t}`).toBe(true)
             start = end
