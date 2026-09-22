@@ -13,10 +13,11 @@ import {
   Tuplet,
   Voice,
 } from 'vexflow/bravura'
-import { AlignedStave, anchorStems, keepRestsOnTheirLines } from './vexflow-fixes'
+import { AlignedBeam, AlignedGraceNoteGroup, AlignedStave, anchorStems, keepRestsOnTheirLines } from './vexflow-fixes'
 
 // VexFlow measures text on a canvas and Bun has none: without one it warns once per glyph. Zero
-// widths are enough here: these tests read y coordinates, never x.
+// widths are enough here: these tests read y coordinates, and x only against each other (a beam's
+// end against its stem's), never a glyph's width.
 Element.setTextMeasurementCanvas({
   getContext: () => ({
     font: '',
@@ -107,6 +108,30 @@ function triplet(stave: Stave): StaveNote[] {
   return notes
 }
 
+/** The x where each beam line drawn inside `group` ends: the third corner of each four-corner polygon. */
+const beamEnds = (calls: Call[], group = 'beam') =>
+  calls.filter((c) => c.group === group && c.op === 'lineTo').flatMap((c, i) => (i % 3 === 1 ? [c.args[0]] : []))
+/** The x where each beam line drawn inside `group` starts. */
+const beamStarts = (calls: Call[], group = 'beam') =>
+  calls.filter((c) => c.group === group && c.op === 'moveTo').map((c) => c.args[0])
+
+/** A beat of sixteenths on the snare under one beam — two lines, both running to the last stem — drawn. */
+function drawBeamedBeat(fix: boolean): { notes: StaveNote[]; calls: Call[] } {
+  const { ctx, calls } = recorder()
+  const stave = new Stave(0, 0, 300)
+  const notes = [snare('16'), snare('16'), snare('16'), snare('16')]
+  const beam = fix ? new AlignedBeam(notes, false) : new Beam(notes, false)
+  const voice = new Voice({ numBeats: 1, beatValue: 4 }).addTickables(notes)
+  new Formatter().joinVoices([voice]).formatToStave([voice], stave)
+  voice.draw(ctx, stave)
+  beam.setContext(ctx).draw()
+  return { notes, calls }
+}
+
+/** A stem's outer edges: its centre ± half of VexFlow's stem width. */
+const stemLeft = (n: StaveNote) => n.getStemX() - Stem.WIDTH / 2
+const stemRight = (n: StaveNote) => n.getStemX() + Stem.WIDTH / 2
+
 // These fail when a VexFlow upgrade no longer has the defect a fix stands for: that is the signal
 // to delete the fix in `vexflow-fixes.ts`, not to change the test.
 describe('VexFlow 5.0.0 defects the fixes stand for', () => {
@@ -129,6 +154,13 @@ describe('VexFlow 5.0.0 defects the fixes stand for', () => {
     const stave = new Stave(0, 0, 200)
     const want = [1.5, 2.5, 1.5, 2.5].map((line) => stave.getYForLine(line) + 1)
     expect(repeatDots(drawRepeats(stave))).toEqual(want)
+  })
+
+  it("a beam's lines end 0.5 px short of the last stem's outer edge, the right edge of a 1 px stem — AlignedBeam's reason", () => {
+    const { notes, calls } = drawBeamedBeat(false)
+    const last = notes[notes.length - 1]
+    expect(Stem.WIDTH).toBe(1.5)
+    expect(beamEnds(calls)).toEqual([stemLeft(last) + 1, stemLeft(last) + 1])
   })
 
   it("formatting moves a beamed rest to its neighbours' line, and a tuplet one inside it — keepRestsOnTheirLines' reason", () => {
@@ -176,6 +208,44 @@ describe('the fixes', () => {
       // the notes around it stay in their space
       expect(notes[0].getKeyLine(0)).toBe(3.5)
     }
+  })
+
+  it("AlignedBeam: every line that runs to a stem ends on that stem's outer edge, and starts on the first one's", () => {
+    const { notes, calls } = drawBeamedBeat(true)
+    expect(beamStarts(calls)).toEqual([stemLeft(notes[0]), stemLeft(notes[0])])
+    expect(beamEnds(calls)).toEqual([stemRight(notes[3]), stemRight(notes[3])])
+  })
+
+  it("AlignedBeam: a partial beam — a sixteenth's stub before a dotted eighth — keeps VexFlow's length", () => {
+    const draw = (Kind: typeof Beam) => {
+      const { ctx, calls } = recorder()
+      const stave = new Stave(0, 0, 300)
+      const notes = [snare('16'), new StaveNote({ keys: ['c/5'], duration: '8d', stemDirection: Stem.UP })]
+      const beam = new Kind(notes, false)
+      const voice = new Voice({ numBeats: 1, beatValue: 4 }).addTickables(notes)
+      new Formatter().joinVoices([voice]).formatToStave([voice], stave)
+      beam.setContext(ctx).draw()
+      return { notes, ends: beamEnds(calls) }
+    }
+    const plain = draw(Beam)
+    const aligned = draw(AlignedBeam)
+    // the eighth line runs to the dotted eighth's stem; the sixteenth line is a stub off the first
+    expect(aligned.ends[0]).toBe(stemRight(aligned.notes[1]))
+    expect(aligned.ends[1]).toBe(plain.ends[1])
+  })
+
+  it("AlignedGraceNoteGroup: a drag's beam ends on its second grace note's outer edge", () => {
+    const { ctx, calls } = recorder()
+    const stave = new AlignedStave(0, 0, 300)
+    const note = snare('q')
+    const graces = [0, 1].map(() => new GraceNote({ keys: ['c/5'], duration: '16', stemDirection: Stem.UP }))
+    note.addModifier(new AlignedGraceNoteGroup(graces, true).beamNotes(), 0)
+    const voice = new Voice({ numBeats: 1, beatValue: 4 }).addTickables([note])
+    new Formatter().joinVoices([voice]).formatToStave([voice], stave)
+    voice.draw(ctx, stave)
+    const ends = beamEnds(calls)
+    expect(ends.length).toBe(2)
+    for (const end of ends) expect(end).toBe(stemRight(graces[1]))
   })
 
   it("anchorStems: an up stem starts at Bravura's stemUpSE anchor, 0.168 spaces above its notehead's centre, and ends where it did", () => {

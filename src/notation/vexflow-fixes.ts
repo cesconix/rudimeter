@@ -1,4 +1,15 @@
-import { Barline, GraceNoteGroup, Stave, type StaveNote, type StaveOptions, Stem, VexFlow } from 'vexflow/bravura'
+import {
+  Barline,
+  Beam,
+  GraceNoteGroup,
+  type RenderContext,
+  Stave,
+  type StaveNote,
+  type StaveOptions,
+  Stem,
+  type StemmableNote,
+  VexFlow,
+} from 'vexflow/bravura'
 
 /*
  * Every place where VexFlow 5.0.0's geometry disagrees with the music font's, corrected in one
@@ -83,6 +94,57 @@ class AlignedBarline extends Barline {
       ctx.arc(dotX, stave.getYForLine(line), dotRadius, 0, Math.PI * 2, false)
       ctx.fill()
     }
+  }
+}
+
+/**
+ * A beam whose lines end on the outer edge of the stem they run to. VexFlow 5.0.0's `drawBeamLines`
+ * ends such a line at the stem's left edge + 1 px, the right edge of a 1 px stem, but its stems are
+ * `Stem.WIDTH`, 1.5 px: the last stem stood 0.5 px past the beam's end, a step in the beam's outer
+ * corner (measured in the gallery on all 92 beams). This is that method with those lines' end
+ * changed and nothing else: a partial beam (a sixteenth's stub) keeps VexFlow's length, and each
+ * line's y is still read at VexFlow's end.
+ */
+export class AlignedBeam extends Beam {
+  protected override drawBeamLines(ctx: RenderContext): void {
+    const stemLefts = new Set(this.notes.map((note) => note.getStemX() - Stem.WIDTH / 2))
+    const firstStemX = this.notes[0].getStemX()
+    const thickness = this.renderOptions.beamWidth * this.getStemDirection()
+    let beamY = this.getBeamYToDraw()
+    for (const duration of ['4', '8', '16', '32', '64']) {
+      for (const { start, end } of this.getBeamLines(duration)) {
+        if (end === undefined) throw new Error('AlignedBeam: a beam line with no end')
+        const x = end > start && stemLefts.has(end) ? end + Stem.WIDTH : end + 1
+        const startY = this.getSlopeY(start, firstStemX, beamY, this.slope)
+        const endY = this.getSlopeY(end, firstStemX, beamY, this.slope)
+        ctx.beginPath()
+        ctx.moveTo(start, startY)
+        ctx.lineTo(start, startY + thickness)
+        ctx.lineTo(x, endY + thickness)
+        ctx.lineTo(x, endY)
+        ctx.closePath()
+        ctx.fill()
+      }
+      beamY += thickness * 1.5
+    }
+  }
+}
+
+/**
+ * Grace notes whose beam is an `AlignedBeam`: `GraceNoteGroup.beamNotes` builds a plain `Beam`
+ * inside VexFlow, out of the engraver's reach. Its beam is rebuilt as an `AlignedBeam` over the same
+ * notes with the same options, so what VexFlow sets there (a thinner beam, a shorter stub) still holds.
+ */
+export class AlignedGraceNoteGroup extends GraceNoteGroup {
+  override beamNotes(graceNotes?: StemmableNote[]): this {
+    super.beamNotes(graceNotes)
+    this.beams = this.beams.map((beam) => {
+      if (beam instanceof AlignedBeam) return beam
+      const aligned = new AlignedBeam(beam.notes)
+      Object.assign(aligned.renderOptions, beam.renderOptions)
+      return aligned
+    })
+    return this
   }
 }
 

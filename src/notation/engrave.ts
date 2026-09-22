@@ -3,12 +3,11 @@ import {
   AnnotationVerticalJustify,
   Articulation,
   BarlineType,
-  Beam,
+  type Beam,
   Dot,
   type Element,
   Formatter,
   GraceNote,
-  GraceNoteGroup,
   Metrics,
   ModifierPosition,
   type RenderContext,
@@ -42,7 +41,7 @@ import {
   STAFF_TOP,
   SYSTEM_H,
 } from './layout'
-import { AlignedStave, anchorStems, keepRestsOnTheirLines } from './vexflow-fixes'
+import { AlignedBeam, AlignedGraceNoteGroup, AlignedStave, anchorStems, keepRestsOnTheirLines } from './vexflow-fixes'
 
 const NAMES = ['c', 'd', 'e', 'f', 'g', 'a', 'b']
 
@@ -100,7 +99,7 @@ function decorate(note: StaveNote, event: Event): void {
       { length: flam ? 1 : 2 },
       () => new GraceNote({ keys: [SNARE_KEY], duration: flam ? '8' : '16', slash: flam, stemDirection: Stem.UP }),
     )
-    note.addModifier(new GraceNoteGroup(graces, true).beamNotes(), 0)
+    note.addModifier(new AlignedGraceNoteGroup(graces, true).beamNotes(), 0)
   }
   if (event.roll?.kind === 'tremolo') note.addModifier(new Tremolo(event.roll.slashes), 0)
   if (event.roll?.kind === 'buzz') note.addModifier(new BuzzRoll(), 0)
@@ -169,7 +168,7 @@ function buildBar(layout: Layout, bar: BarLayout, meter: Meter, written: Bar): B
     if (mark === null) return
     run.push(placed[i].note)
     if (mark === 'end') {
-      beams.push(new Beam(run, false))
+      beams.push(new AlignedBeam(run, false))
       run = []
     }
   })
