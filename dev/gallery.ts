@@ -25,8 +25,8 @@ import type { Score } from '../src/score/types'
 import { barStarts, unroll } from '../src/score/unroll'
 import { CURSOR_PROBE, type Figure, GALLERY, WORST_CASE } from './gallery-scores'
 
-/** Engraves a whole score into `host` at the scale that fits its width, every row alive; the caller owns the pool. */
-function show(host: HTMLElement, score: Score, barsPerRow: Pref = 'auto'): RowPool<EngravedRow> {
+/** The layout `score` gets in `host`: the scale that fits its width, the rows justified to it. */
+function laidOut(host: HTMLElement, score: Score, barsPerRow: Pref) {
   // 0 while the host is not in layout yet: a wide fallback rather than one bar per row.
   const availW = host.clientWidth || 1200
   const f = fit(availW, Number.POSITIVE_INFINITY, { barsPerRow, zoom: 1 }, score)
@@ -34,6 +34,12 @@ function show(host: HTMLElement, score: Score, barsPerRow: Pref = 'auto'): RowPo
   // preference in the app may drop a figure's `newRow` marks, so the gallery always honours them.
   // Justified to the host like the app's rows to the frame: a figure is checked as the app draws it.
   const layout = buildLayout(score, { barsPerRow: f.barsPerRow, auto: true, fillWidth: availW / f.scale })
+  return { f, layout }
+}
+
+/** Engraves a whole score into `host` at the scale that fits its width, every row alive; the caller owns the pool. */
+function show(host: HTMLElement, score: Score, barsPerRow: Pref = 'auto'): RowPool<EngravedRow> {
+  const { f, layout } = laidOut(host, score, barsPerRow)
   host.replaceChildren()
   host.style.height = `${layout.rows.length * SYSTEM_H * f.scale}px`
   const pool = new RowPool(layout.rows.length, (r) => engraveRow(host, score, layout, layout.rows[r], f.scale))
@@ -151,6 +157,53 @@ on('measure-cursor', () => {
     `cursor: ink ${above.toFixed(1)} px above the top line, ${below.toFixed(1)} px below the bottom one (pixels, second bar); ` +
       `CURSOR_ABOVE is ${CURSOR_ABOVE}, CURSOR_BELOW is ${CURSOR_BELOW}; ` +
       `overflow above ${Math.max(0, above - CURSOR_ABOVE).toFixed(1)} px, below ${Math.max(0, below - CURSOR_BELOW).toFixed(1)} px`,
+  )
+})
+
+on('measure-edges', () => {
+  // Every row the gallery draws — the twelve figures at their hosts' width, every library piece at
+  // the library's — measured from pixels against its own box [0, width]: a row is a component with
+  // no spacing on its perimeter, so its ink must start on the left edge and end on the right one,
+  // and nothing — a bar number, a "×N", a text or a sticking letter on the last note, a tie — may
+  // leave it. Natural px: the row is drawn at scale 1, as the band is.
+  const library = document.getElementById('library') as HTMLElement
+  const jobs = [
+    ...GALLERY.map((fig) => ({
+      id: fig.id,
+      host: (document.querySelector(`#fig-${fig.id} .host`) as HTMLElement | null) ?? library,
+      score: fig.score,
+      pin: fig.barsPerRow ?? ('auto' as Pref),
+    })),
+    ...SCORES.map((score) => ({ id: `library/${score.id}`, host: library, score, pin: 'auto' as Pref })),
+  ]
+  let rows = 0
+  const worst = { outLeft: 0, outRight: 0, gapLeft: 0, gapRight: 0 }
+  const where = { outLeft: '-', outRight: '-', gapLeft: '-', gapRight: '-' }
+  const note = (key: keyof typeof worst, value: number, at: string) => {
+    if (value > worst[key]) {
+      worst[key] = value
+      where[key] = at
+    }
+  }
+  for (const job of jobs) {
+    const { layout } = laidOut(job.host, job.score, job.pin)
+    for (const row of layout.rows) {
+      rows++
+      const { left, right } = measureInk(job.score, layout, row)
+      const at = `${job.id} row ${row.index + 1}`
+      note('outLeft', -left, at)
+      note('outRight', right - row.widthNatural, at)
+      note('gapLeft', left, at)
+      note('gapRight', row.widthNatural - right, at)
+    }
+  }
+  const px = (key: keyof typeof worst) => `${worst[key].toFixed(1)} px (${where[key]})`
+  log(
+    `edges: ${rows} rows; ink out of the row at most ${px('outLeft')} on the left, ${px('outRight')} on the right; ` +
+      `blank inside the row at most ${px('gapLeft')} on the left, ${px('gapRight')} on the right; ` +
+      // A row's width is rarely a whole number of device pixels: the barline's last, partly covered
+      // column reads as painted, so anything under one device pixel is the reading, not ink.
+      `resolution ${(1 / (window.devicePixelRatio || 1)).toFixed(2)} px`,
   )
 })
 

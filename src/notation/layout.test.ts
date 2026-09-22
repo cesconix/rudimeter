@@ -3,6 +3,7 @@ import { frac } from '../score/fraction'
 import type { Bar, Event, Item, NoteBase, Score } from '../score/types'
 import {
   BAR_PAD,
+  BARLINE_OVERHANG,
   buildLayout,
   GRACE_GUTTER,
   HEAD_PX,
@@ -13,7 +14,6 @@ import {
   NOTEHEAD_PX,
   PX_PER_WHOLE,
   REST_LINE,
-  SIDE_PAD,
   SNARE_LINE,
   STAFF_BELOW,
   STAFF_H,
@@ -31,8 +31,6 @@ const piece = (bars: Bar[]): Score => ({
   bars: bars.map((b, i) => (i === 0 && !b.meter ? { meter: [4, 4], ...b } : b)),
 })
 const W = PX_PER_WHOLE
-/** where the first bar's grid starts on a row: the side pad, then the row head */
-const X0 = SIDE_PAD + HEAD_PX
 
 describe('constants', () => {
   it('the band is the sum of its parts, and the floor is under the natural notehead', () => {
@@ -59,7 +57,7 @@ describe('rows', () => {
     expect(layout.systemH).toBe(SYSTEM_H)
     expect(layout.rows[0].bars[0]).toEqual({
       barIndex: 0,
-      x: X0,
+      x: HEAD_PX,
       width: W,
       head: HEAD_PX,
       showClef: true,
@@ -68,15 +66,15 @@ describe('rows', () => {
     // A bar with neither clef nor meter still starts `BAR_PAD` after its barline: the air the row head and the meter gutter already carry.
     expect(layout.rows[0].bars[1]).toEqual({
       barIndex: 1,
-      x: X0 + W + BAR_PAD,
+      x: HEAD_PX + W + BAR_PAD,
       width: W,
       head: BAR_PAD,
       showClef: false,
       showMeter: false,
     })
-    expect(layout.rows[0].rowEndX).toBe(X0 + 4 * W + 3 * BAR_PAD)
-    expect(layout.rows[0].widthNatural).toBe(X0 + 4 * W + 3 * BAR_PAD + SIDE_PAD)
-    expect(layout.rows[2].rowEndX).toBe(X0 + 2 * W + BAR_PAD)
+    expect(layout.rows[0].rowEndX).toBe(HEAD_PX + 4 * W + 3 * BAR_PAD)
+    expect(layout.rows[0].widthNatural).toBe(HEAD_PX + 4 * W + 3 * BAR_PAD + BARLINE_OVERHANG)
+    expect(layout.rows[2].rowEndX).toBe(HEAD_PX + 2 * W + BAR_PAD)
   })
 
   it('newRow starts a row in automatic mode and is ignored when the user fixed the row', () => {
@@ -122,7 +120,7 @@ describe('rows', () => {
     })
     expect(layout.rows[1].bars[0]).toMatchObject({
       barIndex: 2,
-      x: X0,
+      x: HEAD_PX,
       head: HEAD_PX,
       showClef: true,
       showMeter: false,
@@ -143,11 +141,11 @@ describe('rows', () => {
     expect(row.map((b) => b.showMeter)).toEqual([true, true, false, false, true])
     expect(row.map((b) => b.head)).toEqual([HEAD_PX, METER_PX, BAR_PAD, BAR_PAD, METER_PX])
     expect(row.map((b) => b.x)).toEqual([
-      X0,
-      X0 + W + METER_PX,
-      X0 + W + METER_PX + (3 * W) / 4 + BAR_PAD,
-      X0 + W + METER_PX + (6 * W) / 4 + 2 * BAR_PAD,
-      X0 + W + METER_PX + (9 * W) / 4 + 2 * BAR_PAD + METER_PX,
+      HEAD_PX,
+      HEAD_PX + W + METER_PX,
+      HEAD_PX + W + METER_PX + (3 * W) / 4 + BAR_PAD,
+      HEAD_PX + W + METER_PX + (6 * W) / 4 + 2 * BAR_PAD,
+      HEAD_PX + W + METER_PX + (9 * W) / 4 + 2 * BAR_PAD + METER_PX,
     ])
     expect(layout.rows[0].rowEndX).toBe(row[4].x + row[4].width)
   })
@@ -157,7 +155,7 @@ describe('rows', () => {
     const layout = buildLayout(piece(bars), { barsPerRow: 4, auto: true })
     expect(layout.rows[1].bars[0]).toEqual({
       barIndex: 2,
-      x: X0,
+      x: HEAD_PX,
       width: (3 * W) / 4,
       head: HEAD_PX,
       showClef: true,
@@ -178,21 +176,21 @@ describe('justification', () => {
   it('without fillWidth the grid is natural: stretch 1', () => {
     const layout = buildLayout(two(), { barsPerRow: 2, auto: true })
     expect(layout.stretch).toBe(1)
-    expect(layout.rows[0].widthNatural).toBe(X0 + 2 * W + BAR_PAD + SIDE_PAD)
+    expect(layout.rows[0].widthNatural).toBe(HEAD_PX + 2 * W + BAR_PAD + BARLINE_OVERHANG)
   })
 
   it('stretches the grid so the row reaches fillWidth; heads and pads keep their size', () => {
     const fillWidth = 1000
     const layout = buildLayout(two(), { barsPerRow: 2, auto: true, fillWidth })
-    // (1000 − 8 − 83 − 12 − 8) / 768: the music takes what the fixed parts leave.
-    const s = (fillWidth - 2 * SIDE_PAD - HEAD_PX - BAR_PAD) / (2 * W)
+    // (1000 − 83 − 12 − 1) / 768: the music takes what the fixed parts leave.
+    const s = (fillWidth - HEAD_PX - BAR_PAD - BARLINE_OVERHANG) / (2 * W)
     expect(layout.stretch).toBeCloseTo(s, 10)
     expect(layout.rows[0].widthNatural).toBeCloseTo(fillWidth, 10)
-    expect(layout.rows[0].bars[0]).toMatchObject({ x: X0, width: W * s, head: HEAD_PX })
-    expect(layout.rows[0].bars[1]).toMatchObject({ x: X0 + W * s + BAR_PAD, width: W * s, head: BAR_PAD })
+    expect(layout.rows[0].bars[0]).toMatchObject({ x: HEAD_PX, width: W * s, head: HEAD_PX })
+    expect(layout.rows[0].bars[1]).toMatchObject({ x: HEAD_PX + W * s + BAR_PAD, width: W * s, head: BAR_PAD })
     // The boxes are the stretched grid's slices: the second quarter of bar 2 starts a quarter (stretched) into it.
     expect(layout.boxes.get('b1/1')).toMatchObject({
-      x: X0 + W * s + BAR_PAD + (W / 4) * s,
+      x: HEAD_PX + W * s + BAR_PAD + (W / 4) * s,
       width: (W / 4) * s,
       position: frac(5, 4),
     })
@@ -201,7 +199,7 @@ describe('justification', () => {
   it('never shrinks: a fillWidth narrower than the natural row leaves the grid natural', () => {
     const layout = buildLayout(two(), { barsPerRow: 2, auto: true, fillWidth: 500 })
     expect(layout.stretch).toBe(1)
-    expect(layout.rows[0].widthNatural).toBe(X0 + 2 * W + BAR_PAD + SIDE_PAD)
+    expect(layout.rows[0].widthNatural).toBe(HEAD_PX + 2 * W + BAR_PAD + BARLINE_OVERHANG)
   })
 
   it('one stretch for the piece, set by the row that fills first; the other rows stay shorter', () => {
@@ -211,7 +209,7 @@ describe('justification', () => {
       fillWidth: 1000,
     })
     expect(layout.rows[0].widthNatural).toBeCloseTo(1000, 10)
-    expect(layout.rows[1].widthNatural).toBeCloseTo(X0 + W * layout.stretch + SIDE_PAD, 10)
+    expect(layout.rows[1].widthNatural).toBeCloseTo(HEAD_PX + W * layout.stretch + BARLINE_OVERHANG, 10)
     expect(layout.rows[1].widthNatural).toBeLessThan(1000)
   })
 
@@ -246,15 +244,15 @@ describe('boxes', () => {
     expect(box('b0/0')).toEqual({
       id: { bar: 0, item: 0 },
       row: 0,
-      x: X0,
+      x: HEAD_PX,
       width: (3 * W) / 8,
       position: frac(0),
       length: frac(3, 8),
       rest: false,
     })
-    expect(box('b0/1')).toMatchObject({ x: X0 + (3 * W) / 8, width: W / 8, position: frac(3, 8) })
-    expect(box('b0/2')).toMatchObject({ x: X0 + W / 2, width: W / 4, position: frac(1, 2) })
-    expect(box('b0/3')).toMatchObject({ x: X0 + (3 * W) / 4, width: W / 4, position: frac(3, 4) })
+    expect(box('b0/1')).toMatchObject({ x: HEAD_PX + (3 * W) / 8, width: W / 8, position: frac(3, 8) })
+    expect(box('b0/2')).toMatchObject({ x: HEAD_PX + W / 2, width: W / 4, position: frac(1, 2) })
+    expect(box('b0/3')).toMatchObject({ x: HEAD_PX + (3 * W) / 4, width: W / 4, position: frac(3, 4) })
     expect(layout.boxes.size).toBe(4)
   })
 
@@ -263,8 +261,8 @@ describe('boxes', () => {
       barsPerRow: 4,
       auto: true,
     })
-    expect(layout.boxes.get('b0/1')).toMatchObject({ x: X0 + W / 4, width: W / 4, rest: true })
-    expect(layout.boxes.get('b0/2')).toMatchObject({ x: X0 + W / 2, width: W / 2, rest: false })
+    expect(layout.boxes.get('b0/1')).toMatchObject({ x: HEAD_PX + W / 4, width: W / 4, rest: true })
+    expect(layout.boxes.get('b0/2')).toMatchObject({ x: HEAD_PX + W / 2, width: W / 2, rest: false })
     expect(layout.boxes.size).toBe(3)
   })
 
@@ -273,13 +271,13 @@ describe('boxes', () => {
     const layout = buildLayout(piece([bar([triplet, n(4), n(4), n(4)])]), { barsPerRow: 4, auto: true })
     expect(layout.boxes.get('b0/0.0')).toMatchObject({
       id: { bar: 0, item: 0, sub: 0 },
-      x: X0,
+      x: HEAD_PX,
       width: W / 12,
       length: frac(1, 12),
     })
-    expect(layout.boxes.get('b0/0.1')).toMatchObject({ x: X0 + W / 12, position: frac(1, 12) })
-    expect(layout.boxes.get('b0/0.2')).toMatchObject({ x: X0 + W / 6, position: frac(1, 6) })
-    expect(layout.boxes.get('b0/1')).toMatchObject({ x: X0 + W / 4, position: frac(1, 4) })
+    expect(layout.boxes.get('b0/0.1')).toMatchObject({ x: HEAD_PX + W / 12, position: frac(1, 12) })
+    expect(layout.boxes.get('b0/0.2')).toMatchObject({ x: HEAD_PX + W / 6, position: frac(1, 6) })
+    expect(layout.boxes.get('b0/1')).toMatchObject({ x: HEAD_PX + W / 4, position: frac(1, 4) })
   })
 
   it('across rows a box carries its row, its x inside the row and its written position in the piece', () => {
@@ -287,11 +285,11 @@ describe('boxes', () => {
       barsPerRow: 2,
       auto: true,
     })
-    expect(layout.boxes.get('b1/0')).toMatchObject({ row: 0, x: X0 + W + BAR_PAD, position: frac(1) })
-    expect(layout.boxes.get('b2/0')).toMatchObject({ row: 1, x: X0, position: frac(2) })
+    expect(layout.boxes.get('b1/0')).toMatchObject({ row: 0, x: HEAD_PX + W + BAR_PAD, position: frac(1) })
+    expect(layout.boxes.get('b2/0')).toMatchObject({ row: 1, x: HEAD_PX, position: frac(2) })
     expect(layout.boxes.get('b3/3')).toMatchObject({
       row: 1,
-      x: X0 + W + BAR_PAD + (3 * W) / 4,
+      x: HEAD_PX + W + BAR_PAD + (3 * W) / 4,
       position: frac(15, 4),
     })
   })
@@ -306,7 +304,7 @@ describe('boxes', () => {
     const graced = buildLayout(gracedPiece, { barsPerRow: 1, auto: true })
     expect(plain.gridX0).toBe(HEAD_PX)
     expect(graced.gridX0).toBe(HEAD_PX + GRACE_GUTTER)
-    expect(graced.rows.map((r) => r.bars[0].x)).toEqual([X0 + GRACE_GUTTER, X0 + GRACE_GUTTER])
-    expect(graced.boxes.get('b1/0')?.x).toBe(X0 + GRACE_GUTTER)
+    expect(graced.rows.map((r) => r.bars[0].x)).toEqual([HEAD_PX + GRACE_GUTTER, HEAD_PX + GRACE_GUTTER])
+    expect(graced.boxes.get('b1/0')?.x).toBe(HEAD_PX + GRACE_GUTTER)
   })
 })

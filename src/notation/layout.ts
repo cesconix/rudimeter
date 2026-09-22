@@ -26,15 +26,15 @@ export const METER_PX = 53
  */
 export const GRACE_GUTTER = 24
 /**
- * Air on both sides of the row: before the first stave and after the last barline. The right side
- * was always needed — without it the end barline lands at x = width, on the SVG's edge, and its
- * thick line (drawn 2 px left of x and 1 px past it) is clipped, so the row seems to trail off.
- * The left side is the same eight pixels so the block of music sits centred in whatever draws it:
- * the app's frame, a bordered host in the gallery, a page. A row that starts on its container's
- * edge reads as cut. Sixteen pixels less music per row; the stretch absorbs them, and the one thing
- * that can move is `fit`'s bars per row, on a width within 8 px of a candidate's.
+ * A row has no spacing on its perimeter: its ink starts on the SVG's left edge (the stave's first
+ * line and barline at x = 0, the bar number anchored there) and ends on its right edge, so it sits
+ * flush in any container and the container's padding alone decides the air around it, as a
+ * design-system component does. The one thing past the last bar's end x is the end barline's own
+ * ink: VexFlow draws every end barline — single, double, final, repeat — with its rightmost pixel
+ * column at x (`fillRect(x, …, 1)`, `fillRect(x − 2, …, 3)`), so the row is 1 px wider than its
+ * grid end. Checked in the gallery ("Measure edges"): no row's ink leaves [0, width].
  */
-export const SIDE_PAD = 8
+export const BARLINE_OVERHANG = 1
 /**
  * Air between a barline and the first note of the bar that follows it. The row head (`HEAD_PX`) and
  * the meter gutter (`METER_PX`) already carry it: both were measured as VexFlow's `getNoteStartX()`
@@ -126,7 +126,7 @@ export interface BarLayout {
 export interface RowLayout {
   index: number
   bars: BarLayout[]
-  /** the SVG's width: the grid end plus the side pad */
+  /** the SVG's width: the grid end plus the end barline's overhang, so the ink ends on the edge */
   widthNatural: number
   /** where the next bar would start if the row kept going: the cursor slides to it during the wrap */
   rowEndX: number
@@ -167,7 +167,7 @@ interface Packed {
 function stretchToFill(packed: Packed[][], fillWidth: number | undefined): number {
   if (fillWidth === undefined || !Number.isFinite(fillWidth) || packed.length === 0) return 1
   const factors = packed.map((row) => {
-    const fixed = row.reduce((sum, p) => sum + p.head, 0) + 2 * SIDE_PAD
+    const fixed = row.reduce((sum, p) => sum + p.head, 0) + BARLINE_OVERHANG
     const music = row.reduce((sum, p) => sum + p.len, 0) * PX_PER_WHOLE
     return (fillWidth - fixed) / music
   })
@@ -211,7 +211,7 @@ export function buildLayout(score: Score, spec: ViewSpec): Layout {
   const layoutOfBar: BarLayout[] = []
   for (const r of packed) {
     const bars: BarLayout[] = []
-    let x = SIDE_PAD
+    let x = 0
     for (const p of r) {
       x += p.head
       const width = p.len * PX_PER_WHOLE * stretch
@@ -228,7 +228,7 @@ export function buildLayout(score: Score, spec: ViewSpec): Layout {
       rowOfBar[p.barIndex] = rows.length
       x += width
     }
-    rows.push({ index: rows.length, bars, widthNatural: x + SIDE_PAD, rowEndX: x })
+    rows.push({ index: rows.length, bars, widthNatural: x + BARLINE_OVERHANG, rowEndX: x })
   }
 
   const boxes = new Map<string, EventBox>()

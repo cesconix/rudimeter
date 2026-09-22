@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import type { Bar, Event, Item, Score } from '../score/types'
 import { fit, type Prefs } from './fit'
-import { BAR_PAD, GRACE_GUTTER, HEAD_PX, NOTEHEAD_PX, SIDE_PAD, SYSTEM_H } from './layout'
+import { BAR_PAD, BARLINE_OVERHANG, GRACE_GUTTER, HEAD_PX, NOTEHEAD_PX, SYSTEM_H } from './layout'
 
 const AUTO: Prefs = { barsPerRow: 'auto', zoom: 1 }
 /** Notehead the user sees, rounded to the tenth like the on-screen measurements. */
@@ -25,14 +25,14 @@ const STONE_FLAM = (() => {
   ;(s.bars[0].items[0] as Event).grace = { kind: 'flam' }
   return s
 })()
-/** Natural px of a row of `n` bars of 2/4: heads, pads and both side pads included. */
-const rowOf = (n: number, bar = 192) => 2 * SIDE_PAD + HEAD_PX + n * bar + (n - 1) * BAR_PAD
+/** Natural px of a row of `n` bars of 2/4: heads, pads and the end barline included. */
+const rowOf = (n: number, bar = 192) => HEAD_PX + n * bar + (n - 1) * BAR_PAD + BARLINE_OVERHANG
 
 describe('fit: bars per row', () => {
   // The widths of the old `fitLayout` table (iPhone portrait and landscape, iPad, desktop), read
   // under the rule that the fit never scales by itself: the row is the longest halving candidate
   // that fits at natural size, and the notehead stays 11.8 px on every one of them. Two bars of
-  // 2/4 are 495 px, four 903, eight 1719.
+  // 2/4 are 480 px, four 888, eight 1704.
   it.each([
     [375, 1],
     [390, 1],
@@ -65,7 +65,7 @@ describe('fit: bars per row', () => {
   })
 
   it('the zoom changes how many bars fit, never the size the music is drawn at', () => {
-    // 834 px, 2/4: two bars at 1× (495 px) and still two at 1.5× (743 px); at 2× two are 990 px, so one.
+    // 834 px, 2/4: two bars at 1× (480 px) and still two at 1.5× (720 px); at 2× two are 960 px, so one.
     expect(fit(834, 600, { barsPerRow: 'auto', zoom: 1.5 }, STONE)).toMatchObject({ barsPerRow: 2, scale: 1.5 })
     expect(fit(834, 600, { barsPerRow: 'auto', zoom: 2 }, STONE)).toMatchObject({ barsPerRow: 1, scale: 2 })
     expect(fit(834, 600, { barsPerRow: 'auto', zoom: 0.75 }, STONE)).toMatchObject({ barsPerRow: 4, scale: 0.75 })
@@ -82,7 +82,7 @@ describe('fit: bars per row', () => {
     const f = fit(150, 600, AUTO, STONE)
     expect(f.barsPerRow).toBe(1)
     expect(f.scale).toBeCloseTo(150 / rowOf(1), 5)
-    // a bar of 4/4 (483 px) on a 375 px phone
+    // a bar of 4/4 (468 px) on a 375 px phone
     expect(fit(375, 600, AUTO, piece(4, 8)).scale).toBeCloseTo(375 / rowOf(1, 384), 5)
   })
 
@@ -94,7 +94,7 @@ describe('fit: bars per row', () => {
   })
 
   it('the grace gutter takes width from the music: a bar fewer on the row, never a smaller scale', () => {
-    // 500 px, 2/4: two bars are 495 px wide without the gutter and 519 with it.
+    // 500 px, 2/4: two bars are 480 px wide without the gutter and 504 with it.
     expect(fit(500, 600, AUTO, STONE)).toMatchObject({ barsPerRow: 2, scale: 1 })
     expect(fit(500, 600, AUTO, STONE_FLAM)).toMatchObject({ barsPerRow: 1, scale: 1 })
     expect(fit(rowOf(2) + GRACE_GUTTER, 600, AUTO, STONE_FLAM)).toMatchObject({ barsPerRow: 2, scale: 1 })
