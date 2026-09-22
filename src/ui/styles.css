@@ -120,9 +120,9 @@ main.session .score-viewport {
 .score-host svg {
   display: block;
 }
-/* A band, not a barline: as wide as the notehead and as tall as it takes to cover accents and
-   sticking (measurements from `Score`, which scales them with the score). It sits OVER the music and
-   that is why it is 25% transparent: the black head and the R or the L must stay readable under it. */
+/* The time: a band, not a barline, as wide as the notehead and centred on the staff, past it by
+   `CURSOR_OVERHANG` above and below — never over what prints above or below the staff. It sits
+   OVER the music and that is why it is 25% transparent: the heads must stay readable under it. */
 .score-cursor {
   position: absolute;
   left: 0;
@@ -243,8 +243,8 @@ main.score-screen .score-viewport {
 main.score-screen .score-frame--pages .score-viewport {
   overflow-y: hidden;
 }
-/* A highlight box: the event's slice of the time grid around its heads, translucent so the heads
-   stay readable. Moved by transform, never re-rendered. */
+/* A highlight box: the sounding note's head, or its rest, framed (`highlightRects`), translucent
+   so the glyph stays readable. Moved by transform, never re-rendered. */
 .score-highlight {
   position: absolute;
   left: 0;

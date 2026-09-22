@@ -6,8 +6,7 @@ import { fit, type Pref } from '../notation/fit'
 import { notationFontsReady } from '../notation/fonts'
 import {
   buildLayout,
-  CURSOR_ABOVE,
-  CURSOR_BELOW,
+  CURSOR_OVERHANG,
   type Layout,
   NOTEHEAD_PX,
   STAFF_H,
@@ -171,7 +170,7 @@ export function ScoreView({ score, transport, now, mode, barsPerRow, onBar }: Pr
         // Pages: whole rows, or the page would turn with a sliver of the next one showing. Scroll: the frame's height.
         vp.style.height = mode === 'pages' ? `${f.rowsVisible * rowH}px` : ''
         cur.style.width = `${NOTEHEAD_PX * f.scale}px`
-        cur.style.height = `${(STAFF_H + CURSOR_ABOVE + CURSOR_BELOW) * f.scale}px`
+        cur.style.height = `${(STAFF_H + 2 * CURSOR_OVERHANG) * f.scale}px`
         // A new geometry: every slot forgets its key, so the loop re-places it at the new scale.
         for (const el of highlightRefs.current) {
           if (el) {
@@ -241,7 +240,7 @@ export function ScoreView({ score, transport, now, mode, barsPerRow, onBar }: Pr
       // The cursor: x inside the row, the row's top plus the band's offset. `rowEndX` is 0 and
       // unused: the points carry a bar-end point, so no interval of `cursorAt` crosses rows.
       const p = cursorAt(b.points, pos, 0)
-      cur.style.transform = `translate(${p.x * scale}px, ${p.row * rowH + (STAFF_TOP - CURSOR_ABOVE) * scale}px)`
+      cur.style.transform = `translate(${p.x * scale}px, ${p.row * rowH + (STAFF_TOP - CURSOR_OVERHANG) * scale}px)`
 
       // The highlights: one box per sounding event, moved only when its key changes.
       const keys = b.highlights(pos)

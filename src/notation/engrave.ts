@@ -25,12 +25,14 @@ import {
 import { resolveBeams } from '../score/beaming'
 import { type FlatEvent, flattenBar, metersOf } from '../score/events'
 import { type EventId, keyOf } from '../score/ids'
-import type { Bar, Event, Meter, Score } from '../score/types'
+import type { Bar, Event, Meter, NoteBase, Score } from '../score/types'
 import { BuzzRoll } from './buzz-roll'
 import {
   BARLINE_OVERHANG,
   type BarLayout,
   type EventBox,
+  type Ink,
+  LABEL_ABOVE,
   type Layout,
   LINE_PX,
   type RowLayout,
@@ -199,8 +201,8 @@ function placeOnGrid(formatter: Formatter, built: BuiltBar): void {
 }
 
 /**
- * Small grey text in the band above the staff, 8 px above the top line: bar numbers and the "×N" of
- * a repeat played more than twice. `x` is where the text is anchored, as CSS `text-align` would:
+ * Small grey text in the band above the staff, `LABEL_ABOVE` px above the top line: bar numbers and
+ * the "×N" of a repeat played more than twice. `x` is where the text is anchored, as CSS `text-align` would:
  * `start` puts its left edge there and a longer text grows rightwards, `end` puts its right edge
  * there and it grows leftwards — so a label on a row's edge never leaves the row, whatever it says.
  * The width comes from the context's own `measureText` in the label's font, so the SVG the app
@@ -211,7 +213,7 @@ function label(ctx: RenderContext, stave: Stave, text: string, x: number, align:
   ctx.setFont('system-ui, sans-serif', 13)
   ctx.setFillStyle('#888')
   const left = align === 'start' ? x : x - ctx.measureText(text).width
-  ctx.fillText(text, left, stave.getYForLine(0) - 8)
+  ctx.fillText(text, left, stave.getYForLine(0) - LABEL_ABOVE)
   ctx.restore()
 }
 
@@ -386,18 +388,32 @@ function measureCanvas(width: number): { canvas: HTMLCanvasElement; ctx: RenderC
   return { canvas, ctx }
 }
 
-/** The leftmost and rightmost painted columns of `canvas`, natural px in the shifted frame. */
-function inkColumns(canvas: HTMLCanvasElement): { left: number; right: number } {
+/** The painted box of `canvas`: its first and last columns and rows, natural px in the shifted frame. */
+function inkBox(canvas: HTMLCanvasElement): Ink {
   const dpr = window.devicePixelRatio || 1
   const image = (canvas.getContext('2d') as CanvasRenderingContext2D).getImageData(0, 0, canvas.width, canvas.height)
   let left = image.width
   let right = -1
-  for (let i = 3, x = 0; i < image.data.length; i += 4, x = (x + 1) % image.width) {
-    if (image.data[i] === 0) continue
-    if (x < left) left = x
-    if (x > right) right = x
+  let top = -1
+  let bottom = -1
+  for (let i = 3, x = 0, y = 0; i < image.data.length; i += 4) {
+    if (image.data[i] !== 0) {
+      if (x < left) left = x
+      if (x > right) right = x
+      if (top < 0) top = y
+      bottom = y
+    }
+    if (++x === image.width) {
+      x = 0
+      y++
+    }
   }
-  return { left: left / dpr - MEASURE_PAD, right: (right + 1) / dpr - MEASURE_PAD }
+  return {
+    left: left / dpr - MEASURE_PAD,
+    right: (right + 1) / dpr - MEASURE_PAD,
+    top: top / dpr - MEASURE_PAD,
+    bottom: (bottom + 1) / dpr - MEASURE_PAD,
+  }
 }
 
 /**
@@ -416,7 +432,7 @@ export function measureHeadInk(clef: boolean, meter: string | null, repeat: bool
   stave.setEndBarType(BarlineType.NONE)
   // VexFlow's own `draw`, which `AlignedStave.draw` extends with the lines: the lines hidden, the rest as drawn.
   Stave.prototype.draw.call(stave.setContext(ctx))
-  return inkColumns(canvas).right
+  return inkBox(canvas).right
 }
 
 /**
@@ -433,58 +449,46 @@ export function measureGraceReach(kind: 'flam' | 'drag'): number {
   new Formatter().joinVoices([voice]).formatToStave([voice], stave)
   anchorStems(note)
   voice.draw(ctx, stave)
-  return note.getNoteHeadBeginX() - inkColumns(canvas).left
+  return note.getNoteHeadBeginX() - inkBox(canvas).left
+}
+
+/**
+ * The ink of one event's glyph against the point a highlight box is placed from (`HEAD_INK`,
+ * `REST_INK`): x from where the grid puts the event (`getNoteHeadBeginX`), y from the line it sits
+ * on. A note's head alone, a rest whole. A dev measurement for the gallery; nothing in the app calls it. Needs the fonts.
+ */
+export function measureGlyphInk(base: NoteBase, rest: boolean): Ink {
+  const { canvas, ctx } = measureCanvas(400)
+  const stave = new AlignedStave(0, 0, 400)
+  const note = buildNote(rest ? { duration: { base }, rest: true } : { duration: { base } })
+  note.setStave(stave)
+  const voice = new Voice({ numBeats: 4, beatValue: 4 }).setMode(VoiceMode.SOFT).addTickables([note])
+  new Formatter().joinVoices([voice]).formatToStave([voice], stave)
+  // The stem and the flag drawn transparent: `draw` is what places the head (`drawNoteHeads` alone
+  // draws it where the note was built), and the box marks the head, not the stem.
+  const clear = { fillStyle: 'transparent', strokeStyle: 'transparent' }
+  note.setStemStyle(clear)
+  note.setFlagStyle(clear)
+  note.setContext(ctx).draw()
+  const ink = inkBox(canvas)
+  const x = note.getNoteHeadBeginX()
+  const y = note.getYs()[0]
+  return { left: ink.left - x, right: ink.right - x, top: ink.top - y, bottom: ink.bottom - y }
 }
 
 /**
  * Ink extent of one row in natural px, read from pixels: the row is drawn on an offscreen canvas
  * (VexFlow's canvas backend, through the same `engraveBar`) with room on every side of the row's
  * box, so ink that would leave it is seen instead of clipped, and the first and last painted pixel
- * rows and columns are read back — the rows inside `xRange` (natural px) when given, so the cursor
- * probe can leave the clef and the bar number out. `top`/`bottom` are against the band [0,
- * SYSTEM_H], `left`/`right` against the row's width [0, widthNatural]. `getBBox()` cannot give
- * this: VexFlow 5 draws every glyph as text, and a text box is the font's em box — measured ≈80 px
- * deeper than the ink. A dev measurement for the gallery; nothing in the app calls it.
+ * rows and columns are read back. `top`/`bottom` are against the band [0, SYSTEM_H], `left`/`right`
+ * against the row's width [0, widthNatural]. `getBBox()` cannot give this: VexFlow 5 draws every
+ * glyph as text, and a text box is the font's em box — measured ≈80 px deeper than the ink. A dev
+ * measurement for the gallery; nothing in the app calls it.
  */
-export function measureInk(
-  score: Score,
-  layout: Layout,
-  row: RowLayout,
-  xRange?: [number, number],
-): { top: number; bottom: number; left: number; right: number } {
-  const PAD = 200
-  const canvas = document.createElement('canvas')
-  const renderer = new Renderer(canvas, RendererBackends.CANVAS)
-  const width = Math.ceil(row.widthNatural) + 2 * PAD
-  const height = SYSTEM_H + 2 * PAD
-  renderer.resize(width, height)
-  const ctx = renderer.getContext()
-  const c2d = canvas.getContext('2d') as CanvasRenderingContext2D
-  // After `resize`, which applied the device pixel ratio: the shift is in natural px.
-  c2d.translate(PAD, PAD)
+export function measureInk(score: Score, layout: Layout, row: RowLayout): Ink {
+  const { canvas, ctx } = measureCanvas(Math.ceil(row.widthNatural))
   const meters = metersOf(score)
   const span: BarSpan = {}
   for (const bar of row.bars) engraveBar(ctx, score, layout, row, bar, meters, span)
-  const dpr = window.devicePixelRatio || 1
-  const image = c2d.getImageData(0, 0, canvas.width, canvas.height)
-  const x0 = xRange ? Math.max(0, Math.floor((xRange[0] + PAD) * dpr)) : 0
-  const x1 = xRange ? Math.min(image.width, Math.ceil((xRange[1] + PAD) * dpr)) : image.width
-  let top = -1
-  let bottom = -1
-  let left = image.width
-  let right = -1
-  // One pass over the alpha channel: the vertical extent inside `xRange`, the horizontal one over
-  // every column — it is the whole row's.
-  for (let y = 0, i = 3; y < image.height; y++) {
-    for (let x = 0; x < image.width; x++, i += 4) {
-      if (image.data[i] === 0) continue
-      if (x < left) left = x
-      if (x > right) right = x
-      if (x >= x0 && x < x1) {
-        if (top < 0) top = y
-        bottom = y + 1
-      }
-    }
-  }
-  return { top: top / dpr - PAD, bottom: bottom / dpr - PAD, left: left / dpr - PAD, right: (right + 1) / dpr - PAD }
+  return inkBox(canvas)
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import { flattenBar } from '../src/score/events'
 import { isTuplet } from '../src/score/types'
-import { CURSOR_PROBE, GALLERY, WORST_CASE } from './gallery-scores'
+import { GALLERY, WORST_CASE } from './gallery-scores'
 
 // Importing the module already runs every figure through `parseScore`; this pins the rest.
 describe('gallery scores', () => {
@@ -31,13 +31,9 @@ describe('gallery scores', () => {
     ])
   })
 
-  it('the worst case and the cursor probe validate and are not coverage rows', () => {
+  it('the worst case validates and is not a coverage row', () => {
     expect(WORST_CASE.id).toBe('worst-case')
-    expect(CURSOR_PROBE.id).toBe('cursor-probe')
-    expect(GALLERY.some((f) => f.id === 'worst-case' || f.id === 'cursor-probe')).toBe(false)
-    // The probe: two bars of 1/4, a quarter with R in each — the second bar is the one measured.
-    expect(CURSOR_PROBE.score.bars.map((b) => flattenBar(b).map((f) => f.event.sticking))).toEqual([['R'], ['R']])
-    expect(CURSOR_PROBE.score.bars[0].meter).toEqual([1, 4])
+    expect(GALLERY.some((f) => f.id === 'worst-case')).toBe(false)
   })
 
   it('the worst case stacks every mark the band must fit, on two rows', () => {

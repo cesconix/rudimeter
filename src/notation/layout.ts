@@ -99,15 +99,56 @@ export const MIN_NOTEHEAD_PX = 8
 export const SNARE_LINE = 2.5
 export const restLine = (base: NoteBase): number => (base === 1 ? 3 : 2)
 
+/** How far above the top line the grey labels (bar numbers, a repeat's "×N") sit on their baseline, natural px. */
+export const LABEL_ABOVE = 8
+
 /**
- * How far the cursor band overflows above and below the staff, natural px, so the band marks the
- * NOTE — head, stem and sticking letter — and not just the staff; semi-transparent (`.score-cursor`)
- * so the head stays readable underneath. Measured 2026-09-21 (gallery, "Measure cursor", Chrome on
- * the Mac at dpr 2) on a quarter with its R: the stem tip 20.0 px above the top line, the letter's
- * bottom 24.0 px below the bottom one, plus 4 px of air: 24 / 28.
+ * How far the cursor band reaches past the staff, above and below alike, natural px: the band is the
+ * time, centred on the staff, and runs over nothing but it — the highlight box, not the band, says
+ * which note sounds. Half the labels' height, so it stops under their baseline (their digits and "×"
+ * have no descender); the stems' tips, beams, accents, tuplet brackets and texts are higher still,
+ * the sticking letters lower (the gallery figures with the cursor drawn over them, 2026-09-22: with
+ * the band 24 px above the top line and 28 below, to cover the stem and the letter, a group of
+ * 32nds' beams ran across its top edge, a septuplet's bracket touched it, the "×N" was half under
+ * it, and the band hung below the staff).
  */
-export const CURSOR_ABOVE = 24
-export const CURSOR_BELOW = 28
+export const CURSOR_OVERHANG = LABEL_ABOVE / 2
+
+/** A glyph's ink around a point, natural px: `left`/`right` from its x, `top`/`bottom` from its y (down is positive). */
+export interface Ink {
+  left: number
+  right: number
+  top: number
+  bottom: number
+}
+
+/** The black notehead's ink, which the half note's head shares (Bravura draws both 1.18 spaces wide). */
+const BLACK_HEAD: Ink = { left: -0.5, right: 12, top: -5.5, bottom: 5 }
+
+/**
+ * The ink of the snare's head, per written value, and of each rest, around the point the layout
+ * puts the event at: x from its grid x (where the engraver starts its head, `placeOnGrid`), y from
+ * its line (`SNARE_LINE`, `restLine`). A highlight box frames this ink. Measured 2026-09-22 (gallery,
+ * "Measure highlight", Chrome on the Mac at dpr 2, so to the half pixel, antialiasing included): a head
+ * is the glyph alone, without its stem and flag; the rests differ in size, a sixteenth reaching two
+ * spaces below its line, a 32nd 1.75 above.
+ */
+export const HEAD_INK: Record<NoteBase, Ink> = {
+  1: { left: -0.5, right: 17.5, top: -5.5, bottom: 5 },
+  2: BLACK_HEAD,
+  4: BLACK_HEAD,
+  8: BLACK_HEAD,
+  16: BLACK_HEAD,
+  32: BLACK_HEAD,
+}
+export const REST_INK: Record<NoteBase, Ink> = {
+  1: { left: -0.5, right: 11.5, top: -1, bottom: 5.5 },
+  2: { left: -0.5, right: 11.5, top: -6, bottom: 0.5 },
+  4: { left: -0.5, right: 11, top: -15.5, bottom: 15 },
+  8: { left: -0.5, right: 10.5, top: -7.5, bottom: 10.5 },
+  16: { left: -0.5, right: 13, top: -7.5, bottom: 20 },
+  32: { left: -0.5, right: 15, top: -17.5, bottom: 20 },
+}
 
 export interface ViewSpec {
   barsPerRow: number

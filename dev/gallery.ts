@@ -6,6 +6,7 @@ import { SCORES } from '../src/data/scores'
 import {
   type EngravedRow,
   engraveRow,
+  measureGlyphInk,
   measureGraceReach,
   measureHead,
   measureHeadInk,
@@ -18,14 +19,15 @@ import {
   BAR_PAD,
   buildLayout,
   CLEF_PX,
-  CURSOR_ABOVE,
-  CURSOR_BELOW,
   DRAG_PX,
   FLAM_PX,
+  HEAD_INK,
   HEAD_PX,
+  type Ink,
   METER_PX,
   REPEAT_BAR_PX,
   REPEAT_PX,
+  REST_INK,
   STAFF_H,
   STAFF_TOP,
   SYSTEM_H,
@@ -34,9 +36,9 @@ import { playbackBarAt } from '../src/notation/overlay'
 import { deferEnsure, RowPool } from '../src/notation/rows'
 import { toNumber } from '../src/score/fraction'
 import { buildTimeMap } from '../src/score/timemap'
-import type { Score } from '../src/score/types'
+import type { NoteBase, Score } from '../src/score/types'
 import { barStarts, unroll } from '../src/score/unroll'
-import { CURSOR_PROBE, type Figure, GALLERY, WORST_CASE } from './gallery-scores'
+import { type Figure, GALLERY, WORST_CASE } from './gallery-scores'
 
 /**
  * The layout `score` gets in `host`: the rows justified to its width, as the app's to the frame, so
@@ -226,25 +228,21 @@ on('measure-band', () => {
   )
 })
 
-on('measure-cursor', () => {
-  const host = document.getElementById('cursor') as HTMLElement
-  const layout = buildLayout(CURSOR_PROBE.score, { barsPerRow: 2, auto: true })
-  host.replaceChildren()
-  host.style.height = `${SYSTEM_H}px`
-  engraveRow(host, CURSOR_PROBE.score, layout, layout.rows[0], 1)
-  // The second bar only: the first carries the clef, the signature and the bar number, which the cursor does not cover.
-  const second = layout.rows[0].bars[1]
-  const { top, bottom } = measureInk(CURSOR_PROBE.score, layout, layout.rows[0], [
-    second.x - second.head,
-    second.x + second.width,
-  ])
-  const above = STAFF_TOP - top
-  const below = bottom - (STAFF_TOP + STAFF_H)
-  log(
-    `cursor: ink ${above.toFixed(1)} px above the top line, ${below.toFixed(1)} px below the bottom one (pixels, second bar); ` +
-      `CURSOR_ABOVE is ${CURSOR_ABOVE}, CURSOR_BELOW is ${CURSOR_BELOW}; ` +
-      `overflow above ${Math.max(0, above - CURSOR_ABOVE).toFixed(1)} px, below ${Math.max(0, below - CURSOR_BELOW).toFixed(1)} px`,
+on('measure-highlight', () => {
+  // The glyphs a highlight box frames, from pixels, against the tables the overlay reads.
+  const BASES: NoteBase[] = [1, 2, 4, 8, 16, 32]
+  const ink = (i: Ink) => `${i.left}…${i.right} × ${i.top}…${i.bottom}`
+  let worst = 0
+  const glyphs = BASES.flatMap((base) =>
+    [false, true].map((rest) => {
+      const measured = measureGlyphInk(base, rest)
+      const table = (rest ? REST_INK : HEAD_INK)[base]
+      for (const side of ['left', 'right', 'top', 'bottom'] as const)
+        worst = Math.max(worst, Math.abs(measured[side] - table[side]))
+      return `${rest ? 'rest' : 'head'} ${base} ${ink(measured)} against ${ink(table)}`
+    }),
   )
+  log(`highlight: ${glyphs.join('; ')} — largest difference ${worst.toFixed(1)} px`)
 })
 
 on('measure-edges', () => {

@@ -4,7 +4,17 @@ import { type EventId, keyOf, playbackKey } from '../score/ids'
 import type { Score } from '../score/types'
 import type { PlaybackBar, PlaybackEvent } from '../score/unroll'
 import type { CursorPoint } from './cursor'
-import { type BarLayout, type Layout, LINE_PX, restLine, SNARE_LINE, STAFF_LINES, STAFF_TOP } from './layout'
+import {
+  type BarLayout,
+  HEAD_INK,
+  type Layout,
+  LINE_PX,
+  REST_INK,
+  restLine,
+  SNARE_LINE,
+  STAFF_LINES,
+  STAFF_TOP,
+} from './layout'
 
 /**
  * Everything here is in PLAYBACK POSITION (whole-note units), never seconds: inside a row x is
@@ -98,24 +108,30 @@ export const highlightAt = (events: PlaybackEvent[], position: number): string[]
 
 export interface HighlightRect {
   row: number
-  /** natural px inside the row: the event's slice of the time grid, padded */
+  /** natural px inside the row: the event's head or rest, padded */
   x: number
   width: number
-  /** natural px from the row top: the line the head sits on, padded */
+  /** natural px from the row top: the same glyph, padded */
   y: number
   height: number
 }
 
-/** Air around a highlight box, natural px: enough to clear the head, not enough to reach the neighbour. */
-export const HIGHLIGHT_PAD = 4
+/**
+ * Air between a glyph's ink and its highlight box, natural px: the head shows inside a frame. On the
+ * tightest grid — a 32nd at natural size, heads 12 px apart — the box reaches 3.5 px under each
+ * neighbour's head: a head's width, not a note's time, is what the box marks.
+ */
+export const HIGHLIGHT_PAD = 3
 
 /** y of a staff line counted from the bottom (`SNARE_LINE`, `restLine`), natural px from the row top. */
 const lineY = (line: number): number => STAFF_TOP + (STAFF_LINES - 1 - line) * LINE_PX
 
 /**
- * One rectangle per event of every emitted bar, keyed by playback key: a stroke's on the snare's
- * line, a rest's on its rest line, half a line space above and below plus the pad. Geometry only:
- * nothing here reads the SVG.
+ * One rectangle per event of every emitted bar, keyed by playback key: the ink of a stroke's head on
+ * the snare's line, of a rest on its rest line (`HEAD_INK`, `REST_INK`), plus the pad — the note that
+ * sounds, never its time: the cursor band says where the time is. A dot, a flam's grace notes, a
+ * roll's slashes stay outside: they belong to the note, but the box marks where it is. Geometry
+ * only: nothing here reads the SVG.
  */
 export function highlightRects(score: Score, layout: Layout, playback: PlaybackBar[]): Map<string, HighlightRect> {
   const out = new Map<string, HighlightRect>()
@@ -125,15 +141,15 @@ export function highlightRects(score: Score, layout: Layout, playback: PlaybackB
       if (f.sub !== undefined) id.sub = f.sub
       const box = layout.boxes.get(keyOf(id))
       if (!box) continue
-      const line = f.event.rest ? restLine(f.event.duration.base) : SNARE_LINE
-      const top = lineY(line) - LINE_PX / 2 - HIGHLIGHT_PAD
-      const bottom = lineY(line) + LINE_PX / 2 + HIGHLIGHT_PAD
+      const { base } = f.event.duration
+      const ink = f.event.rest ? REST_INK[base] : HEAD_INK[base]
+      const y = lineY(f.event.rest ? restLine(base) : SNARE_LINE)
       out.set(playbackKey(id, pb.pass), {
         row: box.row,
-        x: box.x - HIGHLIGHT_PAD,
-        width: box.width + 2 * HIGHLIGHT_PAD,
-        y: top,
-        height: bottom - top,
+        x: box.x + ink.left - HIGHLIGHT_PAD,
+        width: ink.right - ink.left + 2 * HIGHLIGHT_PAD,
+        y: y + ink.top - HIGHLIGHT_PAD,
+        height: ink.bottom - ink.top + 2 * HIGHLIGHT_PAD,
       })
     }
   }
