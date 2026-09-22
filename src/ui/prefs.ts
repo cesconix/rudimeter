@@ -7,9 +7,8 @@ export type ViewMode = 'scroll' | 'pages'
 /** What the user fixed about the view, kept across sessions. Both layout preferences default to automatic (spec). */
 export interface ViewPrefs {
   mode: ViewMode
+  /** a ceiling on the bars that fit (`fit`): the music is always drawn at its natural size */
   barsPerRow: Pref
-  /** magnification of the natural size, the user's alone: the layout never zooms by itself, it stretches the grid to the width */
-  zoom: number
   /** one bpm for every piece: it counts the beat of the meter (`beatOf` in the time map), so every piece runs at it */
   bpm: number
 }
@@ -18,12 +17,9 @@ export const PREFS_KEY = 'rudimeter.view'
 export const DEFAULT_PREFS: ViewPrefs = {
   mode: 'scroll',
   barsPerRow: 'auto',
-  zoom: 1,
   bpm: DEFAULT_BPM,
 }
 export const BARS_PER_ROW_CHOICES: readonly Pref[] = ['auto', 1, 2, 4, 8]
-/** Steps the eye can tell apart; 2× is a bar of 4/4 at 950 px, past which even a landscape iPad shows one bar per row. */
-export const ZOOM_CHOICES: readonly number[] = [0.75, 1, 1.25, 1.5, 2]
 
 const pick = <T>(choices: readonly T[], value: unknown, fallback: T): T => choices.find((c) => c === value) ?? fallback
 
@@ -47,7 +43,6 @@ export function parsePrefs(raw: string | null): ViewPrefs {
   return {
     mode: p.mode === 'pages' ? 'pages' : 'scroll',
     barsPerRow: pick(BARS_PER_ROW_CHOICES, p.barsPerRow, DEFAULT_PREFS.barsPerRow),
-    zoom: pick(ZOOM_CHOICES, p.zoom, DEFAULT_PREFS.zoom),
     bpm,
   }
 }

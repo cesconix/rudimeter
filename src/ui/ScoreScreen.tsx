@@ -3,7 +3,6 @@ import { audibleTime } from '../audio/clock'
 import { createAudioContext, ensureRunning } from '../audio/context'
 import { type Clock, Transport } from '../audio/transport'
 import { SCORES } from '../data/scores'
-import type { Prefs } from '../notation/fit'
 import { loadPrefs, savePrefs, type ViewPrefs } from './prefs'
 import { ScorePicker } from './ScorePicker'
 import { ScoreView } from './ScoreView'
@@ -37,11 +36,6 @@ export function ScoreScreen() {
   // One transport per piece; the bpm follows the preferences from then on (see `update`).
   // biome-ignore lint/correctness/useExhaustiveDependencies: prefs.bpm seeds the transport, it does not rebuild it — setBpm keeps the position.
   const transport = useMemo(() => new Transport(clock, score, prefs.bpm), [clock, score])
-  // Only the two layout preferences reach the view: a new object there is a re-layout, and a bpm change must not be one.
-  const layoutPrefs = useMemo<Prefs>(
-    () => ({ barsPerRow: prefs.barsPerRow, zoom: prefs.zoom }),
-    [prefs.barsPerRow, prefs.zoom],
-  )
   // The AUDIBLE clock for the drawing (src/audio/clock.ts): the cursor stays with the sound going out.
   const now = useCallback(() => (ctxRef.current ? audibleTime(ctxRef.current) : 0), [])
 
@@ -111,7 +105,14 @@ export function ScoreScreen() {
           </button>
         )}
       </div>
-      <ScoreView score={score} transport={transport} now={now} mode={prefs.mode} prefs={layoutPrefs} onBar={setBar} />
+      <ScoreView
+        score={score}
+        transport={transport}
+        now={now}
+        mode={prefs.mode}
+        barsPerRow={prefs.barsPerRow}
+        onBar={setBar}
+      />
       <TransportBar
         transport={transport}
         bar={bar}
