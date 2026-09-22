@@ -58,7 +58,7 @@ export const GALLERY: Figure[] = [
   figure(
     'rests',
     'Rests, one per value, dotted, inside a beamed group',
-    'A whole rest; a half rest then a half; quarter and quarter rest alternating; eighth + eighth rest four times (no beams: each beat has one note); sixteenths beamed over the sixteenth rest between them; a thirty-second rest opening a group of thirty-seconds; a dotted quarter rest + eighth + half rest. Every rest on the middle line.',
+    'A whole rest; a half rest then a half; quarter and quarter rest alternating; eighth + eighth rest four times (no beams: each beat has one note); sixteenths beamed over the sixteenth rest between them; a thirty-second rest opening a group of thirty-seconds; a dotted quarter rest + eighth + half rest. The whole rest hangs from the fourth line; every other rest is on the middle line, the ones under a beam included — both sixteenth rests of a beat at the same height.',
     [
       bar([R(1)]),
       bar([R(2), N(2)]),
@@ -72,7 +72,7 @@ export const GALLERY: Figure[] = [
   figure(
     'tuplets',
     'Tuplets: 3:2 eighths, 5:4 / 6:4 / 7:4 sixteenths, a quarter-note triplet, a rest inside a triplet',
-    'A plain "3" over each eighth triplet (no ratio), "5", "6", "7" over the sixteenth groups, each group beamed as one unit inside its quarter and never joined to the neighbours; the quarter triplet bracketed with no beam; the rest inside the last triplet keeps its place under the bracket; a sextuplet of eighths spanning two beats, one bracket and one beam over the six.',
+    'A plain "3" over each eighth triplet (no ratio), "5", "6", "7" over the sixteenth groups, each group beamed as one unit inside its quarter and never joined to the neighbours; the quarter triplet bracketed with no beam; the rest inside the last triplet stays on the middle line under the bracket; a sextuplet of eighths spanning two beats, one bracket and one beam over the six.',
     [
       bar([T(3, 2, [N(8), N(8), N(8)]), N(4), T(3, 2, [N(8), N(8), N(8)]), N(4)]),
       bar([

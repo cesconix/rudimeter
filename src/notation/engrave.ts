@@ -3,18 +3,17 @@ import {
   AnnotationVerticalJustify,
   Articulation,
   BarlineType,
-  Beam,
+  type Beam,
   Dot,
   type Element,
   Formatter,
   GraceNote,
-  GraceNoteGroup,
   Metrics,
   ModifierPosition,
   type RenderContext,
   Renderer,
   RendererBackends,
-  Stave,
+  type Stave,
   StaveNote,
   StaveTie,
   Stem,
@@ -34,14 +33,15 @@ import {
   type EventBox,
   type Layout,
   LINE_PX,
-  REST_LINE,
   type RowLayout,
+  restLine,
   SNARE_LINE,
   STAFF_H,
   STAFF_LINES,
   STAFF_TOP,
   SYSTEM_H,
 } from './layout'
+import { AlignedBeam, AlignedGraceNoteGroup, AlignedStave, anchorStems, keepRestsOnTheirLines } from './vexflow-fixes'
 
 const NAMES = ['c', 'd', 'e', 'f', 'g', 'a', 'b']
 
@@ -56,9 +56,8 @@ export function keyForLine(line: number): string {
   return `${name}/${octave}`
 }
 
-/** Every stroke on the snare's line, every rest on the middle line: one staff, one voice, stems up. */
+/** Every stroke on the snare's line, every rest on its rest line: one staff, one voice, stems up. */
 const SNARE_KEY = keyForLine(SNARE_LINE)
-const REST_KEY = keyForLine(REST_LINE)
 
 export interface EngravedRow {
   el: SVGSVGElement
@@ -100,7 +99,7 @@ function decorate(note: StaveNote, event: Event): void {
       { length: flam ? 1 : 2 },
       () => new GraceNote({ keys: [SNARE_KEY], duration: flam ? '8' : '16', slash: flam, stemDirection: Stem.UP }),
     )
-    note.addModifier(new GraceNoteGroup(graces, true).beamNotes(), 0)
+    note.addModifier(new AlignedGraceNoteGroup(graces, true).beamNotes(), 0)
   }
   if (event.roll?.kind === 'tremolo') note.addModifier(new Tremolo(event.roll.slashes), 0)
   if (event.roll?.kind === 'buzz') note.addModifier(new BuzzRoll(), 0)
@@ -110,7 +109,13 @@ function buildNote(event: Event): StaveNote {
   const dots = event.duration.dots ?? 0
   const duration = String(event.duration.base)
   const note = event.rest
-    ? new StaveNote({ keys: [REST_KEY], duration, dots, type: 'r', stemDirection: Stem.UP })
+    ? new StaveNote({
+        keys: [keyForLine(restLine(event.duration.base))],
+        duration,
+        dots,
+        type: 'r',
+        stemDirection: Stem.UP,
+      })
     : new StaveNote({ keys: [SNARE_KEY], duration, dots, stemDirection: Stem.UP })
   // One `buildAndAttach` call draws one dot: the struct's `dots` only set the ticks, so a double dot needs two calls.
   for (let i = 0; i < dots; i++) Dot.buildAndAttach([note], { all: true })
@@ -163,7 +168,7 @@ function buildBar(layout: Layout, bar: BarLayout, meter: Meter, written: Bar): B
     if (mark === null) return
     run.push(placed[i].note)
     if (mark === 'end') {
-      beams.push(new Beam(run, false))
+      beams.push(new AlignedBeam(run, false))
       run = []
     }
   })
@@ -267,7 +272,7 @@ function engraveBar(
   const meter = meters[bar.barIndex]
   // `spaceAboveStaffLn` is in line spaces: it is what VexFlow reads to place the first line inside
   // the band, so it must move with STAFF_TOP — the band is the layout's, the staff's place in it is VexFlow's.
-  const stave = new Stave(bar.x - bar.head, 0, bar.head + bar.width, {
+  const stave = new AlignedStave(bar.x - bar.head, 0, bar.head + bar.width, {
     numLines: STAFF_LINES,
     spaceAboveStaffLn: STAFF_TOP / LINE_PX,
     spaceBelowStaffLn: (SYSTEM_H - STAFF_TOP - STAFF_H) / LINE_PX,
@@ -299,11 +304,15 @@ function engraveBar(
   // Formatted and drawn in two passes, not `Formatter.FormatAndDraw`: the grid runs between the two.
   const formatter = new Formatter().joinVoices([built.vf])
   formatter.formatToStave([built.vf], stave)
+  // Formatting moved the beamed rests, the tuplets moved theirs: back where the score writes them.
+  keepRestsOnTheirLines(built.placed.map((p) => p.note))
   placeOnGrid(formatter, built)
   const first = row.bars[0] === bar
   const lastBar = row.bars[row.bars.length - 1] === bar
   // Ties are drawn after the notes so they sit over the noteheads, not under them.
   const spanned = spanBar(score, bar, built, span, first, lastBar)
+  // Last, just before any stem is drawn — the voice draws the free ones, the beams the rest.
+  for (const p of built.placed) anchorStems(p.note)
   built.vf.draw(ctx, stave)
   for (const b of built.beams) b.setContext(ctx).draw()
   for (const t of built.tuplets) t.setContext(ctx).draw()
@@ -357,7 +366,7 @@ export function measurePad(): number {
  * the signature are glyphs.
  */
 export function measureHead(clef: boolean, meter: string | null): number {
-  const stave = new Stave(0, 0, 400)
+  const stave = new AlignedStave(0, 0, 400)
   if (clef) stave.addClef('percussion')
   if (meter) stave.addTimeSignature(meter)
   return stave.getNoteStartX() + Metrics.get('Stave.padding', 0)

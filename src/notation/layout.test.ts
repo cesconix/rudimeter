@@ -13,7 +13,7 @@ import {
   MIN_NOTEHEAD_PX,
   NOTEHEAD_PX,
   PX_PER_WHOLE,
-  REST_LINE,
+  restLine,
   SNARE_LINE,
   STAFF_BELOW,
   STAFF_H,
@@ -41,9 +41,10 @@ describe('constants', () => {
     expect(STAFF_TOP % LINE_PX).toBe(0)
     expect(STAFF_BELOW % LINE_PX).toBe(0)
   })
-  it('the snare sits in the third space and a rest on the middle line', () => {
+  it('the snare sits in the third space, a rest on the middle line, a whole rest hanging from the fourth', () => {
     expect(SNARE_LINE).toBe(2.5)
-    expect(REST_LINE).toBe(2)
+    for (const base of [2, 4, 8, 16, 32] as const) expect(restLine(base)).toBe(2)
+    expect(restLine(1)).toBe(3)
   })
 })
 

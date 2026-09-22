@@ -12,7 +12,7 @@ import {
   LINE_PX,
   METER_PX,
   PX_PER_WHOLE,
-  REST_LINE,
+  restLine,
   SNARE_LINE,
   STAFF_TOP,
 } from './layout'
@@ -217,12 +217,18 @@ describe('highlightRects', () => {
       row: 0,
       x: HEAD_PX + Q - HIGHLIGHT_PAD,
       width: Q + 2 * HIGHLIGHT_PAD,
-      y: y(REST_LINE) - LINE_PX / 2 - HIGHLIGHT_PAD,
+      y: y(restLine(4)) - LINE_PX / 2 - HIGHLIGHT_PAD,
       height: LINE_PX + 2 * HIGHLIGHT_PAD,
     })
     // a half note's slice is half the bar
     expect(rects.get('b0/2@1')?.width).toBe(W / 2 + 2 * HIGHLIGHT_PAD)
     expect(rects.size).toBe(3)
+  })
+
+  it("a whole rest's box is on the fourth line, the one it hangs from", () => {
+    const score = piece([bar([R(1)])])
+    const layout = buildLayout(score, { barsPerRow: 1, auto: true })
+    expect(highlightRects(score, layout, unroll(score)).get('b0/0@1')?.y).toBe(y(3) - LINE_PX / 2 - HIGHLIGHT_PAD)
   })
 
   it('every pass of a repeat has its rects, on the bar row', () => {
