@@ -10,12 +10,14 @@ import {
   buildLayout,
   CLEF_PX,
   DRAG_PX,
+  HEAD_INK,
   HEAD_PX,
   LINE_PX,
   METER_PX,
   PX_PER_WHOLE,
   REPEAT_BAR_PX,
   REPEAT_PX,
+  REST_INK,
   restLine,
   SNARE_LINE,
   STAFF_TOP,
@@ -221,33 +223,62 @@ describe('highlightAt / transportHighlights', () => {
 describe('highlightRects', () => {
   const y = (line: number) => STAFF_TOP + (4 - line) * LINE_PX
 
-  it("a stroke's box spans the snare's line, a rest's the middle line, each the event's slice of the grid, padded", () => {
+  it("a stroke's box frames its head on the snare's line, a rest's the rest on its line, padded — never the event's time", () => {
     const score = piece([bar([N(4), R(4), N(2)])])
     const layout = buildLayout(score, { barsPerRow: 1, auto: true })
     const rects = highlightRects(score, layout, unroll(score))
+    const head = HEAD_INK[4]
     expect(rects.get('b0/0@1')).toEqual({
       row: 0,
-      x: HEAD_PX - HIGHLIGHT_PAD,
-      width: Q + 2 * HIGHLIGHT_PAD,
-      y: y(SNARE_LINE) - LINE_PX / 2 - HIGHLIGHT_PAD,
-      height: LINE_PX + 2 * HIGHLIGHT_PAD,
+      x: HEAD_PX + head.left - HIGHLIGHT_PAD,
+      width: head.right - head.left + 2 * HIGHLIGHT_PAD,
+      y: y(SNARE_LINE) + head.top - HIGHLIGHT_PAD,
+      height: head.bottom - head.top + 2 * HIGHLIGHT_PAD,
     })
+    const rest = REST_INK[4]
     expect(rects.get('b0/1@1')).toEqual({
       row: 0,
-      x: HEAD_PX + Q - HIGHLIGHT_PAD,
-      width: Q + 2 * HIGHLIGHT_PAD,
-      y: y(restLine(4)) - LINE_PX / 2 - HIGHLIGHT_PAD,
-      height: LINE_PX + 2 * HIGHLIGHT_PAD,
+      x: HEAD_PX + Q + rest.left - HIGHLIGHT_PAD,
+      width: rest.right - rest.left + 2 * HIGHLIGHT_PAD,
+      y: y(restLine(4)) + rest.top - HIGHLIGHT_PAD,
+      height: rest.bottom - rest.top + 2 * HIGHLIGHT_PAD,
     })
-    // a half note's slice is half the bar
-    expect(rects.get('b0/2@1')?.width).toBe(W / 2 + 2 * HIGHLIGHT_PAD)
+    // a half note's box is its head's, however long it sounds
+    expect(rects.get('b0/2@1')?.width).toBe(rects.get('b0/0@1')?.width)
     expect(rects.size).toBe(3)
   })
 
-  it("a whole rest's box is on the fourth line, the one it hangs from", () => {
+  it('a box is as wide as its glyph: a whole head is wider than a black one, a 32nd rest wider and taller than a quarter rest', () => {
+    const score = piece([bar([N(1)]), bar([R(4), R(32), R(32), R(32), R(32), R(32), R(32), R(4), R(4), R(16)])])
+    const layout = buildLayout(score, { barsPerRow: 2, auto: true })
+    const rects = highlightRects(score, layout, unroll(score))
+    const w = (key: string) => rects.get(key)?.width ?? 0
+    const h = (key: string) => rects.get(key)?.height ?? 0
+    expect(w('b0/0@1')).toBe(HEAD_INK[1].right - HEAD_INK[1].left + 2 * HIGHLIGHT_PAD)
+    expect(w('b0/0@1')).toBeGreaterThan(HEAD_INK[4].right - HEAD_INK[4].left + 2 * HIGHLIGHT_PAD)
+    expect(w('b1/1@1')).toBeGreaterThan(w('b1/0@1'))
+    expect(h('b1/1@1')).toBeGreaterThan(h('b1/0@1'))
+  })
+
+  it("a whole rest's box hangs from the fourth line, the one its glyph hangs from", () => {
     const score = piece([bar([R(1)])])
     const layout = buildLayout(score, { barsPerRow: 1, auto: true })
-    expect(highlightRects(score, layout, unroll(score)).get('b0/0@1')?.y).toBe(y(3) - LINE_PX / 2 - HIGHLIGHT_PAD)
+    expect(highlightRects(score, layout, unroll(score)).get('b0/0@1')?.y).toBe(y(3) + REST_INK[1].top - HIGHLIGHT_PAD)
+  })
+
+  it('a box reaches no further than its pad under a neighbour, even on the tightest grid: 32nds at natural size', () => {
+    const score = piece([bar(Array.from({ length: 32 }, () => N(32)))])
+    const layout = buildLayout(score, { barsPerRow: 1, auto: true })
+    const rects = highlightRects(score, layout, unroll(score))
+    const head = HEAD_INK[32]
+    for (let i = 1; i < 31; i++) {
+      const r = rects.get(`b0/${i}@1`)
+      const prev = layout.boxes.get(`b0/${i - 1}`)
+      const next = layout.boxes.get(`b0/${i + 1}`)
+      if (!r || !prev || !next) throw new Error('missing box')
+      expect(prev.x + head.right - r.x).toBeLessThanOrEqual(HIGHLIGHT_PAD + 0.5)
+      expect(r.x + r.width - (next.x + head.left)).toBeLessThanOrEqual(HIGHLIGHT_PAD + 0.5)
+    }
   })
 
   it('every pass of a repeat has its rects, on the bar row', () => {

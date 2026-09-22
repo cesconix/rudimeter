@@ -340,15 +340,3 @@ export const WORST_CASE: Figure = figure(
   ],
   2,
 )
-
-/**
- * The cursor band's source: a quarter with its sticking, in two bars of 1/4 on one row. The band
- * must cover the head, the stem and the letter; "Measure cursor" reads the ink of the SECOND bar —
- * the first carries the clef, the signature and the grey bar number, which are not the note's.
- */
-export const CURSOR_PROBE: Figure = figure(
-  'cursor-probe',
-  'Cursor probe',
-  'A quarter with R, twice; the second bar is what "Measure cursor" reads.',
-  [bar([N(4, { sticking: 'R' })], { meter: [1, 4] }), bar([N(4, { sticking: 'R' })])],
-)

@@ -7,9 +7,11 @@ import {
   barHeads,
   buildLayout,
   CLEF_PX,
+  CURSOR_OVERHANG,
   DRAG_PX,
   FLAM_PX,
   HEAD_PX,
+  LABEL_ABOVE,
   LINE_PX,
   METER_PX,
   MIN_NOTEHEAD_PX,
@@ -49,6 +51,10 @@ describe('constants', () => {
     expect(SNARE_LINE).toBe(2.5)
     for (const base of [2, 4, 8, 16, 32] as const) expect(restLine(base)).toBe(2)
     expect(restLine(1)).toBe(3)
+  })
+  it("the cursor band reaches past the staff by as much above as below, and stops under the labels' baseline", () => {
+    expect(CURSOR_OVERHANG).toBeGreaterThan(0)
+    expect(CURSOR_OVERHANG).toBeLessThan(LABEL_ABOVE)
   })
 })
 
