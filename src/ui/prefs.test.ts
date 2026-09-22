@@ -1,23 +1,21 @@
 import { describe, expect, it } from 'bun:test'
 import { memoryStore } from '../audio/storage'
-import { BARS_PER_ROW_CHOICES, DEFAULT_PREFS, loadPrefs, PREFS_KEY, parsePrefs, savePrefs, ZOOM_CHOICES } from './prefs'
+import { BARS_PER_ROW_CHOICES, DEFAULT_PREFS, loadPrefs, PREFS_KEY, parsePrefs, savePrefs } from './prefs'
 
-// The transport bar reads these two to build its bars-per-row and zoom controls; pinned here so
-// the choices they offer are covered next to the parser that accepts them.
-describe('BARS_PER_ROW_CHOICES / ZOOM_CHOICES', () => {
-  it('list the choices a control offers: bars default to auto, the zoom to 1', () => {
+// The transport bar reads this to build its bars-per-row control; pinned here so the choices it
+// offers are covered next to the parser that accepts them.
+describe('BARS_PER_ROW_CHOICES', () => {
+  it('lists the choices the control offers, automatic by default', () => {
     expect(BARS_PER_ROW_CHOICES).toEqual(['auto', 1, 2, 4, 8])
-    expect(ZOOM_CHOICES).toEqual([0.75, 1, 1.25, 1.5, 2])
-    expect(DEFAULT_PREFS.zoom).toBe(1)
+    expect(DEFAULT_PREFS.barsPerRow).toBe('auto')
   })
 })
 
 describe('parsePrefs', () => {
   it('reads a stored object field by field', () => {
-    expect(parsePrefs(JSON.stringify({ mode: 'pages', barsPerRow: 2, zoom: 1.5, bpm: 84 }))).toEqual({
+    expect(parsePrefs(JSON.stringify({ mode: 'pages', barsPerRow: 2, bpm: 84 }))).toEqual({
       mode: 'pages',
       barsPerRow: 2,
-      zoom: 1.5,
       bpm: 84,
     })
   })
@@ -27,13 +25,11 @@ describe('parsePrefs', () => {
     expect(parsePrefs('')).toEqual(DEFAULT_PREFS)
     expect(parsePrefs('{not json')).toEqual(DEFAULT_PREFS)
     expect(parsePrefs('[1, 2]')).toEqual(DEFAULT_PREFS)
-    expect(parsePrefs(JSON.stringify({ mode: 'diagonal', barsPerRow: 3, zoom: 3, bpm: 'fast' }))).toEqual(DEFAULT_PREFS)
+    expect(parsePrefs(JSON.stringify({ mode: 'diagonal', barsPerRow: 3, bpm: 'fast' }))).toEqual(DEFAULT_PREFS)
     // a valid field next to a broken one survives
     expect(parsePrefs(JSON.stringify({ mode: 'pages', bpm: -5 }))).toEqual({ ...DEFAULT_PREFS, mode: 'pages' })
-    // a zoom outside the choices — a hand edit, a future step — is the default, not a free magnification
-    expect(parsePrefs(JSON.stringify({ zoom: 0.9 })).zoom).toBe(1)
-    // the rows-per-screen field of the previous shape is ignored, the rest read
-    expect(parsePrefs(JSON.stringify({ mode: 'pages', rowsPerViewport: 3, bpm: 84 }))).toEqual({
+    // the fields of previous shapes — rows per screen, the zoom — are ignored, the rest read
+    expect(parsePrefs(JSON.stringify({ mode: 'pages', rowsPerViewport: 3, zoom: 1.5, bpm: 84 }))).toEqual({
       ...DEFAULT_PREFS,
       mode: 'pages',
       bpm: 84,

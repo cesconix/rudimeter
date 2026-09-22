@@ -9,7 +9,7 @@ Live: https://rudimeter.com
 ## How it works
 
 1. **Pick a piece** from the library: exercises written in the sticking language, pieces imported from MusicXML.
-2. **Set the tempo** — the bpm counts the beat of the meter: a quarter in 4/4, a dotted quarter in 6/8 — and choose how the page follows the cursor — scrolling, or turning pages — how many bars go on a row (automatic by default: as many as fit at the size you chose) and the zoom. The music is drawn at its natural size and stretched to the width of the screen; only you make it bigger or smaller, and a rotation re-spaces it without re-sizing it.
+2. **Set the tempo** — the bpm counts the beat of the meter: a quarter in 4/4, a dotted quarter in 6/8 — and choose how the page follows the cursor — scrolling, or turning pages — and how many bars go on a row at most (automatic by default: as many as fit). The music is always drawn at the same size and stretched to the width of the screen: a rotation re-spaces it without re-sizing it.
 3. **Play.** The cursor moves at constant speed on a time grid; every sounding event lights up as it passes; a tap on a bar starts from there.
 
 The practice-pad session — calibration, click, and every stroke graded from the microphone — is parked on the dev page `/dev/session.html` while the score is rebuilt; it comes back as another layer on this score.

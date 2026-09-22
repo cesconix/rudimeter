@@ -2,7 +2,7 @@ import { type MouseEvent, useCallback, useEffect, useRef, useState } from 'react
 import type { Transport } from '../audio/transport'
 import { type CursorPoint, cursorAt } from '../notation/cursor'
 import { type EngravedRow, engraveRow } from '../notation/engrave'
-import { fit, type Prefs } from '../notation/fit'
+import { fit, type Pref } from '../notation/fit'
 import { notationFontsReady } from '../notation/fonts'
 import {
   buildLayout,
@@ -32,8 +32,8 @@ interface Props {
   /** the AUDIBLE clock of the app's context (`audibleTime`); 0 before the first Play, when the transport holds still anyway */
   now: () => number
   mode: ViewMode
-  /** only the two layout preferences: a new object here is a re-layout */
-  prefs: Prefs
+  /** the one layout preference: a change here is a re-layout, a bpm change is not one */
+  barsPerRow: Pref
   /** the written bar the cursor is on, called when it changes */
   onBar: (barIndex: number) => void
 }
@@ -91,7 +91,7 @@ function rowWindow(mode: ViewMode, b: Built, scrollTop: number, viewportH: numbe
  * position — writing transforms on elements it holds by ref. Nothing here re-renders React per
  * frame; the two pieces of React state (`size`, `following`) change on a resize and on a gesture.
  */
-export function ScoreView({ score, transport, now, mode, prefs, onBar }: Props) {
+export function ScoreView({ score, transport, now, mode, barsPerRow, onBar }: Props) {
   const frameRef = useRef<HTMLDivElement>(null)
   const viewportRef = useRef<HTMLDivElement>(null)
   const hostRef = useRef<HTMLDivElement>(null)
@@ -158,11 +158,11 @@ export function ScoreView({ score, transport, now, mode, prefs, onBar }: Props) 
     notationFontsReady()
       .then(() => {
         if (cancelled) return
-        const f = fit(size.w, size.h, prefs, score)
+        const f = fit(size.w, size.h, barsPerRow, score)
         // `fillWidth`: the rows are justified to the frame, so a resize or a rotation re-spaces the music, never re-sizes it.
         const layout = buildLayout(score, {
           barsPerRow: f.barsPerRow,
-          auto: prefs.barsPerRow === 'auto',
+          auto: barsPerRow === 'auto',
           fillWidth: size.w / f.scale,
         })
         const rowH = SYSTEM_H * f.scale
@@ -215,7 +215,7 @@ export function ScoreView({ score, transport, now, mode, prefs, onBar }: Props) 
       built.current?.pool.invalidate()
       built.current = null
     }
-  }, [score, transport, size, mode, prefs, now])
+  }, [score, transport, size, mode, barsPerRow, now])
 
   // The frame loop. `dt` for the damping comes from the rAF timestamp: it is a visual constant,
   // not music timing, and the audio clock does not exist before the first Play, when a tap on a

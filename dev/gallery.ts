@@ -4,7 +4,7 @@
 
 import { SCORES } from '../src/data/scores'
 import { type EngravedRow, engraveRow, measureHead, measureInk, measurePad } from '../src/notation/engrave'
-import { fit, type Pref } from '../src/notation/fit'
+import { fit } from '../src/notation/fit'
 import { notationFontsReady } from '../src/notation/fonts'
 import {
   BAR_PAD,
@@ -25,24 +25,35 @@ import type { Score } from '../src/score/types'
 import { barStarts, unroll } from '../src/score/unroll'
 import { CURSOR_PROBE, type Figure, GALLERY, WORST_CASE } from './gallery-scores'
 
-/** The layout `score` gets in `host`: the scale that fits its width, the rows justified to it. */
-function laidOut(host: HTMLElement, score: Score, barsPerRow: Pref) {
+/**
+ * The layout `score` gets in `host`: the rows justified to its width, as the app's to the frame, so
+ * a figure is checked as the app draws it. A figure's pin is the exception: its sentence names the
+ * barlines on a row, so the row holds that many bars at every width, shrunk when they do not fit —
+ * where the app, whose bars per row is a ceiling (`fit`), would wrap them. A pin fixes how many bars
+ * a row takes, never its breaks: only a user's saved preference in the app may drop a figure's
+ * `newRow` marks, so the gallery always honours them.
+ */
+function laidOut(host: HTMLElement, score: Score, pin?: number) {
   // 0 while the host is not in layout yet: a wide fallback rather than one bar per row.
   const availW = host.clientWidth || 1200
-  const f = fit(availW, Number.POSITIVE_INFINITY, { barsPerRow, zoom: 1 }, score)
-  // A pin fixes the row's WIDTH (how many bars fit), never its row breaks: only a user's saved
-  // preference in the app may drop a figure's `newRow` marks, so the gallery always honours them.
-  // Justified to the host like the app's rows to the frame: a figure is checked as the app draws it.
-  const layout = buildLayout(score, { barsPerRow: f.barsPerRow, auto: true, fillWidth: availW / f.scale })
-  return { f, layout }
+  if (pin === undefined) {
+    const f = fit(availW, Number.POSITIVE_INFINITY, 'auto', score)
+    return {
+      scale: f.scale,
+      layout: buildLayout(score, { barsPerRow: f.barsPerRow, auto: true, fillWidth: availW / f.scale }),
+    }
+  }
+  const natural = buildLayout(score, { barsPerRow: pin, auto: true })
+  const scale = Math.min(1, availW / Math.max(...natural.rows.map((r) => r.widthNatural)))
+  return { scale, layout: buildLayout(score, { barsPerRow: pin, auto: true, fillWidth: availW / scale }) }
 }
 
 /** Engraves a whole score into `host` at the scale that fits its width, every row alive; the caller owns the pool. */
-function show(host: HTMLElement, score: Score, barsPerRow: Pref = 'auto'): RowPool<EngravedRow> {
-  const { f, layout } = laidOut(host, score, barsPerRow)
+function show(host: HTMLElement, score: Score, pin?: number): RowPool<EngravedRow> {
+  const { scale, layout } = laidOut(host, score, pin)
   host.replaceChildren()
-  host.style.height = `${layout.rows.length * SYSTEM_H * f.scale}px`
-  const pool = new RowPool(layout.rows.length, (r) => engraveRow(host, score, layout, layout.rows[r], f.scale))
+  host.style.height = `${layout.rows.length * SYSTEM_H * scale}px`
+  const pool = new RowPool(layout.rows.length, (r) => engraveRow(host, score, layout, layout.rows[r], scale))
   pool.ensure(0, layout.rows.length - 1)
   return pool
 }
@@ -77,7 +88,8 @@ interface Panel {
   id: string
   host: HTMLElement
   score: Score
-  barsPerRow: Pref
+  /** the figure's bars per row, exact (`laidOut`); none draws it as the app would */
+  pin?: number
   pool?: RowPool<EngravedRow>
 }
 const panels: Panel[] = []
@@ -88,7 +100,7 @@ function draw(panel: Panel): void {
   panel.pool?.invalidate()
   panel.pool = undefined
   try {
-    panel.pool = show(panel.host, panel.score, panel.barsPerRow)
+    panel.pool = show(panel.host, panel.score, panel.pin)
   } catch (err) {
     // One broken figure must not hide the others: the page keeps going and says which one failed.
     log(`${panel.id}: ${String(err)}`)
@@ -104,7 +116,7 @@ const sections = document.getElementById('sections') as HTMLElement
 for (const fig of GALLERY) {
   const { el, host } = section(fig)
   sections.appendChild(el)
-  const panel: Panel = { id: fig.id, host, score: fig.score, barsPerRow: fig.barsPerRow ?? 'auto' }
+  const panel: Panel = { id: fig.id, host, score: fig.score, pin: fig.barsPerRow }
   panels.push(panel)
   draw(panel)
 }
@@ -120,7 +132,6 @@ const library: Panel = {
   id: 'library',
   host: document.getElementById('library') as HTMLElement,
   score: SCORES[0],
-  barsPerRow: 'auto',
 }
 panels.push(library)
 const showPicked = () => {
@@ -215,9 +226,9 @@ on('measure-edges', () => {
       id: fig.id,
       host: (document.querySelector(`#fig-${fig.id} .host`) as HTMLElement | null) ?? library,
       score: fig.score,
-      pin: fig.barsPerRow ?? ('auto' as Pref),
+      pin: fig.barsPerRow,
     })),
-    ...SCORES.map((score) => ({ id: `library/${score.id}`, host: library, score, pin: 'auto' as Pref })),
+    ...SCORES.map((score) => ({ id: `library/${score.id}`, host: library, score, pin: undefined })),
   ]
   let rows = 0
   const worst = { outLeft: 0, outRight: 0, gapLeft: 0, gapRight: 0 }
@@ -253,7 +264,7 @@ on('measure-edges', () => {
 /** Engraves `score` into `host` with every row timed; returns what the motion loop needs. */
 function timed(host: HTMLElement, viewport: HTMLElement, score: Score) {
   const availW = viewport.clientWidth || 1200
-  const f = fit(availW, viewport.clientHeight || 3 * SYSTEM_H, { barsPerRow: 'auto', zoom: 1 }, score)
+  const f = fit(availW, viewport.clientHeight || 3 * SYSTEM_H, 'auto', score)
   const layout = buildLayout(score, { barsPerRow: f.barsPerRow, auto: true, fillWidth: availW / f.scale })
   const rowH = SYSTEM_H * f.scale
   host.replaceChildren()
