@@ -13,10 +13,14 @@ import {
   METER_PX,
   PX_PER_WHOLE,
   REST_LINE,
+  SIDE_PAD,
   SNARE_LINE,
   STAFF_TOP,
 } from './layout'
 import { cursorPoints, HIGHLIGHT_PAD, highlightAt, highlightRects, playbackBarAt, transportHighlights } from './overlay'
+
+/** where the first bar's grid starts on a row: the side pad, then the row head */
+const X0 = SIDE_PAD + HEAD_PX
 
 const N = (base: NoteBase, extra: Partial<Event> = {}): Event => ({ duration: { base }, ...extra })
 const R = (base: NoteBase): Event => ({ duration: { base }, rest: true })
@@ -48,32 +52,32 @@ describe('cursorPoints', () => {
     const layout = buildLayout(score, { barsPerRow: 1, auto: true })
     const pts = cursorPoints(layout, score, unroll(score))
     expect(pts).toEqual([
-      { t: 0, x: HEAD_PX, row: 0 },
-      { t: 0.25, x: HEAD_PX + Q, row: 0 },
-      { t: 0.5, x: HEAD_PX + 2 * Q, row: 0 },
-      { t: 0.75, x: HEAD_PX + 3 * Q, row: 0 },
+      { t: 0, x: X0, row: 0 },
+      { t: 0.25, x: X0 + Q, row: 0 },
+      { t: 0.5, x: X0 + 2 * Q, row: 0 },
+      { t: 0.75, x: X0 + 3 * Q, row: 0 },
       // the end of bar 1 is the row's rowEndX; then bar 2 starts again from the left on row 1
-      { t: 1, x: HEAD_PX + W, row: 0 },
-      { t: 1, x: HEAD_PX, row: 1 },
-      { t: 1.25, x: HEAD_PX + Q, row: 1 },
-      { t: 1.5, x: HEAD_PX + 2 * Q, row: 1 },
-      { t: 1.75, x: HEAD_PX + 3 * Q, row: 1 },
-      { t: 2, x: HEAD_PX + W, row: 1 },
+      { t: 1, x: X0 + W, row: 0 },
+      { t: 1, x: X0, row: 1 },
+      { t: 1.25, x: X0 + Q, row: 1 },
+      { t: 1.5, x: X0 + 2 * Q, row: 1 },
+      { t: 1.75, x: X0 + 3 * Q, row: 1 },
+      { t: 2, x: X0 + W, row: 1 },
     ])
-    expect(layout.rows[0].rowEndX).toBe(HEAD_PX + W)
+    expect(layout.rows[0].rowEndX).toBe(X0 + W)
   })
 
   it('two bars on one row: the end of bar 1 slides through the pad to the start of bar 2, one point', () => {
     const score = piece([bar(q4()), bar(q4())])
     const layout = buildLayout(score, { barsPerRow: 2, auto: true })
     const pts = cursorPoints(layout, score, unroll(score))
-    // Not the barline (HEAD_PX + W): the end point sits on bar 2's grid start, so the last quarter's
+    // Not the barline (X0 + W): the end point sits on bar 2's grid start, so the last quarter's
     // slide covers the barline and the pad; bar 2's first event lands on the same point right after it.
     expect(pts.filter((p) => p.t === 1)).toEqual([
-      { t: 1, x: HEAD_PX + W + BAR_PAD, row: 0 },
-      { t: 1, x: HEAD_PX + W + BAR_PAD, row: 0 },
+      { t: 1, x: X0 + W + BAR_PAD, row: 0 },
+      { t: 1, x: X0 + W + BAR_PAD, row: 0 },
     ])
-    expect(pts[pts.length - 1]).toEqual({ t: 2, x: HEAD_PX + 2 * W + BAR_PAD, row: 0 })
+    expect(pts[pts.length - 1]).toEqual({ t: 2, x: X0 + 2 * W + BAR_PAD, row: 0 })
   })
 
   it('a repeat back over a padded bar keeps the jump: the end point stays on the barline', () => {
@@ -83,10 +87,10 @@ describe('cursorPoints', () => {
     const score = piece([bar(q4(), { repeat: { start: true } }), bar(q4(), { repeat: { end: {} } }), bar(q4())])
     const layout = buildLayout(score, { barsPerRow: 4, auto: true })
     const pts = cursorPoints(layout, score, unroll(score))
-    const bar2End = HEAD_PX + 2 * W + BAR_PAD
+    const bar2End = X0 + 2 * W + BAR_PAD
     expect(pts.filter((p) => p.t === 2)).toEqual([
       { t: 2, x: bar2End, row: 0 },
-      { t: 2, x: HEAD_PX, row: 0 },
+      { t: 2, x: X0, row: 0 },
     ])
     expect(pts.filter((p) => p.t === 4)).toEqual([
       { t: 4, x: bar2End + BAR_PAD, row: 0 },
@@ -99,8 +103,8 @@ describe('cursorPoints', () => {
     const layout = buildLayout(score, { barsPerRow: 2, auto: true })
     const pts = cursorPoints(layout, score, unroll(score))
     expect(pts.filter((p) => p.t === 1)).toEqual([
-      { t: 1, x: HEAD_PX + W, row: 0 },
-      { t: 1, x: HEAD_PX + W + METER_PX, row: 0 },
+      { t: 1, x: X0 + W, row: 0 },
+      { t: 1, x: X0 + W + METER_PX, row: 0 },
     ])
   })
 
@@ -110,8 +114,8 @@ describe('cursorPoints', () => {
     const pts = cursorPoints(layout, score, unroll(score))
     expect(pts.map((p) => p.t)).toEqual([0, 0.25, 0.5, 0.75, 1, 1, 1.25, 1.5, 1.75, 2])
     expect(pts.every((p) => p.row === 0)).toBe(true)
-    expect(pts[4]).toEqual({ t: 1, x: HEAD_PX + W, row: 0 })
-    expect(pts[5]).toEqual({ t: 1, x: HEAD_PX, row: 0 })
+    expect(pts[4]).toEqual({ t: 1, x: X0 + W, row: 0 })
+    expect(pts[5]).toEqual({ t: 1, x: X0, row: 0 })
   })
 
   it('the points never go back in time and no interval crosses rows: a bar-end point closes every emitted bar, whole library', () => {
@@ -208,14 +212,14 @@ describe('highlightRects', () => {
     const rects = highlightRects(score, layout, unroll(score))
     expect(rects.get('b0/0@1')).toEqual({
       row: 0,
-      x: HEAD_PX - HIGHLIGHT_PAD,
+      x: X0 - HIGHLIGHT_PAD,
       width: Q + 2 * HIGHLIGHT_PAD,
       y: y(SNARE_LINE) - LINE_PX / 2 - HIGHLIGHT_PAD,
       height: LINE_PX + 2 * HIGHLIGHT_PAD,
     })
     expect(rects.get('b0/1@1')).toEqual({
       row: 0,
-      x: HEAD_PX + Q - HIGHLIGHT_PAD,
+      x: X0 + Q - HIGHLIGHT_PAD,
       width: Q + 2 * HIGHLIGHT_PAD,
       y: y(REST_LINE) - LINE_PX / 2 - HIGHLIGHT_PAD,
       height: LINE_PX + 2 * HIGHLIGHT_PAD,

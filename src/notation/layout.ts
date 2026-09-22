@@ -26,10 +26,15 @@ export const METER_PX = 53
  */
 export const GRACE_GUTTER = 24
 /**
- * Right of the last bar. Without it the end barline lands at x = width, on the SVG's edge, and is
- * clipped: the row seems to trail off. Eight pixels cover even the final barline, which is thick.
+ * Air on both sides of the row: before the first stave and after the last barline. The right side
+ * was always needed — without it the end barline lands at x = width, on the SVG's edge, and its
+ * thick line (drawn 2 px left of x and 1 px past it) is clipped, so the row seems to trail off.
+ * The left side is the same eight pixels so the block of music sits centred in whatever draws it:
+ * the app's frame, a bordered host in the gallery, a page. A row that starts on its container's
+ * edge reads as cut. Sixteen pixels less music per row; the stretch absorbs them, and the one thing
+ * that can move is `fit`'s bars per row, on a width within 8 px of a candidate's.
  */
-export const RIGHT_PAD = 8
+export const SIDE_PAD = 8
 /**
  * Air between a barline and the first note of the bar that follows it. The row head (`HEAD_PX`) and
  * the meter gutter (`METER_PX`) already carry it: both were measured as VexFlow's `getNoteStartX()`
@@ -121,7 +126,7 @@ export interface BarLayout {
 export interface RowLayout {
   index: number
   bars: BarLayout[]
-  /** the SVG's width: the grid end plus the right pad */
+  /** the SVG's width: the grid end plus the side pad */
   widthNatural: number
   /** where the next bar would start if the row kept going: the cursor slides to it during the wrap */
   rowEndX: number
@@ -162,7 +167,7 @@ interface Packed {
 function stretchToFill(packed: Packed[][], fillWidth: number | undefined): number {
   if (fillWidth === undefined || !Number.isFinite(fillWidth) || packed.length === 0) return 1
   const factors = packed.map((row) => {
-    const fixed = row.reduce((sum, p) => sum + p.head, 0) + RIGHT_PAD
+    const fixed = row.reduce((sum, p) => sum + p.head, 0) + 2 * SIDE_PAD
     const music = row.reduce((sum, p) => sum + p.len, 0) * PX_PER_WHOLE
     return (fillWidth - fixed) / music
   })
@@ -206,7 +211,7 @@ export function buildLayout(score: Score, spec: ViewSpec): Layout {
   const layoutOfBar: BarLayout[] = []
   for (const r of packed) {
     const bars: BarLayout[] = []
-    let x = 0
+    let x = SIDE_PAD
     for (const p of r) {
       x += p.head
       const width = p.len * PX_PER_WHOLE * stretch
@@ -223,7 +228,7 @@ export function buildLayout(score: Score, spec: ViewSpec): Layout {
       rowOfBar[p.barIndex] = rows.length
       x += width
     }
-    rows.push({ index: rows.length, bars, widthNatural: x + RIGHT_PAD, rowEndX: x })
+    rows.push({ index: rows.length, bars, widthNatural: x + SIDE_PAD, rowEndX: x })
   }
 
   const boxes = new Map<string, EventBox>()

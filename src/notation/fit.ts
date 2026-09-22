@@ -1,7 +1,7 @@
 import { barLength, metersOf } from '../score/events'
 import { toNumber } from '../score/fraction'
 import type { Score } from '../score/types'
-import { BAR_PAD, GRACE_GUTTER, HEAD_PX, hasGrace, PX_PER_WHOLE, RIGHT_PAD, SYSTEM_H } from './layout'
+import { BAR_PAD, GRACE_GUTTER, HEAD_PX, hasGrace, PX_PER_WHOLE, SIDE_PAD, SYSTEM_H } from './layout'
 
 export type Pref = number | 'auto'
 export interface Prefs {
@@ -26,7 +26,7 @@ const pref = (p: Pref): number | 'auto' => (p === 'auto' || !Number.isFinite(p) 
  *
  * The music is drawn at its natural size times the user's zoom, and nothing else decides the size.
  * Automatic bars per row is the longest candidate whose widest possible row — that many bars of the
- * piece's largest meter, heads, pads and right pad included — fits the width at that zoom, never
+ * piece's largest meter, heads, pads and side pads included — fits the width at that zoom, never
  * more bars than the piece has; the width left over is the layout's to fill, by stretching the time
  * grid (`buildLayout`, `fillWidth`), never the scale's. Halving candidates keep a two-bar pattern
  * whole on the row.
@@ -50,7 +50,7 @@ export function fit(availW: number, availH: number, prefs: Prefs, score: Score):
   // `|| PX_PER_WHOLE`: a piece with no bars has no meter; it does not happen past `parseScore`, but the function is exported.
   const widestBar = Math.max(0, ...metersOf(score).map((m) => toNumber(barLength(m)))) * PX_PER_WHOLE || PX_PER_WHOLE
   // Every bar after the first on a row starts with `BAR_PAD` of air before its grid.
-  const widestRow = (n: number) => Math.min(n, total) * (widestBar + BAR_PAD) - BAR_PAD + gridX0 + RIGHT_PAD
+  const widestRow = (n: number) => Math.min(n, total) * (widestBar + BAR_PAD) - BAR_PAD + gridX0 + 2 * SIDE_PAD
   const fits = (n: number) => widestRow(n) * zoom <= w
   const barsPerRow = bars === 'auto' ? Math.min(total, CANDIDATES.find(fits) ?? 1) : bars
   const scale = Math.min(zoom, w / widestRow(barsPerRow))

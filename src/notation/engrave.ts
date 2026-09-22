@@ -270,8 +270,9 @@ function engraveBar(
   else if (bar.barIndex === score.bars.length - 1) stave.setEndBarType(BarlineType.END)
   stave.setContext(ctx).draw()
   // Only at the start of the row: with twenty identical repeats it is the only thing that says WHERE
-  // you are. Above the staff, not to the left — the left has the clef. Written bar numbers, 1-based.
-  if (bar.showClef) label(ctx, stave, String(bar.barIndex + 1), 0)
+  // you are. Above the staff, not to the left — the left has the clef — and at the stave's own x,
+  // which starts `SIDE_PAD` into the row, not on the SVG's edge. Written bar numbers, 1-based.
+  if (bar.showClef) label(ctx, stave, String(bar.barIndex + 1), stave.getX())
   // A repeat played more than twice: the sign cannot say it, the text above its end barline does.
   const times = written.repeat?.end?.times ?? 0
   // 24 px: "×3" is 16.2 px wide in 13 px system-ui, plus 8 px of air before the barline.
