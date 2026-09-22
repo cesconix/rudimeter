@@ -3,6 +3,7 @@ import { frac } from '../score/fraction'
 import type { Bar, Event, Item, NoteBase, Score } from '../score/types'
 import {
   BAR_PAD,
+  BARLINE_OVERHANG,
   buildLayout,
   GRACE_GUTTER,
   HEAD_PX,
@@ -13,7 +14,6 @@ import {
   NOTEHEAD_PX,
   PX_PER_WHOLE,
   REST_LINE,
-  RIGHT_PAD,
   SNARE_LINE,
   STAFF_BELOW,
   STAFF_H,
@@ -73,7 +73,7 @@ describe('rows', () => {
       showMeter: false,
     })
     expect(layout.rows[0].rowEndX).toBe(HEAD_PX + 4 * W + 3 * BAR_PAD)
-    expect(layout.rows[0].widthNatural).toBe(HEAD_PX + 4 * W + 3 * BAR_PAD + RIGHT_PAD)
+    expect(layout.rows[0].widthNatural).toBe(HEAD_PX + 4 * W + 3 * BAR_PAD + BARLINE_OVERHANG)
     expect(layout.rows[2].rowEndX).toBe(HEAD_PX + 2 * W + BAR_PAD)
   })
 
@@ -176,14 +176,14 @@ describe('justification', () => {
   it('without fillWidth the grid is natural: stretch 1', () => {
     const layout = buildLayout(two(), { barsPerRow: 2, auto: true })
     expect(layout.stretch).toBe(1)
-    expect(layout.rows[0].widthNatural).toBe(HEAD_PX + 2 * W + BAR_PAD + RIGHT_PAD)
+    expect(layout.rows[0].widthNatural).toBe(HEAD_PX + 2 * W + BAR_PAD + BARLINE_OVERHANG)
   })
 
   it('stretches the grid so the row reaches fillWidth; heads and pads keep their size', () => {
     const fillWidth = 1000
     const layout = buildLayout(two(), { barsPerRow: 2, auto: true, fillWidth })
-    // (1000 − 83 − 12 − 8) / 768: the music takes what the fixed parts leave.
-    const s = (fillWidth - HEAD_PX - BAR_PAD - RIGHT_PAD) / (2 * W)
+    // (1000 − 83 − 12 − 1) / 768: the music takes what the fixed parts leave.
+    const s = (fillWidth - HEAD_PX - BAR_PAD - BARLINE_OVERHANG) / (2 * W)
     expect(layout.stretch).toBeCloseTo(s, 10)
     expect(layout.rows[0].widthNatural).toBeCloseTo(fillWidth, 10)
     expect(layout.rows[0].bars[0]).toMatchObject({ x: HEAD_PX, width: W * s, head: HEAD_PX })
@@ -199,7 +199,7 @@ describe('justification', () => {
   it('never shrinks: a fillWidth narrower than the natural row leaves the grid natural', () => {
     const layout = buildLayout(two(), { barsPerRow: 2, auto: true, fillWidth: 500 })
     expect(layout.stretch).toBe(1)
-    expect(layout.rows[0].widthNatural).toBe(HEAD_PX + 2 * W + BAR_PAD + RIGHT_PAD)
+    expect(layout.rows[0].widthNatural).toBe(HEAD_PX + 2 * W + BAR_PAD + BARLINE_OVERHANG)
   })
 
   it('one stretch for the piece, set by the row that fills first; the other rows stay shorter', () => {
@@ -209,7 +209,7 @@ describe('justification', () => {
       fillWidth: 1000,
     })
     expect(layout.rows[0].widthNatural).toBeCloseTo(1000, 10)
-    expect(layout.rows[1].widthNatural).toBeCloseTo(HEAD_PX + W * layout.stretch + RIGHT_PAD, 10)
+    expect(layout.rows[1].widthNatural).toBeCloseTo(HEAD_PX + W * layout.stretch + BARLINE_OVERHANG, 10)
     expect(layout.rows[1].widthNatural).toBeLessThan(1000)
   })
 

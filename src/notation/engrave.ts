@@ -29,6 +29,7 @@ import { type EventId, keyOf } from '../score/ids'
 import type { Bar, Event, Meter, Score } from '../score/types'
 import { BuzzRoll } from './buzz-roll'
 import {
+  BARLINE_OVERHANG,
   type BarLayout,
   type EventBox,
   type Layout,
@@ -192,12 +193,20 @@ function placeOnGrid(formatter: Formatter, built: BuiltBar): void {
   }
 }
 
-/** Small grey text in the band above the staff, 8 px above the top line: bar numbers and the "×N" of a repeat played more than twice. */
-function label(ctx: RenderContext, stave: Stave, text: string, x: number): void {
+/**
+ * Small grey text in the band above the staff, 8 px above the top line: bar numbers and the "×N" of
+ * a repeat played more than twice. `x` is where the text is anchored, as CSS `text-align` would:
+ * `start` puts its left edge there and a longer text grows rightwards, `end` puts its right edge
+ * there and it grows leftwards — so a label on a row's edge never leaves the row, whatever it says.
+ * The width comes from the context's own `measureText` in the label's font, so the SVG the app
+ * draws and the canvas `measureInk` reads agree.
+ */
+function label(ctx: RenderContext, stave: Stave, text: string, x: number, align: 'start' | 'end'): void {
   ctx.save()
   ctx.setFont('system-ui, sans-serif', 13)
   ctx.setFillStyle('#888')
-  ctx.fillText(text, x, stave.getYForLine(0) - 8)
+  const left = align === 'start' ? x : x - ctx.measureText(text).width
+  ctx.fillText(text, left, stave.getYForLine(0) - 8)
   ctx.restore()
 }
 
@@ -270,12 +279,13 @@ function engraveBar(
   else if (bar.barIndex === score.bars.length - 1) stave.setEndBarType(BarlineType.END)
   stave.setContext(ctx).draw()
   // Only at the start of the row: with twenty identical repeats it is the only thing that says WHERE
-  // you are. Above the staff, not to the left — the left has the clef. Written bar numbers, 1-based.
-  if (bar.showClef) label(ctx, stave, String(bar.barIndex + 1), 0)
-  // A repeat played more than twice: the sign cannot say it, the text above its end barline does.
+  // you are. Above the staff, not to the left — the left has the clef — and starting where the
+  // stave starts, the row's left edge. Written bar numbers, 1-based.
+  if (bar.showClef) label(ctx, stave, String(bar.barIndex + 1), stave.getX(), 'start')
+  // A repeat played more than twice: the sign cannot say it, the text above its end barline does,
+  // ending where the barline's ink ends — the row's right edge when the repeat closes the row.
   const times = written.repeat?.end?.times ?? 0
-  // 24 px: "×3" is 16.2 px wide in 13 px system-ui, plus 8 px of air before the barline.
-  if (times > 2) label(ctx, stave, `×${times}`, bar.x + bar.width - 24)
+  if (times > 2) label(ctx, stave, `×${times}`, bar.x + bar.width + BARLINE_OVERHANG, 'end')
 
   const built = buildBar(layout, bar, meter, written)
   // Validation refuses an empty bar; the guard keeps VexFlow's formatter from throwing on a hand-built one.
@@ -355,9 +365,11 @@ export function measureHead(clef: boolean, meter: string | null): number {
 
 /**
  * Ink extent of one row in natural px, read from pixels: the row is drawn on an offscreen canvas
- * (VexFlow's canvas backend, through the same `engraveBar`) with room above and below the band,
- * and the first and last painted pixel rows are read back — inside `xRange` (natural px) when
- * given, so the cursor probe can leave the clef and the bar number out. `getBBox()` cannot give
+ * (VexFlow's canvas backend, through the same `engraveBar`) with room on every side of the row's
+ * box, so ink that would leave it is seen instead of clipped, and the first and last painted pixel
+ * rows and columns are read back — the rows inside `xRange` (natural px) when given, so the cursor
+ * probe can leave the clef and the bar number out. `top`/`bottom` are against the band [0,
+ * SYSTEM_H], `left`/`right` against the row's width [0, widthNatural]. `getBBox()` cannot give
  * this: VexFlow 5 draws every glyph as text, and a text box is the font's em box — measured ≈80 px
  * deeper than the ink. A dev measurement for the gallery; nothing in the app calls it.
  */
@@ -366,33 +378,40 @@ export function measureInk(
   layout: Layout,
   row: RowLayout,
   xRange?: [number, number],
-): { top: number; bottom: number } {
+): { top: number; bottom: number; left: number; right: number } {
   const PAD = 200
   const canvas = document.createElement('canvas')
   const renderer = new Renderer(canvas, RendererBackends.CANVAS)
-  const width = Math.ceil(row.widthNatural)
+  const width = Math.ceil(row.widthNatural) + 2 * PAD
   const height = SYSTEM_H + 2 * PAD
   renderer.resize(width, height)
   const ctx = renderer.getContext()
   const c2d = canvas.getContext('2d') as CanvasRenderingContext2D
   // After `resize`, which applied the device pixel ratio: the shift is in natural px.
-  c2d.translate(0, PAD)
+  c2d.translate(PAD, PAD)
   const meters = metersOf(score)
   const span: BarSpan = {}
   for (const bar of row.bars) engraveBar(ctx, score, layout, row, bar, meters, span)
   const dpr = window.devicePixelRatio || 1
   const image = c2d.getImageData(0, 0, canvas.width, canvas.height)
-  const x0 = xRange ? Math.max(0, Math.floor(xRange[0] * dpr)) : 0
-  const x1 = xRange ? Math.min(image.width, Math.ceil(xRange[1] * dpr)) : image.width
+  const x0 = xRange ? Math.max(0, Math.floor((xRange[0] + PAD) * dpr)) : 0
+  const x1 = xRange ? Math.min(image.width, Math.ceil((xRange[1] + PAD) * dpr)) : image.width
   let top = -1
   let bottom = -1
-  for (let y = 0; y < image.height; y++) {
-    let painted = false
-    for (let x = x0; x < x1 && !painted; x++) painted = image.data[(y * image.width + x) * 4 + 3] > 0
-    if (painted) {
-      if (top < 0) top = y
-      bottom = y + 1
+  let left = image.width
+  let right = -1
+  // One pass over the alpha channel: the vertical extent inside `xRange`, the horizontal one over
+  // every column — it is the whole row's.
+  for (let y = 0, i = 3; y < image.height; y++) {
+    for (let x = 0; x < image.width; x++, i += 4) {
+      if (image.data[i] === 0) continue
+      if (x < left) left = x
+      if (x > right) right = x
+      if (x >= x0 && x < x1) {
+        if (top < 0) top = y
+        bottom = y + 1
+      }
     }
   }
-  return { top: top / dpr - PAD, bottom: bottom / dpr - PAD }
+  return { top: top / dpr - PAD, bottom: bottom / dpr - PAD, left: left / dpr - PAD, right: (right + 1) / dpr - PAD }
 }
