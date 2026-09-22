@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import {
+  BarlineType,
+  Beam,
   Element,
   Formatter,
   GraceNote,
@@ -8,9 +10,10 @@ import {
   Stave,
   StaveNote,
   Stem,
+  Tuplet,
   Voice,
 } from 'vexflow/bravura'
-import { AlignedStave, anchorStems } from './vexflow-fixes'
+import { AlignedStave, anchorStems, keepRestsOnTheirLines } from './vexflow-fixes'
 
 // VexFlow measures text on a canvas and Bun has none: without one it warns once per glyph. Zero
 // widths are enough here: these tests read y coordinates, never x.
@@ -70,6 +73,40 @@ function drawNote(stave: Stave, ctx: RenderContext, fix: boolean, graces = 0): {
   return { note, grace }
 }
 
+/** The y of every dot a repeat barline draws. */
+const repeatDots = (calls: Call[]) =>
+  calls.filter((c) => c.group === 'stavebarline' && c.op === 'arc').map((c) => c.args[1])
+
+/** A stave with a repeat opening it and one closing it, drawn. */
+function drawRepeats(stave: Stave): Call[] {
+  const { ctx, calls } = recorder()
+  stave.setBegBarType(BarlineType.REPEAT_BEGIN).setEndBarType(BarlineType.REPEAT_END)
+  stave.setContext(ctx).draw()
+  return calls
+}
+
+const snare = (duration: string) => new StaveNote({ keys: ['c/5'], duration, stemDirection: Stem.UP })
+/** A rest on the middle line, as the app writes it: b/4, VexFlow's line 3. */
+const rest = (duration: string) => new StaveNote({ keys: ['b/4'], duration, type: 'r', stemDirection: Stem.UP })
+
+/** A beat of sixteenths, snare – rest – snare – snare, beamed and formatted on `stave`. */
+function beamedBeat(stave: Stave): StaveNote[] {
+  const notes = [snare('16'), rest('16'), snare('16'), snare('16')]
+  new Beam(notes, false)
+  const voice = new Voice({ numBeats: 1, beatValue: 4 }).addTickables(notes)
+  for (const n of notes) n.setStave(stave)
+  new Formatter().joinVoices([voice]).formatToStave([voice], stave)
+  return notes
+}
+
+/** An eighth triplet, snare – rest – snare, under its bracket. */
+function triplet(stave: Stave): StaveNote[] {
+  const notes = [snare('8'), rest('8'), snare('8')]
+  for (const n of notes) n.setStave(stave)
+  new Tuplet(notes, { numNotes: 3, notesOccupied: 2 })
+  return notes
+}
+
 // These fail when a VexFlow upgrade no longer has the defect a fix stands for: that is the signal
 // to delete the fix in `vexflow-fixes.ts`, not to change the test.
 describe('VexFlow 5.0.0 defects the fixes stand for', () => {
@@ -86,6 +123,18 @@ describe('VexFlow 5.0.0 defects the fixes stand for', () => {
     const { ctx, calls } = recorder()
     const { note } = drawNote(new Stave(0, 0, 200), ctx, false)
     expect(movesIn(calls, 'stem')).toEqual([note.getYs()[0]])
+  })
+
+  it("a repeat's dots sit 1 px below the centres of the spaces around the middle line — AlignedStave's barlines' reason", () => {
+    const stave = new Stave(0, 0, 200)
+    const want = [1.5, 2.5, 1.5, 2.5].map((line) => stave.getYForLine(line) + 1)
+    expect(repeatDots(drawRepeats(stave))).toEqual(want)
+  })
+
+  it("formatting moves a beamed rest to its neighbours' line, and a tuplet one inside it — keepRestsOnTheirLines' reason", () => {
+    // c/5's space is VexFlow's line 3.5, the middle line 3.
+    expect(beamedBeat(new Stave(0, 0, 200))[1].getKeyLine(0)).toBe(3.5)
+    expect(triplet(new Stave(0, 0, 200))[1].getKeyLine(0)).toBe(3.5)
   })
 })
 
@@ -110,6 +159,23 @@ describe('the fixes', () => {
     const bar = calls.find((c) => c.op === 'fillRect')?.args ?? []
     // A 1 px line centred on y has its ink on [y − 0.5, y + 0.5].
     expect([bar[1], bar[1] + bar[3]]).toEqual([stave.getYForLine(0) - 0.5, stave.getYForLine(4) + 0.5])
+  })
+
+  it("AlignedStave: a repeat's dots on the centres of the two spaces around the middle line, at both ends", () => {
+    const stave = new AlignedStave(0, 0, 200)
+    const want = [1.5, 2.5, 1.5, 2.5].map((line) => stave.getYForLine(line))
+    expect(repeatDots(drawRepeats(stave))).toEqual(want)
+  })
+
+  it('keepRestsOnTheirLines: a beamed rest and a rest in a tuplet go back to the middle line they were written on', () => {
+    const stave = new AlignedStave(0, 0, 200)
+    for (const notes of [beamedBeat(stave), triplet(stave)]) {
+      keepRestsOnTheirLines(notes)
+      expect(notes[1].getKeyLine(0)).toBe(3)
+      expect(notes[1].getYs()).toEqual([stave.getYForLine(2)])
+      // the notes around it stay in their space
+      expect(notes[0].getKeyLine(0)).toBe(3.5)
+    }
   })
 
   it("anchorStems: an up stem starts at Bravura's stemUpSE anchor, 0.168 spaces above its notehead's centre, and ends where it did", () => {

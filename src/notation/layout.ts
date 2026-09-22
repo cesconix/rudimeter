@@ -1,7 +1,7 @@
 import { barLength, flattenBar, metersOf } from '../score/events'
 import { add, type Fraction, toNumber, ZERO } from '../score/fraction'
 import { type EventId, keyOf } from '../score/ids'
-import type { Meter, Score } from '../score/types'
+import type { Meter, NoteBase, Score } from '../score/types'
 
 /**
  * Natural px: the geometry is computed once at this size and the engraver scales the whole row.
@@ -71,11 +71,12 @@ export const MIN_NOTEHEAD_PX = 8
 
 /**
  * Staff lines counted from the bottom: 0 is the first line, halves are the spaces. The snare sits
- * in the third space (PAS / Weinberg), every rest on the middle line. The engraver turns these into
- * VexFlow keys; the overlay reads them for a highlight's vertical extent.
+ * in the third space (PAS / Weinberg). A rest is on the middle line, the whole rest excepted: it
+ * hangs from the fourth line (Gould, Behind Bars), where VexFlow puts one on its own. The engraver
+ * turns these into VexFlow keys; the overlay reads them for a highlight's vertical extent.
  */
 export const SNARE_LINE = 2.5
-export const REST_LINE = 2
+export const restLine = (base: NoteBase): number => (base === 1 ? 3 : 2)
 
 /**
  * How far the cursor band overflows above and below the staff, natural px, so the band marks the

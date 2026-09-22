@@ -34,15 +34,15 @@ import {
   type EventBox,
   type Layout,
   LINE_PX,
-  REST_LINE,
   type RowLayout,
+  restLine,
   SNARE_LINE,
   STAFF_H,
   STAFF_LINES,
   STAFF_TOP,
   SYSTEM_H,
 } from './layout'
-import { AlignedStave, anchorStems } from './vexflow-fixes'
+import { AlignedStave, anchorStems, keepRestsOnTheirLines } from './vexflow-fixes'
 
 const NAMES = ['c', 'd', 'e', 'f', 'g', 'a', 'b']
 
@@ -57,9 +57,8 @@ export function keyForLine(line: number): string {
   return `${name}/${octave}`
 }
 
-/** Every stroke on the snare's line, every rest on the middle line: one staff, one voice, stems up. */
+/** Every stroke on the snare's line, every rest on its rest line: one staff, one voice, stems up. */
 const SNARE_KEY = keyForLine(SNARE_LINE)
-const REST_KEY = keyForLine(REST_LINE)
 
 export interface EngravedRow {
   el: SVGSVGElement
@@ -111,7 +110,13 @@ function buildNote(event: Event): StaveNote {
   const dots = event.duration.dots ?? 0
   const duration = String(event.duration.base)
   const note = event.rest
-    ? new StaveNote({ keys: [REST_KEY], duration, dots, type: 'r', stemDirection: Stem.UP })
+    ? new StaveNote({
+        keys: [keyForLine(restLine(event.duration.base))],
+        duration,
+        dots,
+        type: 'r',
+        stemDirection: Stem.UP,
+      })
     : new StaveNote({ keys: [SNARE_KEY], duration, dots, stemDirection: Stem.UP })
   // One `buildAndAttach` call draws one dot: the struct's `dots` only set the ticks, so a double dot needs two calls.
   for (let i = 0; i < dots; i++) Dot.buildAndAttach([note], { all: true })
@@ -300,6 +305,8 @@ function engraveBar(
   // Formatted and drawn in two passes, not `Formatter.FormatAndDraw`: the grid runs between the two.
   const formatter = new Formatter().joinVoices([built.vf])
   formatter.formatToStave([built.vf], stave)
+  // Formatting moved the beamed rests, the tuplets moved theirs: back where the score writes them.
+  keepRestsOnTheirLines(built.placed.map((p) => p.note))
   placeOnGrid(formatter, built)
   const first = row.bars[0] === bar
   const lastBar = row.bars[row.bars.length - 1] === bar

@@ -1,4 +1,4 @@
-import { GraceNoteGroup, Stave, type StaveNote, type StaveOptions, Stem } from 'vexflow/bravura'
+import { Barline, GraceNoteGroup, Stave, type StaveNote, type StaveOptions, Stem, VexFlow } from 'vexflow/bravura'
 
 /*
  * Every place where VexFlow 5.0.0's geometry disagrees with the music font's, corrected in one
@@ -17,12 +17,19 @@ import { GraceNoteGroup, Stave, type StaveNote, type StaveOptions, Stem } from '
  * `getYForNote` themselves: a notehead in a space covered the whole line above it and only touched
  * the one below (measured in the gallery: head 90–100 px, the two lines' ink 90–91 and 100–101).
  * VexFlow's lines are hidden and drawn here on `getYForLine`; the barlines take the lines' ink from
- * `getTopLineTopY` and `getBottomLineBottomY`, which answer its edges around those centres.
+ * `getTopLineTopY` and `getBottomLineBottomY`, which answer its edges around those centres, and
+ * are `AlignedBarline`s, whose repeat dots sit in their spaces.
  */
 export class AlignedStave extends Stave {
   constructor(x: number, y: number, width: number, options?: StaveOptions) {
     super(x, y, width, options)
     this.setConfigForLines(Array.from({ length: this.getNumLines() }, () => ({ visible: false })))
+    // The begin and end barlines are VexFlow's first two modifiers, built by its constructor;
+    // `setBegBarType` and `setEndBarType` change their type in place, so replacing them here is enough.
+    for (const i of [0, 1]) {
+      const plain = this.modifiers[i] as Barline
+      this.modifiers[i] = new AlignedBarline(plain.getType()).setPosition(plain.getPosition()).setStave(this)
+    }
   }
 
   override getTopLineTopY(): number {
@@ -50,6 +57,50 @@ export class AlignedStave extends Stave {
   /** The width VexFlow strokes a line with: the same fallback its own correction reads. */
   private lineWidth(): number {
     return this.getStyle().lineWidth ?? 1
+  }
+}
+
+/**
+ * A barline whose repeat dots sit on the centres of the two spaces around the middle line. VexFlow
+ * 5.0.0's `drawRepeatBar` puts them at the top line's top + 1.5 spaces + half the dot's radius: 1 px
+ * below those centres on its own stave, 0.5 px on `AlignedStave` (measured in the gallery: 95.5 and
+ * 105.5 px against 95 and 105). This is that method with the dots' y changed and nothing else: the
+ * two bars and the dots' x and radius are VexFlow's.
+ */
+class AlignedBarline extends Barline {
+  override drawRepeatBar(stave: Stave, x: number, begin: boolean): void {
+    const ctx = stave.checkContext()
+    const topY = stave.getTopLineTopY()
+    const botY = stave.getBottomLineBottomY()
+    const xShift = begin ? 3 : -5
+    ctx.fillRect(x + xShift, topY, 1, botY - topY)
+    ctx.fillRect(x - 2, topY, 3, botY - topY)
+    const dotRadius = 2
+    const dotX = x + xShift + (begin ? 4 : -4) + dotRadius / 2
+    const middle = (stave.getNumLines() - 1) / 2
+    for (const line of [middle - 0.5, middle + 0.5]) {
+      ctx.beginPath()
+      ctx.arc(dotX, stave.getYForLine(line), dotRadius, 0, Math.PI * 2, false)
+      ctx.fill()
+    }
+  }
+}
+
+/**
+ * Puts every rest back on the line it was written on. VexFlow 5.0.0 moves a rest to its neighbouring
+ * notes' line when it sits under a beam (`formatToStave` → `Formatter.AlignRestsToNotes`, which aligns
+ * a beamed rest whatever the options say) or inside a tuplet (`Tuplet`'s constructor): with the snare
+ * in a space that is half a space up, so the rest is no longer where the score writes it, a
+ * sixteenth rest's dots land on lines instead of in spaces, and two rests of one beam sit at two
+ * heights (measured in the gallery: 95 and 100 px). The written line comes from the rest's own key,
+ * which VexFlow leaves as it was built, read as VexFlow read it (the default clef: the app's notes
+ * set none). Call it after formatting, before drawing.
+ */
+export function keepRestsOnTheirLines(notes: StaveNote[]): void {
+  for (const note of notes) {
+    if (!note.isRest()) continue
+    const written: number = VexFlow.keyProperties(note.getKeys()[0]).line
+    if (note.getKeyLine(0) !== written) note.setKeyLine(0, written)
   }
 }
 

@@ -4,7 +4,7 @@ import { type EventId, keyOf, playbackKey } from '../score/ids'
 import type { Score } from '../score/types'
 import type { PlaybackBar, PlaybackEvent } from '../score/unroll'
 import type { CursorPoint } from './cursor'
-import { BAR_PAD, type BarLayout, type Layout, LINE_PX, REST_LINE, SNARE_LINE, STAFF_LINES, STAFF_TOP } from './layout'
+import { BAR_PAD, type BarLayout, type Layout, LINE_PX, restLine, SNARE_LINE, STAFF_LINES, STAFF_TOP } from './layout'
 
 /**
  * Everything here is in PLAYBACK POSITION (whole-note units), never seconds: inside a row x is
@@ -107,12 +107,12 @@ export interface HighlightRect {
 /** Air around a highlight box, natural px: enough to clear the head, not enough to reach the neighbour. */
 export const HIGHLIGHT_PAD = 4
 
-/** y of a staff line counted from the bottom (`SNARE_LINE`, `REST_LINE`), natural px from the row top. */
+/** y of a staff line counted from the bottom (`SNARE_LINE`, `restLine`), natural px from the row top. */
 const lineY = (line: number): number => STAFF_TOP + (STAFF_LINES - 1 - line) * LINE_PX
 
 /**
  * One rectangle per event of every emitted bar, keyed by playback key: a stroke's on the snare's
- * line, a rest's on the rest line, half a line space above and below plus the pad. Geometry only:
+ * line, a rest's on its rest line, half a line space above and below plus the pad. Geometry only:
  * nothing here reads the SVG.
  */
 export function highlightRects(score: Score, layout: Layout, playback: PlaybackBar[]): Map<string, HighlightRect> {
@@ -123,7 +123,7 @@ export function highlightRects(score: Score, layout: Layout, playback: PlaybackB
       if (f.sub !== undefined) id.sub = f.sub
       const box = layout.boxes.get(keyOf(id))
       if (!box) continue
-      const line = f.event.rest ? REST_LINE : SNARE_LINE
+      const line = f.event.rest ? restLine(f.event.duration.base) : SNARE_LINE
       const top = lineY(line) - LINE_PX / 2 - HIGHLIGHT_PAD
       const bottom = lineY(line) + LINE_PX / 2 + HIGHLIGHT_PAD
       out.set(playbackKey(id, pb.pass), {
