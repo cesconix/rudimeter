@@ -4,15 +4,19 @@ import type { Bar, Event, Item, NoteBase, Score } from '../score/types'
 import {
   BAR_PAD,
   BARLINE_OVERHANG,
+  barHeads,
   buildLayout,
-  GRACE_GUTTER,
+  CLEF_PX,
+  DRAG_PX,
+  FLAM_PX,
   HEAD_PX,
-  hasGrace,
   LINE_PX,
   METER_PX,
   MIN_NOTEHEAD_PX,
   NOTEHEAD_PX,
   PX_PER_WHOLE,
+  REPEAT_BAR_PX,
+  REPEAT_PX,
   restLine,
   SNARE_LINE,
   STAFF_BELOW,
@@ -54,7 +58,6 @@ describe('rows', () => {
     expect(layout.rows.map((r) => r.bars.length)).toEqual([4, 4, 2])
     expect(layout.rows.map((r) => r.index)).toEqual([0, 1, 2])
     expect(layout.rowOfBar).toEqual([0, 0, 0, 0, 1, 1, 1, 1, 2, 2])
-    expect(layout.gridX0).toBe(HEAD_PX)
     expect(layout.systemH).toBe(SYSTEM_H)
     expect(layout.rows[0].bars[0]).toEqual({
       barIndex: 0,
@@ -75,7 +78,8 @@ describe('rows', () => {
     })
     expect(layout.rows[0].rowEndX).toBe(HEAD_PX + 4 * W + 3 * BAR_PAD)
     expect(layout.rows[0].widthNatural).toBe(HEAD_PX + 4 * W + 3 * BAR_PAD + BARLINE_OVERHANG)
-    expect(layout.rows[2].rowEndX).toBe(HEAD_PX + 2 * W + BAR_PAD)
+    // The later rows reprint the clef only: their music starts sooner.
+    expect(layout.rows[2].rowEndX).toBe(CLEF_PX + 2 * W + BAR_PAD)
   })
 
   it('newRow starts a row in automatic mode and is ignored when the user fixed the row', () => {
@@ -114,15 +118,15 @@ describe('rows', () => {
     expect(buildLayout(piece(bars), { barsPerRow: 4, auto: true }).rows.map((r) => r.bars.length)).toEqual([4, 2])
   })
 
-  it('the first bar of every row shows the clef; the meter only where it changes', () => {
+  it('the first bar of every row shows the clef and keeps room for it alone; the meter only where it changes', () => {
     const layout = buildLayout(piece([bar(quarters()), bar(quarters()), bar(quarters()), bar(quarters())]), {
       barsPerRow: 2,
       auto: true,
     })
     expect(layout.rows[1].bars[0]).toMatchObject({
       barIndex: 2,
-      x: HEAD_PX,
-      head: HEAD_PX,
+      x: CLEF_PX,
+      head: CLEF_PX,
       showClef: true,
       showMeter: false,
     })
@@ -176,7 +180,7 @@ describe('justification', () => {
 
   it('without fillWidth the grid is natural: stretch 1', () => {
     const layout = buildLayout(two(), { barsPerRow: 2, auto: true })
-    expect(layout.stretch).toBe(1)
+    expect(layout.rows[0].stretch).toBe(1)
     expect(layout.rows[0].widthNatural).toBe(HEAD_PX + 2 * W + BAR_PAD + BARLINE_OVERHANG)
   })
 
@@ -185,7 +189,7 @@ describe('justification', () => {
     const layout = buildLayout(two(), { barsPerRow: 2, auto: true, fillWidth })
     // (1000 − 83 − 12 − 1) / 768: the music takes what the fixed parts leave.
     const s = (fillWidth - HEAD_PX - BAR_PAD - BARLINE_OVERHANG) / (2 * W)
-    expect(layout.stretch).toBeCloseTo(s, 10)
+    expect(layout.rows[0].stretch).toBeCloseTo(s, 10)
     expect(layout.rows[0].widthNatural).toBeCloseTo(fillWidth, 10)
     expect(layout.rows[0].bars[0]).toMatchObject({ x: HEAD_PX, width: W * s, head: HEAD_PX })
     expect(layout.rows[0].bars[1]).toMatchObject({ x: HEAD_PX + W * s + BAR_PAD, width: W * s, head: BAR_PAD })
@@ -199,24 +203,37 @@ describe('justification', () => {
 
   it('never shrinks: a fillWidth narrower than the natural row leaves the grid natural', () => {
     const layout = buildLayout(two(), { barsPerRow: 2, auto: true, fillWidth: 500 })
-    expect(layout.stretch).toBe(1)
+    expect(layout.rows[0].stretch).toBe(1)
     expect(layout.rows[0].widthNatural).toBe(HEAD_PX + 2 * W + BAR_PAD + BARLINE_OVERHANG)
   })
 
-  it('one stretch for the piece, set by the row that fills first; the other rows stay shorter', () => {
-    const layout = buildLayout(piece([bar(quarters()), bar(quarters()), bar(quarters())]), {
+  it('every full row reaches fillWidth on its own stretch, whatever its heads take', () => {
+    // Row 0 draws the signature (HEAD_PX), row 1 the clef alone (CLEF_PX): less head, more stretch.
+    const layout = buildLayout(piece([bar(quarters()), bar(quarters()), bar(quarters()), bar(quarters())]), {
       barsPerRow: 2,
       auto: true,
       fillWidth: 1000,
     })
-    expect(layout.rows[0].widthNatural).toBeCloseTo(1000, 10)
-    expect(layout.rows[1].widthNatural).toBeCloseTo(HEAD_PX + W * layout.stretch + BARLINE_OVERHANG, 10)
-    expect(layout.rows[1].widthNatural).toBeLessThan(1000)
+    expect(layout.rows.map((r) => r.widthNatural)).toEqual([expect.closeTo(1000, 10), expect.closeTo(1000, 10)])
+    expect(layout.rows[0].stretch).toBeCloseTo((1000 - HEAD_PX - BAR_PAD - BARLINE_OVERHANG) / (2 * W), 10)
+    expect(layout.rows[1].stretch).toBeCloseTo((1000 - CLEF_PX - BAR_PAD - BARLINE_OVERHANG) / (2 * W), 10)
+    // Inside a row every box is on that row's grid.
+    expect(layout.boxes.get('b3/1')?.width).toBeCloseTo((W / 4) * layout.rows[1].stretch, 10)
   })
 
-  it('a row of shorter bars binds the stretch when its fixed parts are the widest: mixed meters', () => {
-    // Row 0: 4/4 + 3/4 with a meter gutter; row 1: 4/4 + 4/4 with a pad. Row 1 has more music and
-    // less fixed width, so it is the one that reaches fillWidth.
+  it('a row with fewer bars than the full ones is not spread across the width: it takes the tightest full stretch', () => {
+    const layout = buildLayout(
+      piece([bar(quarters()), bar(quarters()), bar(quarters()), bar(quarters()), bar(quarters())]),
+      { barsPerRow: 2, auto: true, fillWidth: 1000 },
+    )
+    const tightest = Math.min(layout.rows[0].stretch, layout.rows[1].stretch)
+    expect(tightest).toBe(layout.rows[0].stretch)
+    expect(layout.rows[2].stretch).toBe(tightest)
+    expect(layout.rows[2].widthNatural).toBeCloseTo(CLEF_PX + W * tightest + BARLINE_OVERHANG, 10)
+    expect(layout.rows[2].widthNatural).toBeLessThan(1000)
+  })
+
+  it('mixed meters: every full row reaches fillWidth, the one with a meter gutter included', () => {
     const layout = buildLayout(
       piece([
         bar(quarters()),
@@ -226,15 +243,13 @@ describe('justification', () => {
       ]),
       { barsPerRow: 2, auto: true, fillWidth: 1200 },
     )
-    const widths = layout.rows.map((r) => r.widthNatural)
-    expect(Math.max(...widths)).toBeCloseTo(1200, 10)
-    expect(widths[1]).toBeCloseTo(1200, 10)
-    expect(widths[0]).toBeLessThan(1200)
+    for (const row of layout.rows) expect(row.widthNatural).toBeCloseTo(1200, 10)
   })
 
   it('a non-finite fillWidth is no fillWidth', () => {
-    expect(buildLayout(two(), { barsPerRow: 2, auto: true, fillWidth: Number.NaN }).stretch).toBe(1)
-    expect(buildLayout(two(), { barsPerRow: 2, auto: true, fillWidth: Number.POSITIVE_INFINITY }).stretch).toBe(1)
+    expect(buildLayout(two(), { barsPerRow: 2, auto: true, fillWidth: Number.NaN }).rows[0].stretch).toBe(1)
+    const infinite = buildLayout(two(), { barsPerRow: 2, auto: true, fillWidth: Number.POSITIVE_INFINITY })
+    expect(infinite.rows[0].stretch).toBe(1)
   })
 })
 
@@ -287,25 +302,55 @@ describe('boxes', () => {
       auto: true,
     })
     expect(layout.boxes.get('b1/0')).toMatchObject({ row: 0, x: HEAD_PX + W + BAR_PAD, position: frac(1) })
-    expect(layout.boxes.get('b2/0')).toMatchObject({ row: 1, x: HEAD_PX, position: frac(2) })
+    expect(layout.boxes.get('b2/0')).toMatchObject({ row: 1, x: CLEF_PX, position: frac(2) })
     expect(layout.boxes.get('b3/3')).toMatchObject({
       row: 1,
-      x: HEAD_PX + W + BAR_PAD + (3 * W) / 4,
+      x: CLEF_PX + W + BAR_PAD + (3 * W) / 4,
       position: frac(15, 4),
     })
   })
+})
 
-  it('the grace gutter moves the origin of every row only when the piece has a grace note', () => {
-    const flam: Item = { duration: { base: 4 }, grace: { kind: 'flam' } }
-    const plainPiece = piece([bar(quarters()), bar(quarters())])
-    const gracedPiece = piece([bar(quarters()), bar([flam, n(4), n(4), n(4)])])
-    expect(hasGrace(plainPiece)).toBe(false)
-    expect(hasGrace(gracedPiece)).toBe(true)
-    const plain = buildLayout(plainPiece, { barsPerRow: 1, auto: true })
-    const graced = buildLayout(gracedPiece, { barsPerRow: 1, auto: true })
-    expect(plain.gridX0).toBe(HEAD_PX)
-    expect(graced.gridX0).toBe(HEAD_PX + GRACE_GUTTER)
-    expect(graced.rows.map((r) => r.bars[0].x)).toEqual([HEAD_PX + GRACE_GUTTER, HEAD_PX + GRACE_GUTTER])
-    expect(graced.boxes.get('b1/0')?.x).toBe(HEAD_PX + GRACE_GUTTER)
+describe('heads', () => {
+  const flam = (base: NoteBase = 4): Event => ({ duration: { base }, grace: { kind: 'flam' } })
+  const drag = (base: NoteBase = 4): Event => ({ duration: { base }, grace: { kind: 'drag' } })
+
+  it('a bar keeps room for what it prints and nothing else: clef or signature, begin repeat, grace notes on its first note', () => {
+    const heads = barHeads(
+      piece([
+        bar(quarters()),
+        bar(quarters(), { repeat: { start: true, end: {} } }),
+        bar([flam(), n(4), n(4), n(4)]),
+        bar([drag(), n(4), n(4), n(4)], { repeat: { start: true, end: {} } }),
+        bar([drag(), n(4), n(4)], { meter: [3, 4], repeat: { start: true, end: {} } }),
+      ]),
+    )
+    expect(heads).toEqual([
+      { first: HEAD_PX, after: METER_PX, signature: true },
+      { first: CLEF_PX + REPEAT_PX, after: BAR_PAD + REPEAT_BAR_PX, signature: false },
+      { first: CLEF_PX + FLAM_PX, after: BAR_PAD + FLAM_PX, signature: false },
+      { first: CLEF_PX + REPEAT_PX + DRAG_PX, after: BAR_PAD + REPEAT_BAR_PX + DRAG_PX, signature: false },
+      { first: HEAD_PX + REPEAT_PX + DRAG_PX, after: METER_PX + REPEAT_PX + DRAG_PX, signature: true },
+    ])
+  })
+
+  it('only the first note counts: a grace later in the bar, or a first event that is a rest, keeps the plain head', () => {
+    const rest: Event = { duration: { base: 4 }, rest: true }
+    const triplet: Item = { tuplet: { actual: 3, normal: 2 }, items: [flam(8), n(8), n(8)] }
+    const heads = barHeads(
+      piece([
+        bar(quarters()),
+        bar([n(4), flam(), n(4), n(4)]),
+        bar([rest, flam(), n(4), n(4)]),
+        bar([triplet, n(4), n(4), n(4)]),
+      ]),
+    )
+    expect(heads.map((h) => h.after)).toEqual([METER_PX, BAR_PAD, BAR_PAD, BAR_PAD + FLAM_PX])
+  })
+
+  it('the layout puts each bar behind its head: a flam on a downbeat mid-row sits after the barline, its note FLAM_PX later', () => {
+    const layout = buildLayout(piece([bar(quarters()), bar([flam(), n(4), n(4), n(4)])]), { barsPerRow: 2, auto: true })
+    expect(layout.rows[0].bars[1]).toMatchObject({ head: BAR_PAD + FLAM_PX, x: HEAD_PX + W + BAR_PAD + FLAM_PX })
+    expect(layout.boxes.get('b1/0')?.x).toBe(HEAD_PX + W + BAR_PAD + FLAM_PX)
   })
 })

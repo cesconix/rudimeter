@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import type { Bar, Event, Item, Score } from '../score/types'
 import { fit, type Pref } from './fit'
-import { BAR_PAD, BARLINE_OVERHANG, GRACE_GUTTER, HEAD_PX, NOTEHEAD_PX, SYSTEM_H } from './layout'
+import { BAR_PAD, BARLINE_OVERHANG, FLAM_PX, HEAD_PX, NOTEHEAD_PX, SYSTEM_H } from './layout'
 
 const AUTO: Pref = 'auto'
 /** Notehead the user sees, rounded to the tenth like the on-screen measurements. */
@@ -19,10 +19,16 @@ const piece = (beats: number, bars: number): Score => ({
 
 /** 40 written bars of 2/4, no grace notes. */
 const STONE = piece(2, 40)
-/** The same with a flam on the first beat: the grace gutter is paid. */
+/** The same with a flam on the piece's first downbeat: the first bar of a row may keep room for it. */
 const STONE_FLAM = (() => {
   const s = piece(2, 40)
   ;(s.bars[0].items[0] as Event).grace = { kind: 'flam' }
+  return s
+})()
+/** The same with a flam on a later downbeat: any bar after the first on a row may keep room for it. */
+const STONE_FLAM_LATER = (() => {
+  const s = piece(2, 40)
+  ;(s.bars[5].items[0] as Event).grace = { kind: 'flam' }
   return s
 })()
 /** Natural px of a row of `n` bars of 2/4: heads, pads and the end barline included. */
@@ -86,11 +92,19 @@ describe('fit: bars per row', () => {
     expect(fit(150, 600, 4, STONE)).toEqual(fit(150, 600, AUTO, STONE))
   })
 
-  it('the grace gutter takes width from the music: a bar fewer on the row, never a smaller scale', () => {
-    // 500 px, 2/4: two bars are 480 px wide without the gutter and 504 with it.
+  it('a flam on a downbeat takes width from the music: a bar fewer on the row, never a smaller scale', () => {
+    // 500 px, 2/4: two bars are 480 px wide, 505 with the room a flam on the first one keeps.
     expect(fit(500, 600, AUTO, STONE)).toMatchObject({ barsPerRow: 2, scale: 1 })
     expect(fit(500, 600, AUTO, STONE_FLAM)).toMatchObject({ barsPerRow: 1, scale: 1 })
-    expect(fit(rowOf(2) + GRACE_GUTTER, 600, AUTO, STONE_FLAM)).toMatchObject({ barsPerRow: 2, scale: 1 })
+    expect(fit(rowOf(2) + FLAM_PX, 600, AUTO, STONE_FLAM)).toMatchObject({ barsPerRow: 2, scale: 1 })
+  })
+
+  it('every bar after the first on a row is bounded by the largest head a later bar of the piece takes', () => {
+    // Four bars of 2/4 are 888 px; a flam on any later downbeat may land mid-row, so each of the three
+    // bars after the first is bounded by BAR_PAD + FLAM_PX: 963 px.
+    expect(fit(900, 600, AUTO, STONE)).toMatchObject({ barsPerRow: 4, scale: 1 })
+    expect(fit(900, 600, AUTO, STONE_FLAM_LATER)).toMatchObject({ barsPerRow: 2, scale: 1 })
+    expect(fit(rowOf(4) + 3 * FLAM_PX, 600, AUTO, STONE_FLAM_LATER)).toMatchObject({ barsPerRow: 4, scale: 1 })
   })
 })
 
