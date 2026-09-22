@@ -252,9 +252,10 @@ export const GALLERY: Figure[] = [
  * Everything the band must hold at once, on a pad, stacked on as many strokes as validation allows:
  * above — texts over accents over drags and flams, tuplet numbers over triplets, quintuplets,
  * sextuplets and septuplets of sixteenths and thirty-seconds, three slashes on beamed stems, buzzes,
- * the "×N" of a repeat; below — sticking under every kind of note, ties, beamed rests. Two rows of
- * two bars, a 12/8 change and a tie across the row break: the band holds one row, so the two rows
- * together show whether one row's ink reaches the next. `STAFF_TOP` and `STAFF_BELOW` are measured on it.
+ * the "×N" of a repeat, and the tallest stack of all, a text over an accented 32nd under a bracket;
+ * below — sticking under every kind of note, ties, beamed rests. Two rows of two bars, a 12/8 change
+ * and a tie across the row break, stacked as the app stacks them: "Measure band" checks that its band
+ * (`rowBand`) holds each row, and how much air is left under the letters.
  */
 const full = (base: NoteBase, h: 'R' | 'L', extra: Partial<Event> = {}): Event =>
   N(base, { accent: true, sticking: h, ...extra })
@@ -266,7 +267,7 @@ const buzz = { roll: { kind: 'buzz' } } as const
 export const WORST_CASE: Figure = figure(
   'worst-case',
   'Worst case for the band',
-  'Four bars on two rows, every mark of the pad on as many strokes as it fits: nothing drawn above the top of the band or below its bottom, so no row reaches the next. The Measurements block prints the overflow, if any.',
+  'Four bars on two rows, every mark of the pad on as many strokes as it fits: nothing drawn above the top of the band or below its bottom, so no row reaches the next, and the letters closer to their own staff than to the next row. The Measurements block prints the overflow, if any.',
   [
     bar(
       [
@@ -278,7 +279,7 @@ export const WORST_CASE: Figure = figure(
         T(
           5,
           4,
-          times(5, (i) => full(32, hand(i), i === 0 ? drag : {})),
+          times(5, (i) => full(32, hand(i), i === 0 ? { ...drag, text: 'Five' } : {})),
         ),
         ...times(8, (i) => full(32, hand(i), i === 0 ? { ...flam, text: 'Rip' } : {})),
         D(8, 1, { accent: true, sticking: 'R', ...drag, ...slashes(3), tie: true }),
@@ -340,3 +341,122 @@ export const WORST_CASE: Figure = figure(
   ],
   2,
 )
+
+/** What `INK_ABOVE` sorts an event by: whether a bracket rides over it, its stems' class, its marks. */
+interface BandProbe {
+  stack: 'free' | 'tuplet'
+  stems: 'plain' | 'thirtySecond'
+  marks: 'none' | 'accent' | 'text' | 'accentText'
+  score: Score
+}
+
+/**
+ * The bars `INK_ABOVE` is measured on, one bar per score: for each entry, every kind of event it
+ * stands for, its marks on every stroke, bare or with a drag and three slashes or a flam and a buzz —
+ * which stay under the stem, and are here to show it. Tuplets of 2 to 13: the bracket's number is a
+ * glyph, and half a pixel moves with where it lands. A text over a rest counts as `accentText`.
+ */
+const MARKS: Record<BandProbe['marks'], Partial<Event>> = {
+  none: {},
+  accent: { accent: true },
+  text: { text: 'Flam accent' },
+  accentText: { accent: true, text: 'Flam accent' },
+}
+const EXTRAS: Partial<Event>[] = [{}, { ...drag, ...slashes(3) }, { ...flam, ...buzz }]
+type Shape = { meter: [number, number]; items: (a: Partial<Event>) => Item[] }
+const in44 = (items: (a: Partial<Event>) => Item[]): Shape => ({ meter: [4, 4], items })
+const SHAPES: Record<BandProbe['stack'], Record<BandProbe['stems'], Shape[]>> = {
+  free: {
+    plain: [
+      in44((a) => [N(1, a)]),
+      in44((a) => [N(2, a), N(2, a)]),
+      in44((a) => times(4, () => N(4, a))),
+      in44((a) => times(8, () => N(8, a))),
+      in44((a) => times(16, () => N(16, a))),
+      // One stroke per beat: flagged, no beam.
+      in44((a) => times(4, () => [N(8, a), R(8)]).flat()),
+      in44((a) => times(4, () => [N(16, a), R(16), R(8)]).flat()),
+    ],
+    thirtySecond: [
+      in44((a) => times(32, () => N(32, a))),
+      in44((a) => times(4, () => [N(32, a), R(32), R(16), R(8)]).flat()),
+      // Sixteenths and an eighth on a beam a 32nd is on: they hang from its beam.
+      in44((a) => times(4, () => [N(16, a), N(32, a), N(32, a), N(8, a)]).flat()),
+    ],
+  },
+  tuplet: {
+    plain: [2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13].flatMap((actual) =>
+      ([4, 16] as const).map((base) => {
+        const normal = actual === 2 ? 3 : actual === 3 ? 2 : actual < 8 ? 4 : 8
+        return {
+          meter: [normal, base] as [number, number],
+          items: (a: Partial<Event>) => [
+            T(
+              actual,
+              normal,
+              times(actual, () => N(base, a)),
+            ),
+          ],
+        }
+      }),
+    ),
+    thirtySecond: [2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13].map((actual) => {
+      const normal = actual === 2 ? 3 : actual === 3 ? 2 : actual < 8 ? 4 : 8
+      return {
+        meter: [normal, 32] as [number, number],
+        items: (a: Partial<Event>) => [
+          T(
+            actual,
+            normal,
+            times(actual, () => N(32, a)),
+          ),
+        ],
+      }
+    }),
+  },
+}
+/** A text over a rest, in each context: measured against `accentText`. */
+const REST_TEXT: Record<BandProbe['stack'], Record<BandProbe['stems'], Item[]>> = {
+  free: {
+    plain: [N(8), R(8, undefined, { text: 'Fill' }), ...times(6, () => N(8))],
+    thirtySecond: [N(32), R(32, undefined, { text: 'Fill' }), ...times(30, () => N(32))],
+  },
+  tuplet: {
+    plain: [T(3, 2, [R(16, undefined, { text: 'Fill' }), N(16), N(16)]), ...times(14, () => N(16))],
+    thirtySecond: [T(3, 2, [N(32), R(32, undefined, { text: 'Fill' }), N(32)]), R(16), N(8), N(4), N(2)],
+  },
+}
+// A score id is kebab-case: `thirtySecond` and `accentText` are lowered.
+const probe = (id: string, meter: [number, number], items: Item[]): Score =>
+  parseScore({ id: id.toLowerCase(), title: id, bars: [{ meter, items }] })
+export const BAND_PROBES: BandProbe[] = (['free', 'tuplet'] as const).flatMap((stack) =>
+  (['plain', 'thirtySecond'] as const).flatMap((stems) => [
+    ...(Object.keys(MARKS) as BandProbe['marks'][]).flatMap((marks) =>
+      SHAPES[stack][stems].flatMap((shape, k) =>
+        EXTRAS.map((extra, e) => ({
+          stack,
+          stems,
+          marks,
+          score: probe(`${stack}-${stems}-${marks}-${k}-${e}`, shape.meter, shape.items({ ...MARKS[marks], ...extra })),
+        })),
+      ),
+    ),
+    {
+      stack,
+      stems,
+      marks: 'accentText' as const,
+      score: probe(`${stack}-${stems}-rest-text`, [4, 4], REST_TEXT[stack][stems]),
+    },
+  ]),
+)
+
+/** Every label a row can carry above its staff: bar numbers 1 to 24 and a repeat's "×7", over whole notes, which reach lower. */
+export const LABEL_PROBE: Score = parseScore({
+  id: 'labels',
+  title: 'labels',
+  bars: times(24, (i) => ({
+    ...(i === 0 ? { meter: [4, 4] as [number, number] } : {}),
+    ...(i % 3 === 0 ? { repeat: { start: true as const } } : i % 3 === 2 ? { repeat: { end: { times: 7 } } } : {}),
+    items: [N(1)],
+  })),
+})

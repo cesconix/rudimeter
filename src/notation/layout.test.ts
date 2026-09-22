@@ -11,7 +11,10 @@ import {
   DRAG_PX,
   FLAM_PX,
   HEAD_PX,
+  INK_ABOVE,
+  inkAbove,
   LABEL_ABOVE,
+  LABEL_INK_ABOVE,
   LINE_PX,
   METER_PX,
   MIN_NOTEHEAD_PX,
@@ -20,12 +23,13 @@ import {
   REPEAT_BAR_PX,
   REPEAT_PX,
   restLine,
+  rowBand,
   SNARE_LINE,
   STAFF_BELOW,
   STAFF_H,
   STAFF_LINES,
-  STAFF_TOP,
-  SYSTEM_H,
+  STICKING_AIR,
+  STICKING_INK,
 } from './layout'
 
 const n = (base: NoteBase, dots?: 1 | 2): Event => (dots ? { duration: { base, dots } } : { duration: { base } })
@@ -39,13 +43,12 @@ const piece = (bars: Bar[]): Score => ({
 const W = PX_PER_WHOLE
 
 describe('constants', () => {
-  it('the band is the sum of its parts, and the floor is under the natural notehead', () => {
+  it('under the staff: the letters and STICKING_AIR times their air, whole px; the floor is under the natural notehead', () => {
     expect(STAFF_H).toBe((STAFF_LINES - 1) * LINE_PX)
-    expect(SYSTEM_H).toBe(STAFF_TOP + STAFF_H + STAFF_BELOW)
+    expect(STAFF_BELOW - STICKING_INK.bottom).toBeGreaterThanOrEqual(STICKING_AIR * STICKING_INK.top)
+    expect(STAFF_BELOW - STICKING_INK.bottom).toBeLessThan(STICKING_AIR * STICKING_INK.top + 1)
+    expect(Number.isInteger(STAFF_BELOW)).toBe(true)
     expect(MIN_NOTEHEAD_PX).toBeLessThan(NOTEHEAD_PX)
-    // VexFlow reads the space above and below the staff in line spaces (`spaceAboveStaffLn`).
-    expect(STAFF_TOP % LINE_PX).toBe(0)
-    expect(STAFF_BELOW % LINE_PX).toBe(0)
   })
   it('the snare sits in the third space, a rest on the middle line, a whole rest hanging from the fourth', () => {
     expect(SNARE_LINE).toBe(2.5)
@@ -64,7 +67,7 @@ describe('rows', () => {
     expect(layout.rows.map((r) => r.bars.length)).toEqual([4, 4, 2])
     expect(layout.rows.map((r) => r.index)).toEqual([0, 1, 2])
     expect(layout.rowOfBar).toEqual([0, 0, 0, 0, 1, 1, 1, 1, 2, 2])
-    expect(layout.systemH).toBe(SYSTEM_H)
+    expect(layout.systemH).toBe(rowBand(piece([bar(quarters())])).systemH)
     expect(layout.rows[0].bars[0]).toEqual({
       barIndex: 0,
       x: HEAD_PX,
@@ -358,5 +361,69 @@ describe('heads', () => {
     const layout = buildLayout(piece([bar(quarters()), bar([flam(), n(4), n(4), n(4)])]), { barsPerRow: 2, auto: true })
     expect(layout.rows[0].bars[1]).toMatchObject({ head: BAR_PAD + FLAM_PX, x: HEAD_PX + W + BAR_PAD + FLAM_PX })
     expect(layout.boxes.get('b1/0')?.x).toBe(HEAD_PX + W + BAR_PAD + FLAM_PX)
+  })
+})
+
+describe('band', () => {
+  const one = (items: Item[]) => piece([bar(items)])
+  const s = (extra: Partial<Event> = {}): Event => ({ duration: { base: 16 }, ...extra })
+  const sixteenths = (extra: Partial<Event> = {}): Item[] => Array.from({ length: 16 }, () => s(extra))
+
+  it("a plain piece: the labels' height, up to a whole px, and the letters' room under the staff", () => {
+    const band = rowBand(one(quarters()))
+    expect(band.staffTop).toBe(Math.ceil(LABEL_INK_ABOVE))
+    expect(band.systemH).toBe(band.staffTop + STAFF_H + STAFF_BELOW)
+    // A piece with no sticking keeps the letters' room: rows breathe alike from one piece to the next.
+    expect(rowBand(one(sixteenths({ sticking: 'R' }))).systemH).toBe(band.systemH)
+  })
+
+  it('each mark by the table: an accent, a text, both; a text over a rest counts as both', () => {
+    const { plain } = INK_ABOVE.free
+    expect(inkAbove(one(sixteenths({ accent: true })))).toBe(plain.accent)
+    expect(inkAbove(one(sixteenths({ text: 'Rip' })))).toBe(plain.text)
+    expect(inkAbove(one(sixteenths({ accent: true, text: 'Rip' })))).toBe(plain.accentText)
+    expect(inkAbove(one([{ duration: { base: 4 }, rest: true, text: 'Fill' }, n(4), n(4), n(4)]))).toBe(
+      plain.accentText,
+    )
+  })
+
+  it('grace notes and rolls stay under the stem: the labels decide', () => {
+    const extra: Partial<Event> = { grace: { kind: 'drag' }, roll: { kind: 'tremolo', slashes: 3 } }
+    expect(inkAbove(one(sixteenths(extra)))).toBe(LABEL_INK_ABOVE)
+  })
+
+  it("a 32nd's stems, flagged or beamed; a longer stroke on a 32nd's beam hangs from it and takes its class", () => {
+    const { thirtySecond } = INK_ABOVE.free
+    expect(inkAbove(one(Array.from({ length: 32 }, () => ({ duration: { base: 32 } }) as Event)))).toBe(
+      thirtySecond.none,
+    )
+    // The accent is on the sixteenth; the beam it hangs from is the 32nd's.
+    const beat: Item[] = [s({ accent: true }), { duration: { base: 32 } }, { duration: { base: 32 } }, n(8)]
+    expect(inkAbove(one([...beat, ...beat, ...beat, ...beat]))).toBe(thirtySecond.accent)
+  })
+
+  it('a tuplet is one stack: its bracket rides over the tallest of the group, with every mark any of its events carries', () => {
+    const t: Item = {
+      tuplet: { actual: 3, normal: 2 },
+      items: [{ duration: { base: 8 }, accent: true }, { duration: { base: 8 }, text: 'Three' }, n(8)],
+    }
+    expect(inkAbove(one([t, n(4), n(2)]))).toBe(INK_ABOVE.tuplet.plain.accentText)
+    // The strokes outside the group keep their own height: a plain quarter is under the bracket's.
+    expect(inkAbove(one([{ tuplet: { actual: 3, normal: 2 }, items: [n(8), n(8), n(8)] }, n(4), n(2)]))).toBe(
+      INK_ABOVE.tuplet.plain.none,
+    )
+  })
+
+  it('the tallest event decides the band of every row, whatever the width and the bars per row', () => {
+    const score = piece([
+      bar(quarters()),
+      bar(quarters()),
+      bar([n(4), n(4), n(4), { duration: { base: 4 }, text: 'Fine' }]),
+    ])
+    const band = rowBand(score)
+    expect(band.staffTop).toBe(Math.ceil(INK_ABOVE.free.plain.text))
+    for (const barsPerRow of [1, 2, 3])
+      for (const fillWidth of [undefined, 900, 2000])
+        expect(buildLayout(score, { barsPerRow, auto: true, fillWidth })).toMatchObject(band)
   })
 })

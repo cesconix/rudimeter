@@ -40,8 +40,6 @@ import {
   SNARE_LINE,
   STAFF_H,
   STAFF_LINES,
-  STAFF_TOP,
-  SYSTEM_H,
 } from './layout'
 import { AlignedBeam, AlignedGraceNoteGroup, AlignedStave, anchorStems, keepRestsOnTheirLines } from './vexflow-fixes'
 
@@ -273,11 +271,11 @@ function engraveBar(
   const written = score.bars[bar.barIndex]
   const meter = meters[bar.barIndex]
   // `spaceAboveStaffLn` is in line spaces: it is what VexFlow reads to place the first line inside
-  // the band, so it must move with STAFF_TOP — the band is the layout's, the staff's place in it is VexFlow's.
+  // the band, so it must move with the piece's band — the band is the layout's, the staff's place in it is VexFlow's.
   const stave = new AlignedStave(bar.x - bar.head, 0, bar.head + bar.width, {
     numLines: STAFF_LINES,
-    spaceAboveStaffLn: STAFF_TOP / LINE_PX,
-    spaceBelowStaffLn: (SYSTEM_H - STAFF_TOP - STAFF_H) / LINE_PX,
+    spaceAboveStaffLn: layout.staffTop / LINE_PX,
+    spaceBelowStaffLn: (layout.systemH - layout.staffTop - STAFF_H) / LINE_PX,
   })
   if (bar.showClef) stave.addClef('percussion')
   if (bar.showMeter) stave.addTimeSignature(`${meter[0]}/${meter[1]}`)
@@ -338,7 +336,7 @@ export function engraveRow(
 ): EngravedRow {
   const mount = document.createElement('div')
   const renderer = new Renderer(mount, RendererBackends.SVG)
-  const height = SYSTEM_H * scale
+  const height = layout.systemH * scale
   renderer.resize(row.widthNatural * scale, height)
   const ctx = renderer.getContext()
   // One scale over the whole context: glyphs, spacing and row height keep their ratio. Scaling the
@@ -377,26 +375,30 @@ export function measureHead(clef: boolean, meter: string | null): number {
 /** Room on every side of what a measurement draws, natural px: ink that leaves the box is still read. */
 const MEASURE_PAD = 200
 
-/** An offscreen canvas `width` natural px wide and one band high, its context shifted by `MEASURE_PAD` on both axes. */
-function measureCanvas(width: number): { canvas: HTMLCanvasElement; ctx: RenderContext } {
+/** An offscreen canvas `width` × `height` natural px, its context shifted by `MEASURE_PAD` on both axes. */
+function measureCanvas(width: number, height: number): { canvas: HTMLCanvasElement; ctx: RenderContext } {
   const canvas = document.createElement('canvas')
   const renderer = new Renderer(canvas, RendererBackends.CANVAS)
-  renderer.resize(width + 2 * MEASURE_PAD, SYSTEM_H + 2 * MEASURE_PAD)
+  renderer.resize(width + 2 * MEASURE_PAD, height + 2 * MEASURE_PAD)
   const ctx = renderer.getContext()
   // After `resize`, which applied the device pixel ratio: the shift is in natural px.
   ;(canvas.getContext('2d') as CanvasRenderingContext2D).translate(MEASURE_PAD, MEASURE_PAD)
   return { canvas, ctx }
 }
 
-/** The painted box of `canvas`: its first and last columns and rows, natural px in the shifted frame. */
-function inkBox(canvas: HTMLCanvasElement): Ink {
+/**
+ * The painted box of `canvas`: its first and last columns and rows, natural px in the shifted frame.
+ * `below`, when given, reads only the rows under that y, natural px: what hangs under a staff.
+ */
+function inkBox(canvas: HTMLCanvasElement, below = -MEASURE_PAD): Ink {
   const dpr = window.devicePixelRatio || 1
   const image = (canvas.getContext('2d') as CanvasRenderingContext2D).getImageData(0, 0, canvas.width, canvas.height)
+  const firstRow = Math.max(0, Math.ceil((below + MEASURE_PAD) * dpr))
   let left = image.width
   let right = -1
   let top = -1
   let bottom = -1
-  for (let i = 3, x = 0, y = 0; i < image.data.length; i += 4) {
+  for (let i = 3 + firstRow * image.width * 4, x = 0, y = firstRow; i < image.data.length; i += 4) {
     if (image.data[i] !== 0) {
       if (x < left) left = x
       if (x > right) right = x
@@ -424,7 +426,7 @@ function inkBox(canvas: HTMLCanvasElement): Ink {
  * calls it. Needs the fonts.
  */
 export function measureHeadInk(clef: boolean, meter: string | null, repeat: boolean): number {
-  const { canvas, ctx } = measureCanvas(400)
+  const { canvas, ctx } = measureCanvas(400, STAFF_H)
   const stave = new AlignedStave(0, 0, 400)
   if (clef) stave.addClef('percussion')
   if (meter) stave.addTimeSignature(meter)
@@ -442,7 +444,7 @@ export function measureHeadInk(clef: boolean, meter: string | null, repeat: bool
  * for the gallery; nothing in the app calls it. Needs the fonts.
  */
 export function measureGraceReach(kind: 'flam' | 'drag'): number {
-  const { canvas, ctx } = measureCanvas(400)
+  const { canvas, ctx } = measureCanvas(400, STAFF_H)
   const stave = new AlignedStave(0, 0, 400)
   const note = buildNote({ duration: { base: 4 }, grace: { kind } })
   const voice = new Voice({ numBeats: 1, beatValue: 4 }).addTickables([note])
@@ -458,7 +460,7 @@ export function measureGraceReach(kind: 'flam' | 'drag'): number {
  * on. A note's head alone, a rest whole. A dev measurement for the gallery; nothing in the app calls it. Needs the fonts.
  */
 export function measureGlyphInk(base: NoteBase, rest: boolean): Ink {
-  const { canvas, ctx } = measureCanvas(400)
+  const { canvas, ctx } = measureCanvas(400, STAFF_H)
   const stave = new AlignedStave(0, 0, 400)
   const note = buildNote(rest ? { duration: { base }, rest: true } : { duration: { base } })
   note.setStave(stave)
@@ -477,16 +479,33 @@ export function measureGlyphInk(base: NoteBase, rest: boolean): Ink {
 }
 
 /**
+ * The sticking letters' ink under the bottom line, natural px (`STICKING_INK`): an R and an L under
+ * two quarters, built as `engraveBar` builds them, and only what hangs under the staff read back —
+ * the heads and stems are over it. A dev measurement for the gallery; nothing in the app calls it. Needs the fonts.
+ */
+export function measureStickingInk(): { top: number; bottom: number } {
+  const { canvas, ctx } = measureCanvas(400, STAFF_H)
+  const stave = new AlignedStave(0, 0, 400)
+  const notes = (['R', 'L'] as const).map((sticking) => buildNote({ duration: { base: 4 }, sticking }))
+  const voice = new Voice({ numBeats: 2, beatValue: 4 }).addTickables(notes)
+  new Formatter().joinVoices([voice]).formatToStave([voice], stave)
+  voice.draw(ctx, stave)
+  const line = stave.getYForLine(STAFF_LINES - 1)
+  const ink = inkBox(canvas, line)
+  return { top: ink.top - line, bottom: ink.bottom - line }
+}
+
+/**
  * Ink extent of one row in natural px, read from pixels: the row is drawn on an offscreen canvas
  * (VexFlow's canvas backend, through the same `engraveBar`) with room on every side of the row's
  * box, so ink that would leave it is seen instead of clipped, and the first and last painted pixel
- * rows and columns are read back. `top`/`bottom` are against the band [0, SYSTEM_H], `left`/`right`
+ * rows and columns are read back. `top`/`bottom` are against the band [0, layout.systemH], `left`/`right`
  * against the row's width [0, widthNatural]. `getBBox()` cannot give this: VexFlow 5 draws every
  * glyph as text, and a text box is the font's em box — measured ≈80 px deeper than the ink. A dev
  * measurement for the gallery; nothing in the app calls it.
  */
 export function measureInk(score: Score, layout: Layout, row: RowLayout): Ink {
-  const { canvas, ctx } = measureCanvas(Math.ceil(row.widthNatural))
+  const { canvas, ctx } = measureCanvas(Math.ceil(row.widthNatural), layout.systemH)
   const meters = metersOf(score)
   const span: BarSpan = {}
   for (const bar of row.bars) engraveBar(ctx, score, layout, row, bar, meters, span)

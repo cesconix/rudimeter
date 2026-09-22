@@ -1,7 +1,8 @@
+import { resolveBeams } from '../score/beaming'
 import { barLength, flattenBar, metersOf } from '../score/events'
 import { add, type Fraction, toNumber, ZERO } from '../score/fraction'
 import { type EventId, keyOf } from '../score/ids'
-import type { NoteBase, Score } from '../score/types'
+import type { NoteBase, Score, TupletGroup } from '../score/types'
 
 /**
  * Natural px: the geometry is computed once at this size and the engraver scales the whole row.
@@ -68,23 +69,57 @@ export const LINE_PX = 10
 export const STAFF_LINES = 5
 export const STAFF_H = (STAFF_LINES - 1) * LINE_PX
 /**
- * Above the staff: stems, beams, accents, tuplet numbers, grace notes, a text. Below it: the
- * sticking. Both are constants for the whole piece, measured once in the gallery on the pad worst
- * case and never per exercise: the bands must stack.
- *
- * Measured 2026-09-22 (gallery, "Measure band", Chrome on the Mac at dpr 2): ink 70.5 px above the
- * top line and 24.0 px below the bottom one on the worst case's two rows — every stroke accented and
- * stuck, texts over drags and flams in triplets, quintuplets, sextuplets and septuplets of sixteenths
- * and thirty-seconds, three slashes on beamed stems, buzzes, a "×N", ties and beamed rests. Plus 4 px
- * of air, up to the next multiple of LINE_PX (VexFlow reads `spaceAboveStaffLn` in line spaces):
- * 70.5 + 4 → 80, 24 + 4 → 30. Two stacked rows keep 15.5 px of blank between one's letters and the
- * next one's tuplet numbers. The kit's band was 110 / 100
- * (spec 09): the feet's stems, the dynamics, the hairpins, the volta bracket and the tempo mark
- * went with the kit.
+ * The sticking letters' ink under the bottom line, natural px: from the air over them to their
+ * bottom. VexFlow places a BOTTOM annotation from the stave, not from its note, so every letter of
+ * every piece sits there. Measured 2026-09-22 (gallery, "Measure band", Chrome on the Mac at dpr 2).
  */
-export const STAFF_TOP = 80
-export const STAFF_BELOW = 30
-export const SYSTEM_H = STAFF_TOP + STAFF_H + STAFF_BELOW
+export const STICKING_INK = { top: 13.5, bottom: 24 }
+/**
+ * The air under the letters, down to the next row's highest ink, against the air over them: at least
+ * twice as much, so the eye ties the letters to the staff above them at once. With the two alike
+ * (15.5 px under them on the old fixed band's densest rows) a reader could not tell which row they
+ * belonged to. Chosen on the gallery's figures, 2026-09-22, over once and three times as much.
+ */
+export const STICKING_AIR = 2
+/**
+ * Below the staff: the letters and their air, for every piece — one without sticking keeps the
+ * room, so rows breathe alike from one piece to the next. Above it the piece decides (`rowBand`).
+ */
+export const STAFF_BELOW = Math.ceil(STICKING_INK.bottom + STICKING_AIR * STICKING_INK.top)
+
+/** How high one event's ink reaches, by the marks it carries: its accent, its text, or both. */
+interface Marks {
+  none: number
+  accent: number
+  text: number
+  accentText: number
+}
+
+/**
+ * Ink above the top line, natural px, of one event on the snare, stem up: by whether a tuplet's
+ * bracket rides over it, whether its stems are a 32nd's (flagged, or on a beam a 32nd is on: the
+ * beam sits higher) or anything longer, and its marks. Measured 2026-09-22 (gallery, "Measure band",
+ * Chrome on the Mac at dpr 2), each entry the highest over every value of its kind — whole to
+ * sixteenth, flagged and beamed; a 32nd flagged, beamed, beamed with sixteenths; tuplets of 2 to 13
+ * of each — with a drag and three slashes, a flam and a buzz on every stroke or neither: those stay
+ * under the stem. Half a pixel moves with where the glyphs land on the pixel grid (a text over an
+ * accent under a bracket: 70 on most tuplets, 70.5 on some), so an entry is the highest of them. The
+ * layers do not add up, so the table holds each combination: an accent lifts a stroke 15.5 px, under
+ * a bracket 22.5; a text over a rest sits as high as one over an accented stroke, or lower (55 and 55,
+ * 57.5 and 62.5, 70 and 70.5, 77.5 and 77.5), and counts as one.
+ */
+export const INK_ABOVE: Record<'free' | 'tuplet', Record<'plain' | 'thirtySecond', Marks>> = {
+  free: {
+    plain: { none: 20.5, accent: 35.5, text: 40, accentText: 55 },
+    thirtySecond: { none: 27.5, accent: 45.5, text: 47.5, accentText: 62.5 },
+  },
+  tuplet: {
+    plain: { none: 40, accent: 62.5, text: 62.5, accentText: 70.5 },
+    thirtySecond: { none: 47.5, accent: 70, text: 70, accentText: 77.5 },
+  },
+}
+/** The grey labels' ink above the top line (bar numbers 1 to 24, a repeat's "×N"), natural px: every row has one. Measured with `INK_ABOVE`. */
+export const LABEL_INK_ABOVE = 21
 /** Notehead width at natural scale: the cursor is as wide as it, and the readability floor is measured on it. */
 export const NOTEHEAD_PX = 11.8
 /** Below this the notehead is no longer readable: the constraint that limits how many bars a row takes. */
@@ -203,6 +238,8 @@ export interface Layout {
   boxes: Map<string, EventBox>
   /** bar index → row index */
   rowOfBar: number[]
+  /** the piece's band (`rowBand`): every row is `systemH` high, its top line `staffTop` from its top */
+  staffTop: number
   systemH: number
 }
 
@@ -233,6 +270,84 @@ export function barHeads(score: Score): BarHead[] {
     const after = (signature ? METER_PX + (repeat ? REPEAT_PX : 0) : BAR_PAD + (repeat ? REPEAT_BAR_PX : 0)) + grace
     return { first, after, signature }
   })
+}
+
+/** What one stack carries (a stroke, a rest, or a tuplet's whole group): its stems' class and its marks. */
+interface Stack {
+  thirtySecond: boolean
+  accent: boolean
+  text: boolean
+}
+
+const heightOf = (s: Stack, tuplet: boolean): number => {
+  const marks = INK_ABOVE[tuplet ? 'tuplet' : 'free'][s.thirtySecond ? 'thirtySecond' : 'plain']
+  return s.accent ? (s.text ? marks.accentText : marks.accent) : s.text ? marks.text : marks.none
+}
+
+/**
+ * The highest ink above the top line anywhere in the piece, natural px, read from the score: the
+ * tallest event (`INK_ABOVE`), or the labels every row carries. A tuplet is one stack: its bracket
+ * rides over the whole group at its highest stroke, so the group takes every mark any of its events
+ * carries. A stroke beamed with a 32nd hangs from the 32nd's beam, and takes its class.
+ */
+export function inkAbove(score: Score): number {
+  const meters = metersOf(score)
+  let top = LABEL_INK_ABOVE
+  score.bars.forEach((bar, b) => {
+    const flat = flattenBar(bar)
+    const onBeam32: boolean[] = flat.map(() => false)
+    let start = 0
+    resolveBeams(meters[b], bar.beams, flat).forEach((mark, i) => {
+      if (mark === 'begin') start = i
+      if (mark !== 'end') return
+      const run = flat.slice(start, i + 1)
+      if (run.some((f) => f.event.duration.base === 32)) for (let k = start; k <= i; k++) onBeam32[k] = true
+    })
+    const groups = new Map<TupletGroup, Stack>()
+    flat.forEach((f, i) => {
+      const e = f.event
+      const text = e.text !== undefined
+      // A text over a rest counts as one over an accented stroke: VexFlow stacks it over the rest's hidden stem.
+      const own: Stack = {
+        thirtySecond: e.duration.base === 32 || onBeam32[i],
+        accent: e.accent === true || (e.rest === true && text),
+        text,
+      }
+      if (!f.tuplet) {
+        top = Math.max(top, heightOf(own, false))
+        return
+      }
+      const group = groups.get(f.tuplet)
+      groups.set(
+        f.tuplet,
+        group
+          ? {
+              thirtySecond: group.thirtySecond || own.thirtySecond,
+              accent: group.accent || own.accent,
+              text: group.text || own.text,
+            }
+          : own,
+      )
+    })
+    for (const group of groups.values()) top = Math.max(top, heightOf(group, true))
+  })
+  return top
+}
+
+/** One piece's band, natural px: where its staff's top line sits, and the height every row takes. */
+export interface Band {
+  staffTop: number
+  systemH: number
+}
+
+/**
+ * The band of every row of a piece: the same for all of them, so the staff sits at one height and the
+ * rows read as one page, and set by the piece's highest ink (`inkAbove`), so a plain piece is not
+ * spaced for marks it never prints. Whole px: the staff's lines on the pixel grid.
+ */
+export function rowBand(score: Score): Band {
+  const staffTop = Math.ceil(inkAbove(score))
+  return { staffTop, systemH: staffTop + STAFF_H + STAFF_BELOW }
 }
 
 /** A bar packed on a row, before the grid is stretched: what it prints before its grid and how long it lasts. */
@@ -341,5 +456,5 @@ export function buildLayout(score: Score, spec: ViewSpec): Layout {
     position = add(position, barLength(meters[b]))
   })
 
-  return { rows, boxes, rowOfBar, systemH: SYSTEM_H }
+  return { rows, boxes, rowOfBar, ...rowBand(score) }
 }

@@ -4,17 +4,7 @@ import { type EventId, keyOf, playbackKey } from '../score/ids'
 import type { Score } from '../score/types'
 import type { PlaybackBar, PlaybackEvent } from '../score/unroll'
 import type { CursorPoint } from './cursor'
-import {
-  type BarLayout,
-  HEAD_INK,
-  type Layout,
-  LINE_PX,
-  REST_INK,
-  restLine,
-  SNARE_LINE,
-  STAFF_LINES,
-  STAFF_TOP,
-} from './layout'
+import { type BarLayout, HEAD_INK, type Layout, LINE_PX, REST_INK, restLine, SNARE_LINE, STAFF_LINES } from './layout'
 
 /**
  * Everything here is in PLAYBACK POSITION (whole-note units), never seconds: inside a row x is
@@ -123,8 +113,8 @@ export interface HighlightRect {
  */
 export const HIGHLIGHT_PAD = 3
 
-/** y of a staff line counted from the bottom (`SNARE_LINE`, `restLine`), natural px from the row top. */
-const lineY = (line: number): number => STAFF_TOP + (STAFF_LINES - 1 - line) * LINE_PX
+/** y of a staff line counted from the bottom (`SNARE_LINE`, `restLine`), natural px from the row top of a piece whose top line is at `staffTop`. */
+const lineY = (staffTop: number, line: number): number => staffTop + (STAFF_LINES - 1 - line) * LINE_PX
 
 /**
  * One rectangle per event of every emitted bar, keyed by playback key: the ink of a stroke's head on
@@ -143,7 +133,7 @@ export function highlightRects(score: Score, layout: Layout, playback: PlaybackB
       if (!box) continue
       const { base } = f.event.duration
       const ink = f.event.rest ? REST_INK[base] : HEAD_INK[base]
-      const y = lineY(f.event.rest ? restLine(base) : SNARE_LINE)
+      const y = lineY(layout.staffTop, f.event.rest ? restLine(base) : SNARE_LINE)
       out.set(playbackKey(id, pb.pass), {
         row: box.row,
         x: box.x + ink.left - HIGHLIGHT_PAD,

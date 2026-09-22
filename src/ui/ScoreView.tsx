@@ -4,15 +4,7 @@ import { type CursorPoint, cursorAt } from '../notation/cursor'
 import { type EngravedRow, engraveRow } from '../notation/engrave'
 import { fit, type Pref } from '../notation/fit'
 import { notationFontsReady } from '../notation/fonts'
-import {
-  buildLayout,
-  CURSOR_OVERHANG,
-  type Layout,
-  NOTEHEAD_PX,
-  STAFF_H,
-  STAFF_TOP,
-  SYSTEM_H,
-} from '../notation/layout'
+import { buildLayout, CURSOR_OVERHANG, type Layout, NOTEHEAD_PX, STAFF_H } from '../notation/layout'
 import {
   cursorPoints,
   type HighlightRect,
@@ -121,15 +113,19 @@ export function ScoreView({ score, transport, now, mode, barsPerRow, onBar }: Pr
   }, [score, follow])
 
   // The usable width decides bars per row and scale, the height rows per viewport (see `fit`), so
-  // both are measured, never assumed: the frame is a flex child, its size is not the window's.
+  // both are measured, never assumed: the frame is a flex child, its size is not the window's. Its
+  // padding is the air around the music (a row has none on its perimeter), so the rows get what is
+  // inside it: `clientWidth` counts the padding.
   useEffect(() => {
     const frame = frameRef.current
     if (!frame) return
     let pending = 0
-    const measure = () =>
-      setSize((s) =>
-        s.w === frame.clientWidth && s.h === frame.clientHeight ? s : { w: frame.clientWidth, h: frame.clientHeight },
-      )
+    const measure = () => {
+      const css = getComputedStyle(frame)
+      const w = frame.clientWidth - Number.parseFloat(css.paddingLeft) - Number.parseFloat(css.paddingRight)
+      const h = frame.clientHeight - Number.parseFloat(css.paddingTop) - Number.parseFloat(css.paddingBottom)
+      setSize((s) => (s.w === w && s.h === h ? s : { w, h }))
+    }
     const ro = new ResizeObserver(() => {
       clearTimeout(pending)
       pending = window.setTimeout(measure, RESIZE_DEBOUNCE_MS)
@@ -164,7 +160,7 @@ export function ScoreView({ score, transport, now, mode, barsPerRow, onBar }: Pr
           auto: barsPerRow === 'auto',
           fillWidth: size.w / f.scale,
         })
-        const rowH = SYSTEM_H * f.scale
+        const rowH = layout.systemH * f.scale
         host.replaceChildren()
         host.style.height = `${layout.rows.length * rowH}px`
         // Pages: whole rows, or the page would turn with a sliver of the next one showing. Scroll: the frame's height.
@@ -240,7 +236,7 @@ export function ScoreView({ score, transport, now, mode, barsPerRow, onBar }: Pr
       // The cursor: x inside the row, the row's top plus the band's offset. `rowEndX` is 0 and
       // unused: the points carry a bar-end point, so no interval of `cursorAt` crosses rows.
       const p = cursorAt(b.points, pos, 0)
-      cur.style.transform = `translate(${p.x * scale}px, ${p.row * rowH + (STAFF_TOP - CURSOR_OVERHANG) * scale}px)`
+      cur.style.transform = `translate(${p.x * scale}px, ${p.row * rowH + (b.layout.staffTop - CURSOR_OVERHANG) * scale}px)`
 
       // The highlights: one box per sounding event, moved only when its key changes.
       const keys = b.highlights(pos)
