@@ -1,18 +1,19 @@
+/* The theme's tokens live in theme.css; these are the session flow's judge colours, until the judge
+   comes back on the score. */
 :root {
-  color-scheme: light dark;
   --good: #2a2;
   --ok: #c90;
   --off: #d33;
   --miss: #888;
   --pending: #8884;
-  --accent: #4a7bff;
-  --cursor: #4a7bff40;
 }
 * {
   box-sizing: border-box;
 }
 body {
   margin: 0;
+  background: var(--bg);
+  color: var(--text);
   font-family: system-ui, -apple-system, sans-serif;
   -webkit-user-select: none;
   user-select: none;
@@ -35,7 +36,7 @@ button {
   padding: 14px 20px;
   border-radius: 10px;
   border: 1px solid #8886;
-  background: var(--accent);
+  background: var(--main);
   color: #fff;
   margin: 4px 6px 4px 0;
 }
@@ -106,11 +107,12 @@ main.session .score-frame {
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
-  background: #fff;
-  border-radius: 8px;
 }
+/* The session flow keeps its white card: its renderer (render.ts, paint.ts) still draws in literal colours. */
 main.session .score-viewport {
   flex: 1;
+  background: #fff;
+  border-radius: 8px;
 }
 .score-host {
   position: relative;
@@ -126,7 +128,7 @@ main.session .score-viewport {
 .score-cursor {
   position: absolute;
   left: 0;
-  background: var(--cursor);
+  background: color-mix(in srgb, var(--caret) 25%, transparent);
   border-radius: 3px;
   z-index: 1;
   pointer-events: none;
@@ -229,17 +231,16 @@ main.score-screen {
   margin: 0;
   padding: 8px 12px;
 }
-/* The card around the music: its padding is the air on every side of it, the only air there — a
+/* The frame around the music: its padding is the air on every side of it, the only air there — a
    row has none on its perimeter, its ink runs from its box's edge to its edge (the first row's
-   labels at its top). ScoreView lays the rows out in what is inside the padding. */
+   labels at its top). ScoreView lays the rows out in what is inside the padding. No background:
+   the score is transparent over the page, whatever the theme. */
 main.score-screen .score-frame {
   position: relative;
   flex: 1;
   min-height: 160px;
   display: flex;
   padding: 16px;
-  background: #fff;
-  border-radius: 8px;
 }
 main.score-screen .score-viewport {
   flex: 1;
@@ -255,7 +256,7 @@ main.score-screen .score-frame--pages .score-viewport {
   position: absolute;
   left: 0;
   top: 0;
-  background: var(--cursor);
+  background: color-mix(in srgb, var(--caret) 25%, transparent);
   border-radius: 4px;
   z-index: 1;
   pointer-events: none;

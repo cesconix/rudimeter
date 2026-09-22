@@ -204,14 +204,16 @@ function placeOnGrid(formatter: Formatter, built: BuiltBar): void {
  * `start` puts its left edge there and a longer text grows rightwards, `end` puts its right edge
  * there and it grows leftwards — so a label on a row's edge never leaves the row, whatever it says.
  * The width comes from the context's own `measureText` in the label's font, so the SVG the app
- * draws and the canvas `measureInk` reads agree.
+ * draws and the canvas `measureInk` reads agree. No colour: the text sits in a `vf-label` group,
+ * which the theme paints in `--sub` (score.css); the measuring canvas has no groups.
  */
 function label(ctx: RenderContext, stave: Stave, text: string, x: number, align: 'start' | 'end'): void {
   ctx.save()
+  ctx.openGroup('label')
   ctx.setFont('system-ui, sans-serif', 13)
-  ctx.setFillStyle('#888')
   const left = align === 'start' ? x : x - ctx.measureText(text).width
   ctx.fillText(text, left, stave.getYForLine(0) - LABEL_ABOVE)
+  ctx.closeGroup()
   ctx.restore()
 }
 
@@ -347,6 +349,12 @@ export function engraveRow(
   for (const bar of row.bars) engraveBar(ctx, score, layout, row, bar, meters, span)
   const el = mount.querySelector('svg')
   if (!el) throw new Error('VexFlow rendered no <svg>')
+  // VexFlow's SVG context writes its default `black` once, on the <svg>, and on a child only what
+  // differs from its parent: every glyph, line and letter inherits it. `currentColor` in its place
+  // is the whole of the theming — the row takes the text colour of whatever holds it, and a theme
+  // switch re-engraves nothing. The gallery's "Check colors" lists any other colour a row carries.
+  el.setAttribute('fill', 'currentColor')
+  el.setAttribute('stroke', 'currentColor')
   el.style.position = 'absolute'
   el.style.left = '0'
   el.style.top = `${row.index * height}px`

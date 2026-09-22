@@ -46,6 +46,8 @@ import { buildTimeMap } from '../src/score/timemap'
 import type { NoteBase, Score } from '../src/score/types'
 import { barStarts, unroll } from '../src/score/unroll'
 import { BAND_PROBES, type Figure, GALLERY, LABEL_PROBE, WORST_CASE } from './gallery-scores'
+import '../src/ui/theme.css'
+import '../src/ui/score.css'
 
 /**
  * The layout `score` gets in `host`: the rows justified to its width, as the app's to the frame, so
@@ -90,7 +92,7 @@ function section(fig: Figure): { el: HTMLElement; host: HTMLElement } {
   p.className = 'expect'
   p.textContent = fig.expect
   const host = document.createElement('div')
-  host.className = 'host'
+  host.className = 'host score-host'
   el.append(h3, p, host)
   return { el, host }
 }
@@ -164,6 +166,14 @@ pick.addEventListener('change', showPicked)
 // The book page first: 50 Workout #43 is the one piece with rests, dotted spellings and two repeated sections.
 pick.value = 'workout-43'
 showPicked()
+
+// The theme, as the app takes it: "System" leaves <html> bare and the system's preference decides
+// (theme.css); Light and Dark stamp `data-theme`. Only CSS changes — nothing is re-engraved.
+const theme = document.getElementById('theme') as HTMLSelectElement
+theme.addEventListener('change', () => {
+  if (theme.value) document.documentElement.dataset.theme = theme.value
+  else delete document.documentElement.dataset.theme
+})
 
 /** Rotating the iPad emits many resizes in a row, and every one would re-engrave twelve figures and the library. */
 const RESIZE_DEBOUNCE_MS = 150
@@ -351,6 +361,47 @@ on('measure-edges', () => {
       // column reads as painted, so anything under one device pixel is the reading, not ink.
       `resolution ${(1 / (window.devicePixelRatio || 1)).toFixed(2)} px`,
   )
+})
+
+on('check-colors', () => {
+  // Every row the gallery can draw — the figures, the library, a bar of every kind of event
+  // (BAND_PROBES), the worst case, the labels — engraved as the app engraves it, off the page. A
+  // row's SVG carries no colour but `currentColor`, the hook the theme paints through (theme.css,
+  // score.css): any other value, a VexFlow default or a literal left in engrave.ts, is a colour no
+  // theme reaches, and is listed with the first row it was seen on.
+  const library = document.getElementById('library') as HTMLElement
+  const jobs: [string, Score, number | undefined][] = [
+    ...GALLERY.map((fig): [string, Score, number | undefined] => [fig.id, fig.score, fig.barsPerRow]),
+    ...SCORES.map((s): [string, Score, number | undefined] => [`library/${s.id}`, s, undefined]),
+    ...BAND_PROBES.map((p): [string, Score, number | undefined] => [`band/${p.score.id}`, p.score, undefined]),
+    [WORST_CASE.id, WORST_CASE.score, WORST_CASE.barsPerRow],
+    ['labels', LABEL_PROBE, undefined],
+  ]
+  const themed = new Set(['currentColor', 'none', 'transparent'])
+  const scratch = document.createElement('div')
+  const found = new Map<string, string>()
+  let rows = 0
+  for (const [id, score, pin] of jobs) {
+    const { layout } = laidOut(library, score, pin)
+    for (const row of layout.rows) {
+      rows++
+      const { el, dispose } = engraveRow(scratch, score, layout, row, 1)
+      for (const node of [el, ...el.querySelectorAll('*')]) {
+        const what = `${node.tagName}${node.getAttribute('class') ? `.${node.getAttribute('class')}` : ''}`
+        const colours = ['fill', 'stroke'].map((a): [string, string | null] => [a, node.getAttribute(a)])
+        // A colour in a style attribute would escape the check on attributes alone.
+        const style = node.getAttribute('style') ?? ''
+        if (/(fill|stroke|color)\s*:/.test(style)) colours.push(['style', style])
+        for (const [a, value] of colours) {
+          const key = `${what} ${a} "${value}"`
+          if (value !== null && !themed.has(value) && !found.has(key)) found.set(key, `${id} row ${row.index + 1}`)
+        }
+      }
+      dispose()
+    }
+  }
+  const list = [...found].map(([key, at]) => `${key} (${at})`).join('; ')
+  log(`colors: ${rows} rows; ${found.size === 0 ? 'no colour but currentColor' : `colours no theme reaches: ${list}`}`)
 })
 
 /** Engraves `score` into `host` with every row timed; returns what the motion loop needs. */
