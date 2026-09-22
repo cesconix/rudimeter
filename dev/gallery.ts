@@ -45,8 +45,10 @@ import { toNumber } from '../src/score/fraction'
 import { buildTimeMap } from '../src/score/timemap'
 import type { NoteBase, Score } from '../src/score/types'
 import { barStarts, unroll } from '../src/score/unroll'
+import { applyTheme } from '../src/ui/apply-theme'
+import { THEMES } from '../src/ui/themes'
 import { BAND_PROBES, type Figure, GALLERY, LABEL_PROBE, WORST_CASE } from './gallery-scores'
-import '../src/ui/theme.css'
+import '../src/ui/themes.css'
 import '../src/ui/score.css'
 
 /**
@@ -167,13 +169,17 @@ pick.addEventListener('change', showPicked)
 pick.value = 'workout-43'
 showPicked()
 
-// The theme, as the app takes it: "System" leaves <html> bare and the system's preference decides
-// (theme.css); Light and Dark stamp `data-theme`. Only CSS changes — nothing is re-engraved.
+// The theme, as the app applies it (`applyTheme`): System leaves <html> bare and the device decides
+// (themes.css), any other stamps `data-theme`. Every notation is seen in each of the catalogue's
+// themes; only CSS changes — nothing is re-engraved.
 const theme = document.getElementById('theme') as HTMLSelectElement
-theme.addEventListener('change', () => {
-  if (theme.value) document.documentElement.dataset.theme = theme.value
-  else delete document.documentElement.dataset.theme
-})
+for (const t of THEMES) {
+  const option = document.createElement('option')
+  option.value = t.id
+  option.textContent = t.name
+  theme.appendChild(option)
+}
+theme.addEventListener('change', () => applyTheme(theme.value))
 
 /** Rotating the iPad emits many resizes in a row, and every one would re-engrave twelve figures and the library. */
 const RESIZE_DEBOUNCE_MS = 150
@@ -366,7 +372,7 @@ on('measure-edges', () => {
 on('check-colors', () => {
   // Every row the gallery can draw — the figures, the library, a bar of every kind of event
   // (BAND_PROBES), the worst case, the labels — engraved as the app engraves it, off the page. A
-  // row's SVG carries no colour but `currentColor`, the hook the theme paints through (theme.css,
+  // row's SVG carries no colour but `currentColor`, the hook the theme paints through (themes.css,
   // score.css): any other value, a VexFlow default or a literal left in engrave.ts, is a colour no
   // theme reaches, and is listed with the first row it was seen on.
   const library = document.getElementById('library') as HTMLElement

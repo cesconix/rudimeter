@@ -1,0 +1,206 @@
+/* The themes: tokens and nothing else, the roles monkeytype's themes fill, so a known palette ports
+   slot for slot: `--bg` the page, `--text` the main text and the music's ink, `--sub` secondary
+   text and what the music is read against (staff lines, bar numbers), `--sub-alt` secondary
+   surfaces (fields, panels), `--main` the accent (buttons), `--caret` where you are now (the cursor,
+   the highlight), `--error`. Every page reads them; the score draws in `currentColor` and reads
+   `--sub` and `--caret` (score.css, styles.css).
+
+   "System" is <html> with no `data-theme`: Rudimeter Light, Rudimeter Dark when the device is dark.
+   Any other theme is `data-theme="<id>"` on <html> — stamped before the first paint by index.html,
+   from `rudimeter.theme` (themes.ts). The selector is `[data-theme]`, not `:root[…]`: a tile of the
+   picker carries its theme's attribute and paints itself with these same tokens, so no palette is
+   written anywhere but here. Every block passes the contrast rule (themes.test.ts); a palette's own
+   slot that fails it gives way to the next slot of the same palette, never to an invented colour. */
+
+/* Rudimeter */
+:root,
+[data-theme="rudimeter-light"] {
+  color-scheme: light;
+  --bg: #ffffff;
+  --text: #000000;
+  --sub: #888888;
+  --sub-alt: #f2f2f2;
+  --main: #4a7bff;
+  --caret: #4a7bff;
+  --error: #dd3333;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --bg: #121214;
+    --text: #e6e6e6;
+    --sub: #7a7a80;
+    --sub-alt: #1e1e22;
+    --main: #6b8cff;
+    --caret: #6b8cff;
+    --error: #f05252;
+  }
+}
+
+/* Catppuccin Latte (MIT): base, text, overlay2, surface0, blue, red */
+[data-theme="catppuccin-latte"] {
+  color-scheme: light;
+  --bg: #eff1f5;
+  --text: #4c4f69;
+  --sub: #7c7f93;
+  --sub-alt: #ccd0da;
+  --main: #1e66f5;
+  --caret: #1e66f5;
+  --error: #d20f39;
+}
+
+/* Solarized (MIT): base3, base01, base00, base2, blue, red — base01 and base00, not base00 and base1, pass the contrast rule */
+[data-theme="solarized-light"] {
+  color-scheme: light;
+  --bg: #fdf6e3;
+  --text: #586e75;
+  --sub: #657b83;
+  --sub-alt: #eee8d5;
+  --main: #268bd2;
+  --caret: #268bd2;
+  --error: #dc322f;
+}
+
+/* Gruvbox (MIT/X11): light0, dark1, gray, light1, faded blue, faded red */
+[data-theme="gruvbox-light"] {
+  color-scheme: light;
+  --bg: #fbf1c7;
+  --text: #3c3836;
+  --sub: #928374;
+  --sub-alt: #ebdbb2;
+  --main: #076678;
+  --caret: #076678;
+  --error: #9d0006;
+}
+
+/* Rosé Pine Dawn (MIT): base, text, subtle (muted fails the contrast rule), overlay, pine, love */
+[data-theme="rose-pine-dawn"] {
+  color-scheme: light;
+  --bg: #faf4ed;
+  --text: #464261;
+  --sub: #797593;
+  --sub-alt: #f2e9e1;
+  --main: #286983;
+  --caret: #286983;
+  --error: #b4637a;
+}
+
+/* Tokyo Night Day (folke/tokyonight.nvim, Apache-2.0): bg, fg, dark5 (comment fails the contrast rule), bg_dark, blue, error */
+[data-theme="tokyo-night-day"] {
+  color-scheme: light;
+  --bg: #e1e2e7;
+  --text: #3760bf;
+  --sub: #68709a;
+  --sub-alt: #d0d5e3;
+  --main: #2e7de9;
+  --caret: #2e7de9;
+  --error: #c64343;
+}
+
+/* Rudimeter */
+[data-theme="rudimeter-dark"] {
+  color-scheme: dark;
+  --bg: #121214;
+  --text: #e6e6e6;
+  --sub: #7a7a80;
+  --sub-alt: #1e1e22;
+  --main: #6b8cff;
+  --caret: #6b8cff;
+  --error: #f05252;
+}
+
+/* Catppuccin Mocha (MIT): base, text, overlay1, surface0, blue, red */
+[data-theme="catppuccin-mocha"] {
+  color-scheme: dark;
+  --bg: #1e1e2e;
+  --text: #cdd6f4;
+  --sub: #7f849c;
+  --sub-alt: #313244;
+  --main: #89b4fa;
+  --caret: #89b4fa;
+  --error: #f38ba8;
+}
+
+/* Tokyo Night (folke/tokyonight.nvim, Apache-2.0): bg, fg, dark5 (comment fails the contrast rule), bg_highlight, blue, red */
+[data-theme="tokyo-night"] {
+  color-scheme: dark;
+  --bg: #1a1b26;
+  --text: #c0caf5;
+  --sub: #737aa2;
+  --sub-alt: #292e42;
+  --main: #7aa2f7;
+  --caret: #7aa2f7;
+  --error: #f7768e;
+}
+
+/* Dracula (MIT): background, foreground, comment, current line, purple, red */
+[data-theme="dracula"] {
+  color-scheme: dark;
+  --bg: #282a36;
+  --text: #f8f8f2;
+  --sub: #6272a4;
+  --sub-alt: #44475a;
+  --main: #bd93f9;
+  --caret: #bd93f9;
+  --error: #ff5555;
+}
+
+/* Nord (MIT): nord0, nord6, nord10 (nord3 fails the contrast rule), nord1, nord8, nord11 */
+[data-theme="nord"] {
+  color-scheme: dark;
+  --bg: #2e3440;
+  --text: #eceff4;
+  --sub: #5e81ac;
+  --sub-alt: #3b4252;
+  --main: #88c0d0;
+  --caret: #88c0d0;
+  --error: #bf616a;
+}
+
+/* Gruvbox (MIT/X11): dark0, light1, gray, dark1, bright yellow, bright red */
+[data-theme="gruvbox-dark"] {
+  color-scheme: dark;
+  --bg: #282828;
+  --text: #ebdbb2;
+  --sub: #928374;
+  --sub-alt: #3c3836;
+  --main: #fabd2f;
+  --caret: #fabd2f;
+  --error: #fb4934;
+}
+
+/* One Dark (Atom, MIT): syntax-bg, mono-1, mono-2, selection, hue-2, hue-5 */
+[data-theme="one-dark"] {
+  color-scheme: dark;
+  --bg: #282c34;
+  --text: #abb2bf;
+  --sub: #828997;
+  --sub-alt: #3e4451;
+  --main: #61afef;
+  --caret: #61afef;
+  --error: #e06c75;
+}
+
+/* Rosé Pine (MIT): base, text, muted, overlay, iris, love */
+[data-theme="rose-pine"] {
+  color-scheme: dark;
+  --bg: #191724;
+  --text: #e0def4;
+  --sub: #6e6a86;
+  --sub-alt: #26233a;
+  --main: #c4a7e7;
+  --caret: #c4a7e7;
+  --error: #eb6f92;
+}
+
+/* Solarized (MIT): base03, base0, base00 (base01 fails the contrast rule), base02, blue, red */
+[data-theme="solarized-dark"] {
+  color-scheme: dark;
+  --bg: #002b36;
+  --text: #839496;
+  --sub: #657b83;
+  --sub-alt: #073642;
+  --main: #268bd2;
+  --caret: #268bd2;
+  --error: #dc322f;
+}
