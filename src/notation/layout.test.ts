@@ -369,9 +369,10 @@ describe('band', () => {
   const s = (extra: Partial<Event> = {}): Event => ({ duration: { base: 16 }, ...extra })
   const sixteenths = (extra: Partial<Event> = {}): Item[] => Array.from({ length: 16 }, () => s(extra))
 
-  it("a plain piece: the labels' height, up to a whole px, and the letters' room under the staff", () => {
+  it("a plain piece: its stems' height, over the labels', up to a whole px, and the letters' room under the staff", () => {
     const band = rowBand(one(quarters()))
-    expect(band.staffTop).toBe(Math.ceil(LABEL_INK_ABOVE))
+    expect(LABEL_INK_ABOVE).toBeLessThan(INK_ABOVE.free.plain.none)
+    expect(band.staffTop).toBe(Math.ceil(INK_ABOVE.free.plain.none))
     expect(band.systemH).toBe(band.staffTop + STAFF_H + STAFF_BELOW)
     // A piece with no sticking keeps the letters' room: rows breathe alike from one piece to the next.
     expect(rowBand(one(sixteenths({ sticking: 'R' }))).systemH).toBe(band.systemH)
@@ -387,9 +388,9 @@ describe('band', () => {
     )
   })
 
-  it('grace notes and rolls stay under the stem: the labels decide', () => {
+  it('grace notes and rolls stay under the stem: the stems decide', () => {
     const extra: Partial<Event> = { grace: { kind: 'drag' }, roll: { kind: 'tremolo', slashes: 3 } }
-    expect(inkAbove(one(sixteenths(extra)))).toBe(LABEL_INK_ABOVE)
+    expect(inkAbove(one(sixteenths(extra)))).toBe(INK_ABOVE.free.plain.none)
   })
 
   it("a 32nd's stems, flagged or beamed; a longer stroke on a 32nd's beam hangs from it and takes its class", () => {

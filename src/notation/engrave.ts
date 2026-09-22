@@ -59,6 +59,25 @@ export function keyForLine(line: number): string {
 /** Every stroke on the snare's line, every rest on its rest line: one staff, one voice, stems up. */
 const SNARE_KEY = keyForLine(SNARE_LINE)
 
+/**
+ * Every word a row prints — the sticking under the staff, a text over a note, the labels — in one
+ * face: Academico 11 pt, the text face VexFlow ships beside Bravura and loads with it, so the words
+ * print alike on every device and `STICKING_INK`, `INK_ABOVE` and `LABEL_INK_ABOVE` hold wherever
+ * they were measured. Regular, not bold: bold letters took the weight of the solid heads and beams
+ * and a page of sixteenths read as one block of ink. Chosen on the gallery's figures and the app,
+ * 2026-09-22, over bold, a bold sans (system-ui changes face from one platform to the next) and 12
+ * and 10 pt. The size in pt, as VexFlow takes it.
+ */
+const TEXT_FONT = { family: 'Academico', size: 11, weight: 'normal' } as const
+/**
+ * How far the letters are lifted from where VexFlow sets a BOTTOM annotation, px: it leaves a whole
+ * staff space and the text's height under the note, which put their ink some 14 px under the bottom
+ * line, a row of its own. Lifted, it starts 6.5 px under it (`STICKING_INK`) — tied to the staff,
+ * past the cursor band's `CURSOR_OVERHANG`, and nothing else hangs there: the lowest rests stop on
+ * the bottom line (`REST_INK`). Chosen on the gallery's figures, 2026-09-22, over 14 and 10 px.
+ */
+const STICKING_LIFT = 7
+
 export interface EngravedRow {
   el: SVGSVGElement
   dispose(): void
@@ -89,9 +108,20 @@ function decorate(note: StaveNote, event: Event): void {
   if (event.accent) note.addModifier(new Articulation('a>').setPosition(ModifierPosition.ABOVE), 0)
   // Below the staff, where the pad books print it.
   if (event.sticking)
-    note.addModifier(new Annotation(event.sticking).setVerticalJustification(AnnotationVerticalJustify.BOTTOM), 0)
+    note.addModifier(
+      new Annotation(event.sticking)
+        .setFont(TEXT_FONT.family, TEXT_FONT.size, TEXT_FONT.weight)
+        .setVerticalJustification(AnnotationVerticalJustify.BOTTOM)
+        .setYShift(-STICKING_LIFT),
+      0,
+    )
   if (event.text)
-    note.addModifier(new Annotation(event.text).setVerticalJustification(AnnotationVerticalJustify.TOP), 0)
+    note.addModifier(
+      new Annotation(event.text)
+        .setFont(TEXT_FONT.family, TEXT_FONT.size, TEXT_FONT.weight)
+        .setVerticalJustification(AnnotationVerticalJustify.TOP),
+      0,
+    )
   if (event.grace) {
     // A flam is one slashed eighth, a drag two beamed sixteenths, on the snare's line before the note, stem up.
     const flam = event.grace.kind === 'flam'
@@ -210,7 +240,7 @@ function placeOnGrid(formatter: Formatter, built: BuiltBar): void {
 function label(ctx: RenderContext, stave: Stave, text: string, x: number, align: 'start' | 'end'): void {
   ctx.save()
   ctx.openGroup('label')
-  ctx.setFont('system-ui, sans-serif', 13)
+  ctx.setFont(TEXT_FONT.family, TEXT_FONT.size, TEXT_FONT.weight)
   const left = align === 'start' ? x : x - ctx.measureText(text).width
   ctx.fillText(text, left, stave.getYForLine(0) - LABEL_ABOVE)
   ctx.closeGroup()

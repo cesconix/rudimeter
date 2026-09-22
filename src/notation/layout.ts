@@ -70,17 +70,22 @@ export const STAFF_LINES = 5
 export const STAFF_H = (STAFF_LINES - 1) * LINE_PX
 /**
  * The sticking letters' ink under the bottom line, natural px: from the air over them to their
- * bottom. VexFlow places a BOTTOM annotation from the stave, not from its note, so every letter of
- * every piece sits there. Measured 2026-09-22 (gallery, "Measure band", Chrome on the Mac at dpr 2).
+ * bottom, in Academico 11 pt, lifted `STICKING_LIFT` from where VexFlow sets them (engrave.ts).
+ * VexFlow places a BOTTOM annotation from the stave, not from its note, so every letter of every
+ * piece sits there. Measured 2026-09-22 (gallery, "Measure band", Chrome on the Mac at dpr 2); the
+ * 10 pt letters, not lifted, were 13.5–24.
  */
-export const STICKING_INK = { top: 13.5, bottom: 24 }
+export const STICKING_INK = { top: 6.5, bottom: 18 }
 /**
  * The air under the letters, down to the next row's highest ink, against the air over them: at least
- * twice as much, so the eye ties the letters to the staff above them at once. With the two alike
- * (15.5 px under them on the old fixed band's densest rows) a reader could not tell which row they
- * belonged to. Chosen on the gallery's figures, 2026-09-22, over once and three times as much.
+ * five times as much, so the eye ties the letters to the staff above them at once and reads each
+ * row, staff and letters, as one block. With the two alike (15.5 px under them on the old fixed
+ * band's densest rows) a reader could not tell which row they belonged to; with twice as much under
+ * letters 6.5 px from the staff (14 px), the next row's bar number sat against them and the page
+ * read as a wall. Five keeps a plain piece's rows 112 px apart, as they were with the letters 13.5
+ * px down and twice their air. Chosen on the app's Stroke pyramid, 2026-09-22, over two to four.
  */
-export const STICKING_AIR = 2
+export const STICKING_AIR = 5
 /**
  * Below the staff: the letters and their air, for every piece — one without sticking keeps the
  * room, so rows breathe alike from one piece to the next. Above it the piece decides (`rowBand`).
@@ -103,23 +108,28 @@ interface Marks {
  * sixteenth, flagged and beamed; a 32nd flagged, beamed, beamed with sixteenths; tuplets of 2 to 13
  * of each — with a drag and three slashes, a flam and a buzz on every stroke or neither: those stay
  * under the stem. Half a pixel moves with where the glyphs land on the pixel grid (a text over an
- * accent under a bracket: 70 on most tuplets, 70.5 on some), so an entry is the highest of them. The
+ * accent under a bracket of 32nds: 78 on most tuplets, 78.5 on some), so an entry is the highest of them. The
  * layers do not add up, so the table holds each combination: an accent lifts a stroke 15.5 px, under
- * a bracket 22.5; a text over a rest sits as high as one over an accented stroke, or lower (55 and 55,
- * 57.5 and 62.5, 70 and 70.5, 77.5 and 77.5), and counts as one.
+ * a bracket 22.5; a text over a rest sits as high as one over an accented stroke, or lower (56 and 56,
+ * 58.5 and 63.5, 71.5 and 71.5, 78 and 78.5), and counts as one. The texts are in Academico 11 pt
+ * (engrave.ts); in VexFlow's 10 pt each entry with a text was 1 px lower.
  */
 export const INK_ABOVE: Record<'free' | 'tuplet', Record<'plain' | 'thirtySecond', Marks>> = {
   free: {
-    plain: { none: 20.5, accent: 35.5, text: 40, accentText: 55 },
-    thirtySecond: { none: 27.5, accent: 45.5, text: 47.5, accentText: 62.5 },
+    plain: { none: 20.5, accent: 35.5, text: 41, accentText: 56 },
+    thirtySecond: { none: 27.5, accent: 45.5, text: 48.5, accentText: 63.5 },
   },
   tuplet: {
-    plain: { none: 40, accent: 62.5, text: 62.5, accentText: 70.5 },
-    thirtySecond: { none: 47.5, accent: 70, text: 70, accentText: 77.5 },
+    plain: { none: 40, accent: 62.5, text: 63.5, accentText: 71.5 },
+    thirtySecond: { none: 47.5, accent: 70, text: 71, accentText: 78.5 },
   },
 }
-/** The grey labels' ink above the top line (bar numbers 1 to 24, a repeat's "×N"), natural px: every row has one. Measured with `INK_ABOVE`. */
-export const LABEL_INK_ABOVE = 21
+/**
+ * The grey labels' ink above the top line (bar numbers 1 to 24, a repeat's "×N"), natural px: every row
+ * has one. Measured with `INK_ABOVE`, in Academico 11 pt (engrave.ts): under a bare stem's tip
+ * (`INK_ABOVE.free.plain.none`), so the stems decide even a plain piece's band; it stays the floor.
+ */
+export const LABEL_INK_ABOVE = 19
 /** Notehead width at natural scale: the cursor is as wide as it, and the readability floor is measured on it. */
 export const NOTEHEAD_PX = 11.8
 /** Below this the notehead is no longer readable: the constraint that limits how many bars a row takes. */
