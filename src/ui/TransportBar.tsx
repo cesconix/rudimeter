@@ -2,6 +2,7 @@ import { useEffect, useState, useSyncExternalStore } from 'react'
 import { clampBpm, MAX_BPM, MIN_BPM, type Transport } from '../audio/transport'
 import type { Pref } from '../notation/fit'
 import { BARS_PER_ROW_CHOICES, type ViewMode, type ViewPrefs } from './prefs'
+import { ThemePicker } from './ThemePicker'
 
 interface Props {
   transport: Transport
@@ -20,7 +21,7 @@ const BPM_STEP = 5
 const prefValue = (p: Pref): string => String(p)
 const prefFrom = (s: string): Pref => (s === 'auto' ? 'auto' : Number(s))
 
-/** Play / pause, stop, the tempo, where the cursor is, and the view settings behind one button. */
+/** Play / pause, stop, the tempo, where the cursor is, and the view settings and the theme behind one button. */
 export function TransportBar({ transport, bar, bars, prefs, onPlay, onPrefs }: Props) {
   const state = useSyncExternalStore(transport.subscribe, () => transport.state)
   const [settings, setSettings] = useState(false)
@@ -79,28 +80,31 @@ export function TransportBar({ transport, bar, bars, prefs, onPlay, onPrefs }: P
         </button>
       </div>
       {settings && (
-        <div className="row transport-bar__settings">
-          <label>
-            Follow{' '}
-            <select value={prefs.mode} onChange={(e) => onPrefs({ mode: e.target.value as ViewMode })}>
-              <option value="scroll">scroll</option>
-              <option value="pages">pages</option>
-            </select>
-          </label>
-          <label>
-            Bars per row{' '}
-            <select
-              value={prefValue(prefs.barsPerRow)}
-              onChange={(e) => onPrefs({ barsPerRow: prefFrom(e.target.value) })}
-            >
-              {BARS_PER_ROW_CHOICES.map((c) => (
-                <option key={prefValue(c)} value={prefValue(c)}>
-                  {prefValue(c)}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+        <>
+          <div className="row transport-bar__settings">
+            <label>
+              Follow{' '}
+              <select value={prefs.mode} onChange={(e) => onPrefs({ mode: e.target.value as ViewMode })}>
+                <option value="scroll">scroll</option>
+                <option value="pages">pages</option>
+              </select>
+            </label>
+            <label>
+              Bars per row{' '}
+              <select
+                value={prefValue(prefs.barsPerRow)}
+                onChange={(e) => onPrefs({ barsPerRow: prefFrom(e.target.value) })}
+              >
+                {BARS_PER_ROW_CHOICES.map((c) => (
+                  <option key={prefValue(c)} value={prefValue(c)}>
+                    {prefValue(c)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <ThemePicker />
+        </>
       )}
     </div>
   )

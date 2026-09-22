@@ -1,4 +1,4 @@
-/* The theme's tokens live in theme.css; these are the session flow's judge colours, until the judge
+/* The theme's tokens live in themes.css; these are the session flow's judge colours, until the judge
    comes back on the score. */
 :root {
   --good: #2a2;
@@ -31,18 +31,21 @@ h2 {
   font-size: 1.1rem;
   margin: 16px 0 8px;
 }
+/* The controls take the theme: a primary button is the accent with its label in the page's
+   background (the contrast rule checks that pair, themes.test.ts), everything else sits on the
+   secondary surface in the text colour. */
 button {
   font-size: 1.1rem;
   padding: 14px 20px;
   border-radius: 10px;
-  border: 1px solid #8886;
+  border: 1px solid transparent;
   background: var(--main);
-  color: #fff;
+  color: var(--bg);
   margin: 4px 6px 4px 0;
 }
 button.secondary {
-  background: transparent;
-  color: inherit;
+  background: var(--sub-alt);
+  color: var(--text);
 }
 button:disabled {
   opacity: 0.4;
@@ -51,6 +54,17 @@ input[type="number"] {
   font-size: 1.2rem;
   width: 5em;
   padding: 8px;
+}
+input[type="number"],
+select {
+  background-color: var(--sub-alt);
+  color: var(--text);
+  border: 1px solid transparent;
+  border-radius: 8px;
+}
+select {
+  font: inherit;
+  padding: 6px 8px;
 }
 .error {
   color: var(--off);
@@ -269,11 +283,11 @@ main.score-screen .score-frame--pages .score-viewport {
 
 /* The transport bar: one row of big controls at the bottom, the settings folded under "View". */
 .transport-bar {
-  border-top: 1px solid #8884;
+  border-top: 1px solid var(--sub-alt);
   padding: 8px 0 0;
   margin-top: 8px;
 }
-.transport-bar button {
+.transport-bar .row > button {
   margin: 2px 4px 2px 0;
   padding: 10px 16px;
 }
@@ -288,4 +302,79 @@ main.score-screen .score-frame--pages .score-viewport {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+/* The theme picker (View panel): System, then the light and the dark themes, each tile painted in
+   its own theme by a face that carries its `data-theme` (ThemePicker). The button around the face
+   stays in the page's theme: its ring is the page's secondary surface, the page's accent when chosen. */
+.theme-picker {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.theme-picker__group {
+  margin: 8px 0 4px;
+  padding: 0;
+  font-size: 0.8rem;
+  color: var(--sub);
+}
+.theme-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 6px;
+  margin-top: 6px;
+}
+.theme-tile {
+  position: relative;
+  display: block;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font-size: 0.9rem;
+  text-align: start;
+  box-shadow: 0 0 0 1px var(--sub-alt);
+}
+.theme-tile[aria-pressed="true"] {
+  box-shadow: 0 0 0 2px var(--main);
+}
+.theme-tile:focus-visible {
+  outline: 2px solid var(--main);
+  outline-offset: 3px;
+}
+.theme-tile__face {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--bg);
+  color: var(--text);
+}
+/* System: Rudimeter Light, and Rudimeter Dark over its right side, cut on a slant. */
+.theme-tile--system .theme-tile__face + .theme-tile__face {
+  position: absolute;
+  inset: 0;
+  justify-content: flex-end;
+  clip-path: polygon(64% 0, 100% 0, 100% 100%, 54% 100%);
+}
+.theme-tile__dots {
+  display: flex;
+  gap: 4px;
+}
+.theme-tile__dots i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.theme-tile__dot--main {
+  background: var(--main);
+}
+.theme-tile__dot--sub {
+  background: var(--sub);
+}
+.theme-tile__dot--text {
+  background: var(--text);
 }

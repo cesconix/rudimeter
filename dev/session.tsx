@@ -37,7 +37,7 @@ import { DEFAULT_SESSION_OPTIONS, type SessionOptions } from '../src/ui/options'
 import { SessionScreen } from '../src/ui/SessionScreen'
 import { StartScreen } from '../src/ui/StartScreen'
 import { SummaryScreen } from '../src/ui/SummaryScreen'
-import '../src/ui/theme.css'
+import '../src/ui/themes.css'
 import '../src/ui/styles.css'
 import '../src/ui/score.css'
 

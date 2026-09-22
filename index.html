@@ -5,7 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="theme-color" content="#4a7bff" />
+    <meta name="theme-color" content="#ffffff" />
+    <script>
+      // The saved theme, stamped before the first paint: without it the page would flash the
+      // system's theme until the bundle runs. The key is THEME_KEY (src/ui/themes.ts); an unknown
+      // id matches no block of themes.css and main.tsx clears it.
+      try {
+        const theme = localStorage.getItem('rudimeter.theme')
+        if (theme) document.documentElement.dataset.theme = theme
+      } catch {}
+    </script>
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
     <title>Rudimeter</title>
