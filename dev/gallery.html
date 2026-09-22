@@ -5,39 +5,43 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>notation gallery</title>
     <style>
-      body { margin: 0; font-family: system-ui, sans-serif; background: #fff; color: #000; }
+      body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); }
       h1 { margin: 16px 8px 4px; font-size: 18px; }
       h2 { margin: 24px 8px 4px; font-size: 16px; }
       .figure { margin: 0 8px 24px; }
-      .figure h3 { margin: 0 0 4px; font-size: 13px; font-weight: 600; color: #333; }
-      .figure .expect { margin: 0 0 6px; font-size: 12px; color: #555; max-width: 80ch; }
-      .host { position: relative; border: 1px solid #ddd; overflow-x: auto; }
+      .figure h3 { margin: 0 0 4px; font-size: 13px; font-weight: 600; }
+      .figure .expect { margin: 0 0 6px; font-size: 12px; color: var(--sub); max-width: 80ch; }
+      .host { position: relative; border: 1px solid var(--sub-alt); overflow-x: auto; }
       pre { padding: 8px; white-space: pre-wrap; }
     </style>
   </head>
   <body>
     <h1>Gallery — one section per notation, checked against its sentence</h1>
+    <p style="margin: 0 8px">
+      <label>Theme <select id="theme"><option value="">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
+    </p>
     <pre id="log"></pre>
     <h2>Measurements — the numbers the layout constants come from</h2>
     <div class="figure">
-      <p class="expect">Head: the px the clef + meter need against HEAD_PX, the clef alone against CLEF_PX, the meter alone against METER_PX, VexFlow's Stave.padding against BAR_PAD; from pixels, what a bar opening a repeat needs against REPEAT_PX and REPEAT_BAR_PX, and how far a flam and a drag reach before their note against FLAM_PX and DRAG_PX. Band: from pixels, the ink above the staff of every kind of event, bare and marked, alone and under a bracket, against INK_ABOVE; the labels against LABEL_INK_ABOVE; the sticking letters against STICKING_INK, which STAFF_BELOW is set from; then every figure and library piece against its own band (rowBand): no ink out of it, and under the letters at least STICKING_AIR times the air over them; the worst case's rows stacked as the app stacks them, one band apart (the pink lines). Highlight: the ink of every head and rest, each drawn alone, from pixels, against HEAD_INK and REST_INK — what the highlight box frames. Edges: every row of every figure and library piece against its own width — no ink out of it, none of it blank on the sides (BARLINE_OVERHANG). Longest piece: ms per engraved row (the spec's line is 16 ms on the iPad). Motion: 30 s at 120 bpm, rAF intervals above 20 ms, scroll and pages.</p>
+      <p class="expect">Head: the px the clef + meter need against HEAD_PX, the clef alone against CLEF_PX, the meter alone against METER_PX, VexFlow's Stave.padding against BAR_PAD; from pixels, what a bar opening a repeat needs against REPEAT_PX and REPEAT_BAR_PX, and how far a flam and a drag reach before their note against FLAM_PX and DRAG_PX. Band: from pixels, the ink above the staff of every kind of event, bare and marked, alone and under a bracket, against INK_ABOVE; the labels against LABEL_INK_ABOVE; the sticking letters against STICKING_INK, which STAFF_BELOW is set from; then every figure and library piece against its own band (rowBand): no ink out of it, and under the letters at least STICKING_AIR times the air over them; the worst case's rows stacked as the app stacks them, one band apart (the pink lines). Highlight: the ink of every head and rest, each drawn alone, from pixels, against HEAD_INK and REST_INK — what the highlight box frames. Edges: every row of every figure and library piece against its own width — no ink out of it, none of it blank on the sides (BARLINE_OVERHANG). Colors: every row of every figure, library piece and band probe, engraved as the app engraves it, carries no colour but currentColor — the hook the theme paints through (theme.css, score.css); any other fill or stroke is listed with the row it was first seen on. Longest piece: ms per engraved row (the spec's line is 16 ms on the iPad). Motion: 30 s at 120 bpm, rAF intervals above 20 ms, scroll and pages.</p>
       <p>
         <button type="button" id="measure-head">Measure head</button>
         <button type="button" id="measure-band">Measure band</button>
         <button type="button" id="measure-highlight">Measure highlight</button>
         <button type="button" id="measure-edges">Measure edges</button>
+        <button type="button" id="check-colors">Check colors</button>
         <button type="button" id="measure-engrave">Engrave the longest piece</button>
         <button type="button" id="measure-scroll">Scroll 30 s</button>
         <button type="button" id="measure-pages">Pages 30 s</button>
       </p>
-      <div id="band" class="host"></div>
-      <div id="motion" style="position: relative; overflow: hidden; border: 1px solid #ddd; height: 0"><div id="motion-host" style="position: relative"></div></div>
+      <div id="band" class="host score-host"></div>
+      <div id="motion" style="position: relative; overflow: hidden; border: 1px solid var(--sub-alt); height: 0"><div id="motion-host" class="score-host" style="position: relative"></div></div>
     </div>
     <h2>Library — every piece of <code>SCORES</code>, whole</h2>
     <div class="figure">
       <p class="expect">50 Workout #43 against p. 51 of the book (dotted eighths, sixteenth rests, quarter rests, repeat signs at bars 1, 4 and 16); the two pyramids against their previous rendering (two bars per row); the four sticking exercises with their repeat signs and "×20" / "×8".</p>
       <select id="pick"></select>
-      <div id="library" class="host"></div>
+      <div id="library" class="host score-host"></div>
     </div>
     <div id="sections"></div>
     <script type="module" src="./gallery.ts"></script>
