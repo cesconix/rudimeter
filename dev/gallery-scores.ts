@@ -242,42 +242,96 @@ export const GALLERY: Figure[] = [
 ]
 
 /**
- * Everything the band must hold at once, on a pad: above — a text over an accented triplet, the
- * tuplet number, accents over flams, drags, slashes and a buzz, the stems of thirty-seconds;
- * below — sticking under every kind of note. `STAFF_TOP` and `STAFF_BELOW` are measured on it.
+ * Everything the band must hold at once, on a pad, stacked on as many strokes as validation allows:
+ * above — texts over accents over drags and flams, tuplet numbers over triplets, quintuplets,
+ * sextuplets and septuplets of sixteenths and thirty-seconds, three slashes on beamed stems, buzzes,
+ * the "×N" of a repeat; below — sticking under every kind of note, ties, beamed rests. Two rows of
+ * two bars, a 12/8 change and a tie across the row break: the band holds one row, so the two rows
+ * together show whether one row's ink reaches the next. `STAFF_TOP` and `STAFF_BELOW` are measured on it.
  */
+const full = (base: NoteBase, h: 'R' | 'L', extra: Partial<Event> = {}): Event =>
+  N(base, { accent: true, sticking: h, ...extra })
+const drag = { grace: { kind: 'drag' } } as const
+const flam = { grace: { kind: 'flam' } } as const
+const slashes = (n: 1 | 2 | 3) => ({ roll: { kind: 'tremolo', slashes: n } }) as const
+const buzz = { roll: { kind: 'buzz' } } as const
+
 export const WORST_CASE: Figure = figure(
   'worst-case',
   'Worst case for the band',
-  'Nothing drawn above the top of the band or below its bottom: the Measurements block prints the overflow, if any.',
+  'Four bars on two rows, every mark of the pad on as many strokes as it fits: nothing drawn above the top of the band or below its bottom, so no row reaches the next. The Measurements block prints the overflow, if any.',
   [
     bar(
       [
         T(3, 2, [
-          N(8, { accent: true, text: 'Flam accent', sticking: 'R' }),
-          N(8, { sticking: 'L' }),
-          N(8, { sticking: 'R' }),
+          full(16, 'R', { ...drag, ...slashes(3), text: 'Flam accent' }),
+          full(16, 'L', flam),
+          full(16, 'R', buzz),
         ]),
-        N(4, { grace: { kind: 'flam' }, accent: true, sticking: 'R' }),
-        N(4, { grace: { kind: 'drag' }, sticking: 'L' }),
-        N(4, { roll: { kind: 'tremolo', slashes: 3 }, accent: true, sticking: 'R' }),
+        T(
+          5,
+          4,
+          times(5, (i) => full(32, hand(i), i === 0 ? drag : {})),
+        ),
+        ...times(8, (i) => full(32, hand(i), i === 0 ? { ...flam, text: 'Rip' } : {})),
+        D(8, 1, { accent: true, sticking: 'R', ...drag, ...slashes(3), tie: true }),
+        full(16, 'R', flam),
+        T(
+          6,
+          4,
+          times(6, (i) => full(16, hand(i), i === 0 ? { ...drag, ...slashes(2), text: 'Six' } : {})),
+        ),
       ],
       { repeat: { start: true } },
     ),
     bar(
       [
-        ...times(8, (i) => (i === 0 ? N(32, { accent: true, sticking: 'R' }) : N(32, { sticking: hand(i) }))),
-        N(4, { roll: { kind: 'buzz' }, accent: true, sticking: 'R' }),
-        T(
-          6,
-          4,
-          times(6, (i) => (i === 0 ? N(16, { accent: true, sticking: 'R' }) : N(16, { sticking: hand(i) }))),
-        ),
-        N(4, { accent: true, sticking: 'L' }),
+        R(16, undefined, { text: 'Fill' }),
+        full(16, 'R', flam),
+        full(8, 'L', { ...drag, ...buzz }),
+        T(3, 2, [full(8, 'R', { ...flam, text: 'Flam accent' }), full(8, 'L', slashes(3)), full(8, 'R', drag)]),
+        full(4, 'R', { ...drag, ...buzz, text: 'Buzz' }),
+        D(8, 2, { accent: true, sticking: 'L', ...drag, ...slashes(3) }),
+        full(32, 'R', { tie: true }),
       ],
       { repeat: { end: { times: 3 } } },
     ),
+    bar(
+      [
+        full(8, 'R'),
+        full(8, 'L', flam),
+        full(8, 'R', { ...drag, text: 'Drag' }),
+        ...times(6, (i) => full(16, hand(i), i === 0 ? slashes(1) : {})),
+        T(4, 3, [
+          full(8, 'R', { ...drag, text: 'Four' }),
+          full(8, 'L', flam),
+          full(8, 'R', slashes(2)),
+          full(8, 'L', buzz),
+        ]),
+        D(4, 1, { accent: true, sticking: 'R', ...drag, ...buzz, text: 'Roll' }),
+      ],
+      { meter: [12, 8], repeat: { start: true } },
+    ),
+    bar(
+      [
+        R(32),
+        full(32, 'R'),
+        full(16, 'L', flam),
+        full(8, 'R', { ...drag, ...slashes(3) }),
+        T(
+          7,
+          4,
+          times(7, (i) => full(16, hand(i), i === 0 ? { ...flam, text: 'Seven' } : {})),
+        ),
+        full(8, 'R', { ...drag, ...buzz, text: 'Buzz' }),
+        R(16),
+        full(16, 'L', flam),
+        full(4, 'R', { ...drag, ...slashes(3), text: 'Fine' }),
+      ],
+      { meter: [4, 4], repeat: { end: { times: 4 } } },
+    ),
   ],
+  2,
 )
 
 /**

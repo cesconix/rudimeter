@@ -181,13 +181,19 @@ on('measure-band', () => {
   const host = document.getElementById('band') as HTMLElement
   // Scale 1 on purpose, on the page for the eye and on pixels for the numbers: a text box in the
   // SVG is the font's em box, not the ink, so `getBBox()` would over-reserve by ≈80 px.
-  const layout = buildLayout(WORST_CASE.score, { barsPerRow: 8, auto: true })
+  // Every row stacked as the app stacks them, one band apart: what one row's ink leaves to the next is on the page.
+  const layout = buildLayout(WORST_CASE.score, { barsPerRow: WORST_CASE.barsPerRow ?? 8, auto: true })
   host.replaceChildren()
-  host.style.height = `${SYSTEM_H}px`
-  engraveRow(host, WORST_CASE.score, layout, layout.rows[0], 1)
-  const { top, bottom } = measureInk(WORST_CASE.score, layout, layout.rows[0])
+  host.style.height = `${layout.rows.length * SYSTEM_H}px`
+  const inks = layout.rows.map((row) => {
+    engraveRow(host, WORST_CASE.score, layout, row, 1)
+    return measureInk(WORST_CASE.score, layout, row)
+  })
+  const top = Math.min(...inks.map((ink) => ink.top))
+  const bottom = Math.max(...inks.map((ink) => ink.bottom))
+  const rows = inks.map((ink, r) => `row ${r + 1} ${ink.top.toFixed(1)}–${ink.bottom.toFixed(1)}`).join(', ')
   log(
-    `band: ink from y = ${top.toFixed(1)} to ${bottom.toFixed(1)} px (pixels); band is [0, ${SYSTEM_H}] with the top line at ${STAFF_TOP}; ` +
+    `band: ink from y = ${top.toFixed(1)} to ${bottom.toFixed(1)} px (pixels; ${rows}); band is [0, ${SYSTEM_H}] with the top line at ${STAFF_TOP}; ` +
       `ink ${(STAFF_TOP - top).toFixed(1)} px above the top line, ${(bottom - STAFF_TOP - STAFF_H).toFixed(1)} px below the bottom one; ` +
       `overflow above ${Math.max(0, -top).toFixed(1)} px, below ${Math.max(0, bottom - SYSTEM_H).toFixed(1)} px`,
   )

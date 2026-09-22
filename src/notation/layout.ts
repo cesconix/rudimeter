@@ -53,11 +53,13 @@ export const STAFF_H = (STAFF_LINES - 1) * LINE_PX
  * sticking. Both are constants for the whole piece, measured once in the gallery on the pad worst
  * case and never per exercise: the bands must stack.
  *
- * Measured 2026-09-21 (gallery, "Measure band", Chrome on the Mac at dpr 2): ink 70.0 px above the
- * top line and 24.0 px below the bottom one on the worst-case row — a text over an accented eighth
- * triplet, a flam and a drag under accents, three slashes, a buzz, thirty-seconds, sticking under
- * everything. Plus 4 px of air, up to the next multiple of LINE_PX (VexFlow reads
- * `spaceAboveStaffLn` in line spaces): 70 + 4 → 80, 24 + 4 → 30. The kit's band was 110 / 100
+ * Measured 2026-09-22 (gallery, "Measure band", Chrome on the Mac at dpr 2): ink 70.5 px above the
+ * top line and 24.0 px below the bottom one on the worst case's two rows — every stroke accented and
+ * stuck, texts over drags and flams in triplets, quintuplets, sextuplets and septuplets of sixteenths
+ * and thirty-seconds, three slashes on beamed stems, buzzes, a "×N", ties and beamed rests. Plus 4 px
+ * of air, up to the next multiple of LINE_PX (VexFlow reads `spaceAboveStaffLn` in line spaces):
+ * 70.5 + 4 → 80, 24 + 4 → 30. Two stacked rows keep 15.5 px of blank between one's letters and the
+ * next one's tuplet numbers. The kit's band was 110 / 100
  * (spec 09): the feet's stems, the dynamics, the hairpins, the volta bracket and the tempo mark
  * went with the kit.
  */
