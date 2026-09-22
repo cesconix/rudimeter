@@ -12,6 +12,7 @@ import {
   DRAG_PX,
   HEAD_INK,
   HEAD_PX,
+  type Layout,
   LINE_PX,
   METER_PX,
   PX_PER_WHOLE,
@@ -20,7 +21,6 @@ import {
   REST_INK,
   restLine,
   SNARE_LINE,
-  STAFF_TOP,
 } from './layout'
 import { cursorPoints, HIGHLIGHT_PAD, highlightAt, highlightRects, playbackBarAt, transportHighlights } from './overlay'
 
@@ -221,7 +221,8 @@ describe('highlightAt / transportHighlights', () => {
 })
 
 describe('highlightRects', () => {
-  const y = (line: number) => STAFF_TOP + (4 - line) * LINE_PX
+  // From the piece's band: the staff sits where its tallest ink leaves it (`rowBand`).
+  const y = (layout: Layout, line: number) => layout.staffTop + (4 - line) * LINE_PX
 
   it("a stroke's box frames its head on the snare's line, a rest's the rest on its line, padded — never the event's time", () => {
     const score = piece([bar([N(4), R(4), N(2)])])
@@ -232,7 +233,7 @@ describe('highlightRects', () => {
       row: 0,
       x: HEAD_PX + head.left - HIGHLIGHT_PAD,
       width: head.right - head.left + 2 * HIGHLIGHT_PAD,
-      y: y(SNARE_LINE) + head.top - HIGHLIGHT_PAD,
+      y: y(layout, SNARE_LINE) + head.top - HIGHLIGHT_PAD,
       height: head.bottom - head.top + 2 * HIGHLIGHT_PAD,
     })
     const rest = REST_INK[4]
@@ -240,7 +241,7 @@ describe('highlightRects', () => {
       row: 0,
       x: HEAD_PX + Q + rest.left - HIGHLIGHT_PAD,
       width: rest.right - rest.left + 2 * HIGHLIGHT_PAD,
-      y: y(restLine(4)) + rest.top - HIGHLIGHT_PAD,
+      y: y(layout, restLine(4)) + rest.top - HIGHLIGHT_PAD,
       height: rest.bottom - rest.top + 2 * HIGHLIGHT_PAD,
     })
     // a half note's box is its head's, however long it sounds
@@ -263,7 +264,9 @@ describe('highlightRects', () => {
   it("a whole rest's box hangs from the fourth line, the one its glyph hangs from", () => {
     const score = piece([bar([R(1)])])
     const layout = buildLayout(score, { barsPerRow: 1, auto: true })
-    expect(highlightRects(score, layout, unroll(score)).get('b0/0@1')?.y).toBe(y(3) + REST_INK[1].top - HIGHLIGHT_PAD)
+    expect(highlightRects(score, layout, unroll(score)).get('b0/0@1')?.y).toBe(
+      y(layout, 3) + REST_INK[1].top - HIGHLIGHT_PAD,
+    )
   })
 
   it('a box reaches no further than its pad under a neighbour, even on the tightest grid: 32nds at natural size', () => {

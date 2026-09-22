@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import type { Bar, Event, Item, Score } from '../score/types'
 import { fit, type Pref } from './fit'
-import { BAR_PAD, BARLINE_OVERHANG, FLAM_PX, HEAD_PX, NOTEHEAD_PX, SYSTEM_H } from './layout'
+import { BAR_PAD, BARLINE_OVERHANG, FLAM_PX, HEAD_PX, NOTEHEAD_PX, rowBand } from './layout'
 
 const AUTO: Pref = 'auto'
 /** Notehead the user sees, rounded to the tenth like the on-screen measurements. */
@@ -115,10 +115,11 @@ describe('fit: scale and rows', () => {
     expect(f.scale).toBe(1)
   })
 
-  it('rows on screen: as many whole rows as the height holds at the scale, at least one', () => {
-    expect(fit(847, 600, AUTO, STONE).rowsVisible).toBe(Math.floor(600 / SYSTEM_H))
+  it("rows on screen: as many whole rows of the piece's band as the height holds at the scale, at least one", () => {
+    const { systemH } = rowBand(STONE)
+    expect(fit(847, 600, AUTO, STONE).rowsVisible).toBe(Math.floor(600 / systemH))
     const shrunk = fit(150, 600, AUTO, STONE)
-    expect(shrunk.rowsVisible).toBe(Math.floor(600 / (shrunk.scale * SYSTEM_H)))
+    expect(shrunk.rowsVisible).toBe(Math.floor(600 / (shrunk.scale * systemH)))
     expect(fit(847, 50, AUTO, STONE).rowsVisible).toBe(1)
   })
 

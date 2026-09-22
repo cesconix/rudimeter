@@ -12,6 +12,7 @@ import {
   measureHeadInk,
   measureInk,
   measurePad,
+  measureStickingInk,
 } from '../src/notation/engrave'
 import { fit } from '../src/notation/fit'
 import { notationFontsReady } from '../src/notation/fonts'
@@ -23,22 +24,28 @@ import {
   FLAM_PX,
   HEAD_INK,
   HEAD_PX,
+  INK_ABOVE,
   type Ink,
+  inkAbove,
+  LABEL_INK_ABOVE,
   METER_PX,
   REPEAT_BAR_PX,
   REPEAT_PX,
   REST_INK,
+  rowBand,
+  STAFF_BELOW,
   STAFF_H,
-  STAFF_TOP,
-  SYSTEM_H,
+  STICKING_AIR,
+  STICKING_INK,
 } from '../src/notation/layout'
 import { playbackBarAt } from '../src/notation/overlay'
 import { deferEnsure, RowPool } from '../src/notation/rows'
+import { flattenBar } from '../src/score/events'
 import { toNumber } from '../src/score/fraction'
 import { buildTimeMap } from '../src/score/timemap'
 import type { NoteBase, Score } from '../src/score/types'
 import { barStarts, unroll } from '../src/score/unroll'
-import { type Figure, GALLERY, WORST_CASE } from './gallery-scores'
+import { BAND_PROBES, type Figure, GALLERY, LABEL_PROBE, WORST_CASE } from './gallery-scores'
 
 /**
  * The layout `score` gets in `host`: the rows justified to its width, as the app's to the frame, so
@@ -67,7 +74,7 @@ function laidOut(host: HTMLElement, score: Score, pin?: number) {
 function show(host: HTMLElement, score: Score, pin?: number): RowPool<EngravedRow> {
   const { scale, layout } = laidOut(host, score, pin)
   host.replaceChildren()
-  host.style.height = `${layout.rows.length * SYSTEM_H * scale}px`
+  host.style.height = `${layout.rows.length * layout.systemH * scale}px`
   const pool = new RowPool(layout.rows.length, (r) => engraveRow(host, score, layout, layout.rows[r], scale))
   pool.ensure(0, layout.rows.length - 1)
   return pool
@@ -207,25 +214,79 @@ on('measure-head', () => {
 })
 
 on('measure-band', () => {
-  const host = document.getElementById('band') as HTMLElement
-  // Scale 1 on purpose, on the page for the eye and on pixels for the numbers: a text box in the
-  // SVG is the font's em box, not the ink, so `getBBox()` would over-reserve by ≈80 px.
-  // Every row stacked as the app stacks them, one band apart: what one row's ink leaves to the next is on the page.
-  const layout = buildLayout(WORST_CASE.score, { barsPerRow: WORST_CASE.barsPerRow ?? 8, auto: true })
-  host.replaceChildren()
-  host.style.height = `${layout.rows.length * SYSTEM_H}px`
-  const inks = layout.rows.map((row) => {
-    engraveRow(host, WORST_CASE.score, layout, row, 1)
-    return measureInk(WORST_CASE.score, layout, row)
-  })
-  const top = Math.min(...inks.map((ink) => ink.top))
-  const bottom = Math.max(...inks.map((ink) => ink.bottom))
-  const rows = inks.map((ink, r) => `row ${r + 1} ${ink.top.toFixed(1)}–${ink.bottom.toFixed(1)}`).join(', ')
-  log(
-    `band: ink from y = ${top.toFixed(1)} to ${bottom.toFixed(1)} px (pixels; ${rows}); band is [0, ${SYSTEM_H}] with the top line at ${STAFF_TOP}; ` +
-      `ink ${(STAFF_TOP - top).toFixed(1)} px above the top line, ${(bottom - STAFF_TOP - STAFF_H).toFixed(1)} px below the bottom one; ` +
-      `overflow above ${Math.max(0, -top).toFixed(1)} px, below ${Math.max(0, bottom - SYSTEM_H).toFixed(1)} px`,
+  // Scale 1 on purpose, on pixels for the numbers: a text box in the SVG is the font's em box, not
+  // the ink, so `getBBox()` would over-reserve by ≈80 px.
+  const inksOf = (score: Score, pin?: number) => {
+    const layout = buildLayout(score, { barsPerRow: pin ?? 4, auto: true })
+    return { layout, inks: layout.rows.map((row) => measureInk(score, layout, row)) }
+  }
+  const topOf = (score: Score) => {
+    const { layout, inks } = inksOf(score)
+    return Math.max(...inks.map((ink) => layout.staffTop - ink.top))
+  }
+
+  // Above the staff, per entry of the table: the highest ink over the bars it stands for.
+  const measured = new Map<string, number>()
+  for (const p of BAND_PROBES) {
+    const key = `${p.stack} ${p.stems} ${p.marks}`
+    measured.set(key, Math.max(measured.get(key) ?? 0, topOf(p.score)))
+  }
+  let worst = 0
+  const entries = Object.entries(INK_ABOVE).flatMap(([stack, byStems]) =>
+    Object.entries(byStems).flatMap(([stems, byMarks]) =>
+      Object.entries(byMarks).map(([marks, table]) => {
+        const ink = measured.get(`${stack} ${stems} ${marks}`) ?? 0
+        worst = Math.max(worst, Math.abs(ink - table))
+        return `${stack} ${stems} ${marks} ${ink.toFixed(1)} (${table})`
+      }),
+    ),
   )
+  log(
+    `band above, ${BAND_PROBES.length} bars, ink against INK_ABOVE per entry: ${entries.join('; ')}; largest difference ${worst.toFixed(1)} px`,
+  )
+  log(`labels: ink ${topOf(LABEL_PROBE).toFixed(1)} px above the top line, LABEL_INK_ABOVE is ${LABEL_INK_ABOVE}`)
+  const letters = measureStickingInk()
+  log(
+    `sticking: the letters' ink ${letters.top.toFixed(1)}–${letters.bottom.toFixed(1)} px under the bottom line, STICKING_INK is ${STICKING_INK.top}–${STICKING_INK.bottom}; ` +
+      `STAFF_BELOW ${STAFF_BELOW} = ${STICKING_INK.bottom} + ${STICKING_AIR} × ${STICKING_INK.top}, up to a whole px`,
+  )
+
+  // Every piece: its band against its rows' ink, and the air its rows leave under their letters.
+  const pieces: [string, Score, number | undefined][] = [
+    ...GALLERY.map((f): [string, Score, number | undefined] => [f.id, f.score, f.barsPerRow]),
+    ...SCORES.map((s): [string, Score, number | undefined] => [s.id, s, undefined]),
+    [WORST_CASE.id, WORST_CASE.score, WORST_CASE.barsPerRow],
+  ]
+  let under = 0
+  let tightest = Number.POSITIVE_INFINITY
+  const lines = pieces.map(([id, score, pin]) => {
+    const { layout, inks } = inksOf(score, pin)
+    const above = Math.max(...inks.map((ink) => layout.staffTop - ink.top))
+    const below = Math.max(...inks.map((ink) => ink.bottom - layout.staffTop - STAFF_H))
+    under = Math.max(under, above - layout.staffTop, below - STAFF_BELOW)
+    let line = `${id}: band ${layout.systemH} (top line at ${layout.staffTop}, inkAbove ${inkAbove(score)}), ink ${above.toFixed(1)} above, ${below.toFixed(1)} below`
+    const stuck = score.bars.some((bar) => flattenBar(bar).some((f) => f.event.sticking))
+    if (stuck && inks.length > 1) {
+      // From one row's lowest ink to the next one's highest, over the air above the letters.
+      const air = Math.min(...inks.slice(1).map((next, r) => layout.systemH - inks[r].bottom + next.top))
+      tightest = Math.min(tightest, air / STICKING_INK.top)
+      line += `, ${air.toFixed(1)} px under the letters (${(air / STICKING_INK.top).toFixed(2)}× the air over them)`
+    }
+    return line
+  })
+  log(`band per piece: ${lines.join('; ')}`)
+  log(
+    `band: ink out of its band at most ${Math.max(0, under).toFixed(1)} px; under the letters at least ${tightest.toFixed(2)}× the air over them (STICKING_AIR ${STICKING_AIR})`,
+  )
+
+  // The worst case, stacked as the app stacks its rows, one band apart, the band's edges in pink.
+  const host = document.getElementById('band') as HTMLElement
+  const { layout } = inksOf(WORST_CASE.score, WORST_CASE.barsPerRow)
+  const h = layout.systemH
+  host.replaceChildren()
+  host.style.height = `${layout.rows.length * h}px`
+  host.style.background = `repeating-linear-gradient(to bottom, transparent 0 ${h - 1}px, #f4a ${h - 1}px ${h}px)`
+  for (const row of layout.rows) engraveRow(host, WORST_CASE.score, layout, row, 1)
 })
 
 on('measure-highlight', () => {
@@ -295,9 +356,9 @@ on('measure-edges', () => {
 /** Engraves `score` into `host` with every row timed; returns what the motion loop needs. */
 function timed(host: HTMLElement, viewport: HTMLElement, score: Score) {
   const availW = viewport.clientWidth || 1200
-  const f = fit(availW, viewport.clientHeight || 3 * SYSTEM_H, 'auto', score)
+  const f = fit(availW, viewport.clientHeight || 3 * rowBand(score).systemH, 'auto', score)
   const layout = buildLayout(score, { barsPerRow: f.barsPerRow, auto: true, fillWidth: availW / f.scale })
-  const rowH = SYSTEM_H * f.scale
+  const rowH = layout.systemH * f.scale
   host.replaceChildren()
   host.style.height = `${layout.rows.length * rowH}px`
   const times: number[] = []
@@ -318,7 +379,7 @@ const stats = (times: number[]) =>
 on('measure-engrave', () => {
   const viewport = document.getElementById('motion') as HTMLElement
   const host = document.getElementById('motion-host') as HTMLElement
-  viewport.style.height = `${3 * SYSTEM_H}px`
+  viewport.style.height = `${3 * rowBand(LONGEST).systemH}px`
   const { layout, pool, times } = timed(host, viewport, LONGEST)
   const t = performance.now()
   pool.ensure(0, layout.rows.length - 1)
@@ -343,7 +404,7 @@ function motion(mode: 'scroll' | 'pages'): void {
   running = true
   const viewport = document.getElementById('motion') as HTMLElement
   const host = document.getElementById('motion-host') as HTMLElement
-  viewport.style.height = `${3 * SYSTEM_H}px`
+  viewport.style.height = `${3 * rowBand(LONGEST).systemH}px`
   const { f, layout, rowH, pool, times } = timed(host, viewport, LONGEST)
   // The same call the app makes (ScoreView): the row is asked for off the frame step, so what is
   // measured is the app's scheduling, not engraving inside the rAF callback.

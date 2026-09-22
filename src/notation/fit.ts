@@ -1,7 +1,7 @@
 import { barLength, metersOf } from '../score/events'
 import { toNumber } from '../score/fraction'
 import type { Score } from '../score/types'
-import { BARLINE_OVERHANG, barHeads, PX_PER_WHOLE, SYSTEM_H } from './layout'
+import { BARLINE_OVERHANG, barHeads, PX_PER_WHOLE, rowBand } from './layout'
 
 export type Pref = number | 'auto'
 export interface Fit {
@@ -31,7 +31,8 @@ const pref = (p: Pref): number | 'auto' => (p === 'auto' || !Number.isFinite(p) 
  * The one scaling is downward, when a single bar is wider than the space (a bar of 4/4 is 468 px,
  * wider than a phone or a narrow Split View): that bar is shrunk to fit.
  *
- * Rows on screen follow from the height and the scale: as many whole rows as fit, at least one.
+ * Rows on screen follow from the height, the scale and the piece's band (`rowBand`): as many whole
+ * rows as fit, at least one.
  *
  * Non-finite inputs are clamped, as the old `fitLayout` did: a NaN here reaches
  * `renderer.resize(NaN, NaN)` and leaves a blank box with nothing in the console.
@@ -54,6 +55,7 @@ export function fit(availW: number, availH: number, barsPerRowPref: Pref, score:
   const barsPerRow = bars === 'auto' ? fitting : Math.min(bars, fitting)
   // Below 1 only when `barsPerRow` is 1 and that bar is wider than the space: every longer row fits by construction.
   const scale = Math.min(1, w / widestRow(barsPerRow))
-  const rowsVisible = scale > 0 ? Math.max(1, Math.floor(h / (SYSTEM_H * scale))) : 1
+  const { systemH } = rowBand(score)
+  const rowsVisible = scale > 0 ? Math.max(1, Math.floor(h / (systemH * scale))) : 1
   return { barsPerRow, scale, rowsVisible }
 }

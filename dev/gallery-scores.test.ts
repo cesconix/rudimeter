@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'bun:test'
+import { INK_ABOVE, inkAbove } from '../src/notation/layout'
 import { flattenBar } from '../src/score/events'
 import { isTuplet } from '../src/score/types'
-import { GALLERY, WORST_CASE } from './gallery-scores'
+import { BAND_PROBES, GALLERY, WORST_CASE } from './gallery-scores'
 
 // Importing the module already runs every figure through `parseScore`; this pins the rest.
 describe('gallery scores', () => {
@@ -58,6 +59,14 @@ describe('gallery scores', () => {
       { start: true },
       { end: { times: 4 } },
     ])
+  })
+
+  it('the band probes stand for every entry of INK_ABOVE, and the worst case reaches the tallest', () => {
+    const entries = Object.values(INK_ABOVE).flatMap((byStems) =>
+      Object.values(byStems).flatMap((m) => Object.values(m)),
+    )
+    expect(new Set(BAND_PROBES.map((p) => `${p.stack} ${p.stems} ${p.marks}`)).size).toBe(entries.length)
+    expect(inkAbove(WORST_CASE.score)).toBe(Math.max(...entries))
   })
 
   it('the figures whose sentences name a barline pin their bars per row', () => {
