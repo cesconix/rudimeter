@@ -1,0 +1,134 @@
+import { describe, expect, it } from 'bun:test'
+import {
+  Element,
+  Formatter,
+  GraceNote,
+  GraceNoteGroup,
+  type RenderContext,
+  Stave,
+  StaveNote,
+  Stem,
+  Voice,
+} from 'vexflow/bravura'
+import { AlignedStave, anchorStems } from './vexflow-fixes'
+
+// VexFlow measures text on a canvas and Bun has none: without one it warns once per glyph. Zero
+// widths are enough here: these tests read y coordinates, never x.
+Element.setTextMeasurementCanvas({
+  getContext: () => ({
+    font: '',
+    measureText: () => ({
+      width: 0,
+      actualBoundingBoxAscent: 0,
+      actualBoundingBoxDescent: 0,
+      actualBoundingBoxLeft: 0,
+      actualBoundingBoxRight: 0,
+    }),
+  }),
+} as unknown as HTMLCanvasElement)
+
+interface Call {
+  group: string
+  op: string
+  args: number[]
+}
+
+/** A context that draws nothing and records every call with the group it was made in: VexFlow's geometry with no DOM. */
+function recorder(): { ctx: RenderContext; calls: Call[] } {
+  const calls: Call[] = []
+  const groups: string[] = []
+  const ctx: RenderContext = new Proxy({} as RenderContext, {
+    get:
+      (_, op) =>
+      (...args: number[]) => {
+        if (op === 'openGroup') groups.push(String(args[0]))
+        else if (op === 'closeGroup') groups.pop()
+        else calls.push({ group: groups.at(-1) ?? '', op: String(op), args })
+        return ctx
+      },
+  })
+  return { ctx, calls }
+}
+
+/** The y of every `moveTo` made inside `group`, in drawing order. */
+const movesIn = (calls: Call[], group: string) =>
+  calls.filter((c) => c.group === group && c.op === 'moveTo').map((c) => c.args[1])
+const linesIn = (calls: Call[], group: string) =>
+  calls.filter((c) => c.group === group && c.op === 'lineTo').map((c) => c.args[1])
+
+/** A quarter on c/5 (the snare's space) drawn on `stave`, with the grace notes given, stems up as the app draws them. */
+function drawNote(stave: Stave, ctx: RenderContext, fix: boolean, graces = 0): { note: StaveNote; grace?: GraceNote } {
+  const note = new StaveNote({ keys: ['c/5'], duration: 'q', stemDirection: Stem.UP })
+  const grace = graces
+    ? new GraceNote({ keys: ['c/5'], duration: '8', slash: true, stemDirection: Stem.UP })
+    : undefined
+  if (grace) note.addModifier(new GraceNoteGroup([grace], true).beamNotes(), 0)
+  const voice = new Voice({ numBeats: 1, beatValue: 4 }).addTickables([note])
+  new Formatter().joinVoices([voice]).formatToStave([voice], stave)
+  if (fix) anchorStems(note)
+  voice.draw(ctx, stave)
+  return { note, grace }
+}
+
+// These fail when a VexFlow upgrade no longer has the defect a fix stands for: that is the signal
+// to delete the fix in `vexflow-fixes.ts`, not to change the test.
+describe('VexFlow 5.0.0 defects the fixes stand for', () => {
+  it("a stave strokes its lines half a pixel below getYForLine, and its barlines span that ink — AlignedStave's reason", () => {
+    const { ctx, calls } = recorder()
+    const stave = new Stave(0, 0, 200)
+    stave.setContext(ctx).draw()
+    expect(movesIn(calls, 'stave')).toEqual([0, 1, 2, 3, 4].map((i) => stave.getYForLine(i) + 0.5))
+    const bar = calls.find((c) => c.op === 'fillRect')?.args ?? []
+    expect([bar[1], bar[1] + bar[3]]).toEqual([stave.getYForLine(0), stave.getYForLine(4) + 1])
+  })
+
+  it("an up stem starts at its notehead's centre, not at the font's stem anchor — anchorStems' reason", () => {
+    const { ctx, calls } = recorder()
+    const { note } = drawNote(new Stave(0, 0, 200), ctx, false)
+    expect(movesIn(calls, 'stem')).toEqual([note.getYs()[0]])
+  })
+})
+
+describe('the fixes', () => {
+  it("AlignedStave: every line centred on getYForLine, so a notehead in a space sits midway between its two lines' ink", () => {
+    const { ctx, calls } = recorder()
+    const stave = new AlignedStave(0, 0, 200)
+    stave.setContext(ctx).draw()
+    const lines = movesIn(calls, 'stave-lines')
+    expect(lines).toEqual([0, 1, 2, 3, 4].map((i) => stave.getYForLine(i)))
+    // VexFlow's own lines are hidden, not drawn twice.
+    expect(movesIn(calls, 'stave')).toEqual([])
+    // c/5 is the space between the second and the third line from the top.
+    const { note } = drawNote(stave, recorder().ctx, true)
+    expect(note.getYs()[0]).toBe((lines[1] + lines[2]) / 2)
+  })
+
+  it("AlignedStave: a barline spans the lines' ink, from the top line's top to the bottom line's bottom", () => {
+    const { ctx, calls } = recorder()
+    const stave = new AlignedStave(0, 0, 200)
+    stave.setContext(ctx).draw()
+    const bar = calls.find((c) => c.op === 'fillRect')?.args ?? []
+    // A 1 px line centred on y has its ink on [y − 0.5, y + 0.5].
+    expect([bar[1], bar[1] + bar[3]]).toEqual([stave.getYForLine(0) - 0.5, stave.getYForLine(4) + 0.5])
+  })
+
+  it("anchorStems: an up stem starts at Bravura's stemUpSE anchor, 0.168 spaces above its notehead's centre, and ends where it did", () => {
+    const before = recorder()
+    drawNote(new AlignedStave(0, 0, 200), before.ctx, false)
+    const after = recorder()
+    const { note } = drawNote(new AlignedStave(0, 0, 200), after.ctx, true)
+    // 0.168 spaces of 10 px.
+    expect(movesIn(after.calls, 'stem')[0]).toBeCloseTo(note.getYs()[0] - 1.68, 9)
+    expect(linesIn(after.calls, 'stem')).toEqual(linesIn(before.calls, 'stem'))
+  })
+
+  it("anchorStems: a grace note's stem starts at the same anchor at the grace note's size", () => {
+    const { ctx, calls } = recorder()
+    const { grace } = drawNote(new AlignedStave(0, 0, 200), ctx, true, 1)
+    const graceY = grace?.getYs()[0] ?? Number.NaN
+    // A SMuFL em is four staff spaces: a grace note drawn at 2/3 of the 40 px font has 6.67 px spaces.
+    const want = graceY - (0.168 * (40 * (2 / 3))) / 4
+    const nearest = movesIn(calls, 'stem').reduce((a, b) => (Math.abs(b - want) < Math.abs(a - want) ? b : a))
+    expect(nearest).toBeCloseTo(want, 9)
+  })
+})

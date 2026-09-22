@@ -14,7 +14,7 @@ import {
   type RenderContext,
   Renderer,
   RendererBackends,
-  Stave,
+  type Stave,
   StaveNote,
   StaveTie,
   Stem,
@@ -42,6 +42,7 @@ import {
   STAFF_TOP,
   SYSTEM_H,
 } from './layout'
+import { AlignedStave, anchorStems } from './vexflow-fixes'
 
 const NAMES = ['c', 'd', 'e', 'f', 'g', 'a', 'b']
 
@@ -267,7 +268,7 @@ function engraveBar(
   const meter = meters[bar.barIndex]
   // `spaceAboveStaffLn` is in line spaces: it is what VexFlow reads to place the first line inside
   // the band, so it must move with STAFF_TOP — the band is the layout's, the staff's place in it is VexFlow's.
-  const stave = new Stave(bar.x - bar.head, 0, bar.head + bar.width, {
+  const stave = new AlignedStave(bar.x - bar.head, 0, bar.head + bar.width, {
     numLines: STAFF_LINES,
     spaceAboveStaffLn: STAFF_TOP / LINE_PX,
     spaceBelowStaffLn: (SYSTEM_H - STAFF_TOP - STAFF_H) / LINE_PX,
@@ -304,6 +305,8 @@ function engraveBar(
   const lastBar = row.bars[row.bars.length - 1] === bar
   // Ties are drawn after the notes so they sit over the noteheads, not under them.
   const spanned = spanBar(score, bar, built, span, first, lastBar)
+  // Last, just before any stem is drawn — the voice draws the free ones, the beams the rest.
+  for (const p of built.placed) anchorStems(p.note)
   built.vf.draw(ctx, stave)
   for (const b of built.beams) b.setContext(ctx).draw()
   for (const t of built.tuplets) t.setContext(ctx).draw()
@@ -357,7 +360,7 @@ export function measurePad(): number {
  * the signature are glyphs.
  */
 export function measureHead(clef: boolean, meter: string | null): number {
-  const stave = new Stave(0, 0, 400)
+  const stave = new AlignedStave(0, 0, 400)
   if (clef) stave.addClef('percussion')
   if (meter) stave.addTimeSignature(meter)
   return stave.getNoteStartX() + Metrics.get('Stave.padding', 0)
