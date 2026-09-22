@@ -229,11 +229,17 @@ main.score-screen {
   margin: 0;
   padding: 8px 12px;
 }
+/* The card around the music: its padding is the air on every side of it, the only air there — a
+   row has none on its perimeter, its ink runs from its box's edge to its edge (the first row's
+   labels at its top). ScoreView lays the rows out in what is inside the padding. */
 main.score-screen .score-frame {
   position: relative;
   flex: 1;
   min-height: 160px;
   display: flex;
+  padding: 16px;
+  background: #fff;
+  border-radius: 8px;
 }
 main.score-screen .score-viewport {
   flex: 1;

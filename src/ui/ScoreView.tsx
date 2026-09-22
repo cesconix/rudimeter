@@ -113,15 +113,19 @@ export function ScoreView({ score, transport, now, mode, barsPerRow, onBar }: Pr
   }, [score, follow])
 
   // The usable width decides bars per row and scale, the height rows per viewport (see `fit`), so
-  // both are measured, never assumed: the frame is a flex child, its size is not the window's.
+  // both are measured, never assumed: the frame is a flex child, its size is not the window's. Its
+  // padding is the air around the music (a row has none on its perimeter), so the rows get what is
+  // inside it: `clientWidth` counts the padding.
   useEffect(() => {
     const frame = frameRef.current
     if (!frame) return
     let pending = 0
-    const measure = () =>
-      setSize((s) =>
-        s.w === frame.clientWidth && s.h === frame.clientHeight ? s : { w: frame.clientWidth, h: frame.clientHeight },
-      )
+    const measure = () => {
+      const css = getComputedStyle(frame)
+      const w = frame.clientWidth - Number.parseFloat(css.paddingLeft) - Number.parseFloat(css.paddingRight)
+      const h = frame.clientHeight - Number.parseFloat(css.paddingTop) - Number.parseFloat(css.paddingBottom)
+      setSize((s) => (s.w === w && s.h === h ? s : { w, h }))
+    }
     const ro = new ResizeObserver(() => {
       clearTimeout(pending)
       pending = window.setTimeout(measure, RESIZE_DEBOUNCE_MS)
