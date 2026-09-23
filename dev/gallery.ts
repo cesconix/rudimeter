@@ -9,7 +9,6 @@ import {
   measureGlyphInk,
   measureGraceReach,
   measureHead,
-  measureHeadInk,
   measureInk,
   measurePad,
   measureStickingInk,
@@ -29,8 +28,6 @@ import {
   inkAbove,
   LABEL_INK_ABOVE,
   METER_PX,
-  REPEAT_BAR_PX,
-  REPEAT_PX,
   REST_INK,
   rowBand,
   STAFF_BELOW,
@@ -213,17 +210,6 @@ on('measure-head', () => {
   log(
     `head: clef + 12/8 need ${head.toFixed(1)} px, HEAD_PX is ${HEAD_PX}; the clef alone needs ${measureHead(true, null).toFixed(1)} px, CLEF_PX is ${CLEF_PX}; 12/8 alone needs ${meter.toFixed(1)} px, METER_PX is ${METER_PX}; clef + 4/4 need ${measureHead(true, '4/4').toFixed(1)} px; VexFlow's Stave.padding is ${measurePad().toFixed(1)} px, BAR_PAD is ${BAR_PAD}`,
   )
-  // A begin repeat, from pixels: where its dots end, plus the air a first note keeps from a plain
-  // barline (BAR_PAD less the barline's own ink), against the head the layout gives that bar.
-  const barline = measureHeadInk(false, null, false)
-  const air = BAR_PAD - barline
-  const repeat = (clef: boolean, meter: string | null, base: number, extra: number) =>
-    `${(measureHeadInk(clef, meter, true) + air).toFixed(1)} px against ${base + extra}`
-  log(
-    `repeat: a plain barline's ink ends at ${barline.toFixed(1)} px, so a first note keeps ${air.toFixed(1)} px from it; with a begin repeat the bar needs — ` +
-      `clef + 12/8: ${repeat(true, '12/8', HEAD_PX, REPEAT_PX)}; clef alone: ${repeat(true, null, CLEF_PX, REPEAT_PX)}; ` +
-      `12/8 mid-row: ${repeat(false, '12/8', METER_PX, REPEAT_PX)}; mid-row: ${repeat(false, null, BAR_PAD, REPEAT_BAR_PX)} (REPEAT_PX ${REPEAT_PX}, REPEAT_BAR_PX ${REPEAT_BAR_PX})`,
-  )
   log(
     `grace: a flam's ink reaches ${measureGraceReach('flam').toFixed(1)} px left of its note's head, FLAM_PX is ${FLAM_PX}; a drag's ${measureGraceReach('drag').toFixed(1)} px, DRAG_PX is ${DRAG_PX}`,
   )
@@ -326,7 +312,7 @@ on('measure-edges', () => {
   // Every row the gallery draws — the twelve figures at their hosts' width, every library piece at
   // the library's — measured from pixels against its own box [0, width]: a row is a component with
   // no spacing on its perimeter, so its ink must start on the left edge and end on the right one,
-  // and nothing — a bar number, a "×N", a text or a sticking letter on the last note, a tie — may
+  // and nothing — a bar number, a text or a sticking letter on the last note, a tie — may
   // leave it. Natural px: the row is drawn at scale 1, as the band is.
   const library = document.getElementById('library') as HTMLElement
   const jobs = [
@@ -469,8 +455,7 @@ function motion(mode: 'scroll' | 'pages'): void {
   const playback = unroll(LONGEST)
   const map = buildTimeMap(LONGEST, playback, 120)
   const starts = barStarts(LONGEST, playback).map(toNumber)
-  const rowAt = (seconds: number): number =>
-    layout.rowOfBar[playback[playbackBarAt(starts, map.positionAt(seconds))].barIndex]
+  const rowAt = (seconds: number): number => layout.rowOfPlayback[playbackBarAt(starts, map.positionAt(seconds))]
   const last = layout.rows.length - 1
   let frames = 0
   let dropped = 0

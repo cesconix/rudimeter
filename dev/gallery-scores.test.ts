@@ -53,12 +53,8 @@ describe('gallery scores', () => {
     const tuplets = bars.flatMap((b) => b.items.filter(isTuplet).map((t) => t.tuplet.actual))
     expect(new Set(tuplets)).toEqual(new Set([3, 4, 5, 6, 7]))
     expect(bars[2].meter).toEqual([12, 8])
-    expect(bars.map((b) => b.repeat)).toEqual([
-      { start: true },
-      { end: { times: 3 } },
-      { start: true },
-      { end: { times: 4 } },
-    ])
+    // No repeat: the page is drawn out, so a repeat would add copies of these bars, not marks above them.
+    expect(bars.map((b) => b.repeat)).toEqual([undefined, undefined, undefined, undefined])
   })
 
   it('the band probes stand for every entry of INK_ABOVE, and the worst case reaches the tallest', () => {
@@ -71,6 +67,6 @@ describe('gallery scores', () => {
 
   it('the figures whose sentences name a barline pin their bars per row', () => {
     const pinned = Object.fromEntries(GALLERY.filter((f) => f.barsPerRow).map((f) => [f.id, f.barsPerRow]))
-    expect(pinned).toEqual({ grace: 2, ties: 4, meters: 2 })
+    expect(pinned).toEqual({ grace: 2, repeats: 4, ties: 4, meters: 2 })
   })
 })

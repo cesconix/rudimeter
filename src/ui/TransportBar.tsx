@@ -6,9 +6,9 @@ import { ThemePicker } from './ThemePicker'
 
 interface Props {
   transport: Transport
-  /** the written bar the cursor is on, 0-based */
+  /** the drawn bar the cursor is on, 0-based */
   bar: number
-  /** written bars in the piece */
+  /** drawn bars in the piece: every pass of a repeat counts */
   bars: number
   prefs: ViewPrefs
   /** Play is the screen's: it creates and resumes the audio context inside the gesture, then starts the transport */

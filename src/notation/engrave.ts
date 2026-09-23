@@ -13,7 +13,7 @@ import {
   type RenderContext,
   Renderer,
   RendererBackends,
-  Stave,
+  type Stave,
   StaveNote,
   StaveTie,
   Stem,
@@ -24,11 +24,10 @@ import {
 } from 'vexflow/bravura'
 import { resolveBeams } from '../score/beaming'
 import { type FlatEvent, flattenBar, metersOf } from '../score/events'
-import { type EventId, keyOf } from '../score/ids'
+import { type EventId, playbackKey } from '../score/ids'
 import type { Bar, Event, Meter, NoteBase, Score } from '../score/types'
 import { BuzzRoll } from './buzz-roll'
 import {
-  BARLINE_OVERHANG,
   type BarLayout,
   type EventBox,
   type Ink,
@@ -158,7 +157,7 @@ function buildBar(layout: Layout, bar: BarLayout, meter: Meter, written: Bar): B
   const placed: Placed[] = flat.map((f) => {
     const id: EventId = { bar: bar.barIndex, item: f.item }
     if (f.sub !== undefined) id.sub = f.sub
-    return { note: buildNote(f.event), box: layout.boxes.get(keyOf(id)) }
+    return { note: buildNote(f.event), box: layout.boxes.get(playbackKey(id, bar.pass)) }
   })
   // SOFT: a bar that overflows or underfills its meter (validation reports it) still draws instead of throwing.
   const vf = new Voice({ numBeats: meter[0], beatValue: meter[1] })
@@ -229,8 +228,7 @@ function placeOnGrid(formatter: Formatter, built: BuiltBar): void {
 }
 
 /**
- * Small grey text in the band above the staff, `LABEL_ABOVE` px above the top line: bar numbers and
- * the "×N" of a repeat played more than twice. `x` is where the text is anchored, as CSS `text-align` would:
+ * Small grey text in the band above the staff, `LABEL_ABOVE` px above the top line: the bar numbers. `x` is where the text is anchored, as CSS `text-align` would:
  * `start` puts its left edge there and a longer text grows rightwards, `end` puts its right edge
  * there and it grows leftwards — so a label on a row's edge never leaves the row, whatever it says.
  * The width comes from the context's own `measureText` in the label's font, so the SVG the app
@@ -311,18 +309,18 @@ function engraveBar(
   })
   if (bar.showClef) stave.addClef('percussion')
   if (bar.showMeter) stave.addTimeSignature(`${meter[0]}/${meter[1]}`)
-  if (written.repeat?.start) stave.setBegBarType(BarlineType.REPEAT_BEGIN)
-  if (written.repeat?.end) stave.setEndBarType(BarlineType.REPEAT_END)
-  else if (bar.barIndex === score.bars.length - 1) stave.setEndBarType(BarlineType.END)
+  // The page is drawn out (`Layout.playback`): a repeat is its copies, behind plain barlines, with no
+  // sign and no "×N". The thick final barline closes the last drawn bar; a double barline closes
+  // every copy of a bar that carries `repeat.end` — where the exercise starts again, the way a book
+  // marks a section's end.
+  if (bar.index === layout.playback.length - 1) stave.setEndBarType(BarlineType.END)
+  else if (written.repeat?.end) stave.setEndBarType(BarlineType.DOUBLE)
   stave.setContext(ctx).draw()
-  // Only at the start of the row: with twenty identical repeats it is the only thing that says WHERE
+  // Only at the start of the row: with twenty copies of one bar it is the only thing that says WHERE
   // you are. Above the staff, not to the left — the left has the clef — and starting where the
-  // stave starts, the row's left edge. Written bar numbers, 1-based.
-  if (bar.showClef) label(ctx, stave, String(bar.barIndex + 1), stave.getX(), 'start')
-  // A repeat played more than twice: the sign cannot say it, the text above its end barline does,
-  // ending where the barline's ink ends — the row's right edge when the repeat closes the row.
-  const times = written.repeat?.end?.times ?? 0
-  if (times > 2) label(ctx, stave, `×${times}`, bar.x + bar.width + BARLINE_OVERHANG, 'end')
+  // stave starts, the row's left edge. Numbered as drawn, 1-based over `layout.playback`: there is
+  // no book on the stand, and it is the count the transport bar shows as "bar N / M".
+  if (bar.showClef) label(ctx, stave, String(bar.index + 1), stave.getX(), 'start')
 
   const built = buildBar(layout, bar, meter, written)
   // Validation refuses an empty bar; the guard keeps VexFlow's formatter from throwing on a hand-built one.
@@ -454,25 +452,6 @@ function inkBox(canvas: HTMLCanvasElement, below = -MEASURE_PAD): Ink {
     top: top / dpr - MEASURE_PAD,
     bottom: (bottom + 1) / dpr - MEASURE_PAD,
   }
-}
-
-/**
- * Where the ink of a bar's head ends, natural px from the stave's start: the clef, the signature and
- * a begin repeat, drawn as `engraveBar` draws them but without the staff lines, which run under
- * everything. Read from pixels: VexFlow's `getNoteStartX` does not count a begin repeat's dots, so
- * `measureHead` cannot say where they end. A dev measurement for the gallery; nothing in the app
- * calls it. Needs the fonts.
- */
-export function measureHeadInk(clef: boolean, meter: string | null, repeat: boolean): number {
-  const { canvas, ctx } = measureCanvas(400, STAFF_H)
-  const stave = new AlignedStave(0, 0, 400)
-  if (clef) stave.addClef('percussion')
-  if (meter) stave.addTimeSignature(meter)
-  if (repeat) stave.setBegBarType(BarlineType.REPEAT_BEGIN)
-  stave.setEndBarType(BarlineType.NONE)
-  // VexFlow's own `draw`, which `AlignedStave.draw` extends with the lines: the lines hidden, the rest as drawn.
-  Stave.prototype.draw.call(stave.setContext(ctx))
-  return inkBox(canvas).right
 }
 
 /**

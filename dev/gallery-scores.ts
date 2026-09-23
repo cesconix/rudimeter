@@ -124,7 +124,7 @@ export const GALLERY: Figure[] = [
   figure(
     'grace',
     'Flam and drag: grace notes before the note; room for them on a downbeat',
-    'Bar 1: a slashed grace eighth before the first quarter (flam), two beamed grace sixteenths before the second (drag), a flam with the sticking R under the main note, a plain quarter; the first flam sits after the "4/4". Bar 2, mid-row: a flam on beat 1, after the barline, not across it. Bars 3 and 4 open a repeat each with a drag on beat 1, at a row start and mid-row: both grace notes after the repeat\'s dots, clear of them.',
+    'Bar 1: a slashed grace eighth before the first quarter (flam), two beamed grace sixteenths before the second (drag), a flam with the sticking R under the main note, a plain quarter; the first flam sits after the "4/4". Bar 2, mid-row: a flam on beat 1, after the barline, not across it. Bars 3 and 4 open with a drag on beat 1, at a row start and mid-row: both grace notes clear of the clef and of the barline.',
     [
       bar([
         N(4, { grace: { kind: 'flam' } }),
@@ -133,8 +133,8 @@ export const GALLERY: Figure[] = [
         N(4),
       ]),
       bar([N(4, { grace: { kind: 'flam' } }), N(4), N(4), N(4)]),
-      bar([N(4, { grace: { kind: 'drag' } }), N(4), N(4), N(4)], { repeat: { start: true, end: {} } }),
-      bar([N(4, { grace: { kind: 'drag' } }), N(4), N(4), N(4)], { repeat: { start: true, end: {} } }),
+      bar([N(4, { grace: { kind: 'drag' } }), N(4), N(4), N(4)]),
+      bar([N(4, { grace: { kind: 'drag' } }), N(4), N(4), N(4)]),
     ],
     2,
   ),
@@ -202,21 +202,24 @@ export const GALLERY: Figure[] = [
   ),
   figure(
     'repeats',
-    'Repeat signs; ×3 on a repeat played three times; an end with no start',
-    'Bars 1–2 between a start sign and an end sign. Bars 3–5: a start sign, then an end sign with "×3" in grey above it. Bars 6–7: an end sign with no start before it (the section starts after the previous end, as 50 Workout prints it). Bar 8 starts a row in 12/8 with a start sign after the "12/8": its first note clear of the dots. The last bar ends with the repeat sign, not the thick final barline.',
+    'Repeats drawn out: a section twice, a section three times, an end with no start, a return to another meter',
+    'Sixteen drawn bars, four per row, numbered as drawn — 1, 5, 9, 13 at the row starts — with no repeat sign and no "×N" anywhere. Bars 1–4: a bar of quarters then a bar of eighths, drawn twice (quarters, eighths, quarters, eighths). Bars 5–10: a 3/4 section, three quarters then a dotted half, drawn three times; the "3/4" prints once, on bar 5, and the returns to it on bars 7 and 9 print nothing, bar 9 starting its row with the clef alone. Bars 11–12: a whole note with an end sign and no start — the section since the previous end — drawn twice; the "4/4" prints on bar 11 alone. Bars 13–16: a 6/8 bar of six eighths then a 4/4 bar of quarters, drawn twice: all four print their signature, each differing from the drawn bar before it. A double barline closes every copy of a bar that carries the end sign — drawn bars 2, 4, 6, 8, 10, 11, 12 and 14; bar 16, the last, ends with the thick final barline instead.',
     [
       bar(q4(), { repeat: { start: true } }),
-      bar(q4(), { repeat: { end: {} } }),
-      bar(q4(), { repeat: { start: true } }),
-      bar(q4()),
-      bar(q4(), { repeat: { end: { times: 3 } } }),
-      bar(q4()),
-      bar(q4(), { repeat: { end: { times: 2 } } }),
       bar(
-        times(12, () => N(8)),
-        { meter: [12, 8], newRow: true, repeat: { start: true, end: {} } },
+        times(8, () => N(8)),
+        { repeat: { end: {} } },
       ),
+      bar([N(4), N(4), N(4)], { meter: [3, 4], repeat: { start: true } }),
+      bar([D(2, 1)], { repeat: { end: { times: 3 } } }),
+      bar([N(1)], { meter: [4, 4], repeat: { end: { times: 2 } } }),
+      bar(
+        times(6, () => N(8)),
+        { meter: [6, 8], repeat: { start: true } },
+      ),
+      bar(q4(), { meter: [4, 4], repeat: { end: {} } }),
     ],
+    4,
   ),
   figure(
     'meters',
@@ -252,7 +255,7 @@ export const GALLERY: Figure[] = [
  * Everything the band must hold at once, on a pad, stacked on as many strokes as validation allows:
  * above — texts over accents over drags and flams, tuplet numbers over triplets, quintuplets,
  * sextuplets and septuplets of sixteenths and thirty-seconds, three slashes on beamed stems, buzzes,
- * the "×N" of a repeat, and the tallest stack of all, a text over an accented 32nd under a bracket;
+ * and the tallest stack of all, a text over an accented 32nd under a bracket;
  * below — sticking under every kind of note, ties, beamed rests. Two rows of two bars, a 12/8 change
  * and a tie across the row break, stacked as the app stacks them: "Measure band" checks that its band
  * (`rowBand`) holds each row, and how much air is left under the letters.
@@ -269,41 +272,35 @@ export const WORST_CASE: Figure = figure(
   'Worst case for the band',
   'Four bars on two rows, every mark of the pad on as many strokes as it fits: nothing drawn above the top of the band or below its bottom, so no row reaches the next, and the letters closer to their own staff than to the next row. The Measurements block prints the overflow, if any.',
   [
-    bar(
-      [
-        T(3, 2, [
-          full(16, 'R', { ...drag, ...slashes(3), text: 'Flam accent' }),
-          full(16, 'L', flam),
-          full(16, 'R', buzz),
-        ]),
-        T(
-          5,
-          4,
-          times(5, (i) => full(32, hand(i), i === 0 ? { ...drag, text: 'Five' } : {})),
-        ),
-        ...times(8, (i) => full(32, hand(i), i === 0 ? { ...flam, text: 'Rip' } : {})),
-        D(8, 1, { accent: true, sticking: 'R', ...drag, ...slashes(3), tie: true }),
-        full(16, 'R', flam),
-        T(
-          6,
-          4,
-          times(6, (i) => full(16, hand(i), i === 0 ? { ...drag, ...slashes(2), text: 'Six' } : {})),
-        ),
-      ],
-      { repeat: { start: true } },
-    ),
-    bar(
-      [
-        R(16, undefined, { text: 'Fill' }),
-        full(16, 'R', flam),
-        full(8, 'L', { ...drag, ...buzz }),
-        T(3, 2, [full(8, 'R', { ...flam, text: 'Flam accent' }), full(8, 'L', slashes(3)), full(8, 'R', drag)]),
-        full(4, 'R', { ...drag, ...buzz, text: 'Buzz' }),
-        D(8, 2, { accent: true, sticking: 'L', ...drag, ...slashes(3) }),
-        full(32, 'R', { tie: true }),
-      ],
-      { repeat: { end: { times: 3 } } },
-    ),
+    bar([
+      T(3, 2, [
+        full(16, 'R', { ...drag, ...slashes(3), text: 'Flam accent' }),
+        full(16, 'L', flam),
+        full(16, 'R', buzz),
+      ]),
+      T(
+        5,
+        4,
+        times(5, (i) => full(32, hand(i), i === 0 ? { ...drag, text: 'Five' } : {})),
+      ),
+      ...times(8, (i) => full(32, hand(i), i === 0 ? { ...flam, text: 'Rip' } : {})),
+      D(8, 1, { accent: true, sticking: 'R', ...drag, ...slashes(3), tie: true }),
+      full(16, 'R', flam),
+      T(
+        6,
+        4,
+        times(6, (i) => full(16, hand(i), i === 0 ? { ...drag, ...slashes(2), text: 'Six' } : {})),
+      ),
+    ]),
+    bar([
+      R(16, undefined, { text: 'Fill' }),
+      full(16, 'R', flam),
+      full(8, 'L', { ...drag, ...buzz }),
+      T(3, 2, [full(8, 'R', { ...flam, text: 'Flam accent' }), full(8, 'L', slashes(3)), full(8, 'R', drag)]),
+      full(4, 'R', { ...drag, ...buzz, text: 'Buzz' }),
+      D(8, 2, { accent: true, sticking: 'L', ...drag, ...slashes(3) }),
+      full(32, 'R', { tie: true }),
+    ]),
     bar(
       [
         full(8, 'R'),
@@ -318,7 +315,7 @@ export const WORST_CASE: Figure = figure(
         ]),
         D(4, 1, { accent: true, sticking: 'R', ...drag, ...buzz, text: 'Roll' }),
       ],
-      { meter: [12, 8], repeat: { start: true } },
+      { meter: [12, 8] },
     ),
     bar(
       [
@@ -336,7 +333,7 @@ export const WORST_CASE: Figure = figure(
         full(16, 'L', flam),
         full(4, 'R', { ...drag, ...slashes(3), text: 'Fine' }),
       ],
-      { meter: [4, 4], repeat: { end: { times: 4 } } },
+      { meter: [4, 4] },
     ),
   ],
   2,
@@ -450,13 +447,12 @@ export const BAND_PROBES: BandProbe[] = (['free', 'tuplet'] as const).flatMap((s
   ]),
 )
 
-/** Every label a row can carry above its staff: bar numbers 1 to 24 and a repeat's "×7", over whole notes, which reach lower. */
+/** Every label a row can carry above its staff: bar numbers, 1 to 24, over whole notes, which reach lower. Numbered as drawn, a long piece counts higher: a third digit adds width, not height. */
 export const LABEL_PROBE: Score = parseScore({
   id: 'labels',
   title: 'labels',
   bars: times(24, (i) => ({
     ...(i === 0 ? { meter: [4, 4] as [number, number] } : {}),
-    ...(i % 3 === 0 ? { repeat: { start: true as const } } : i % 3 === 2 ? { repeat: { end: { times: 7 } } } : {}),
     items: [N(1)],
   })),
 })
