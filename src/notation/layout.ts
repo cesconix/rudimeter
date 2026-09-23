@@ -1,8 +1,9 @@
 import { resolveBeams } from '../score/beaming'
 import { barLength, flattenBar, metersOf } from '../score/events'
 import { add, type Fraction, toNumber, ZERO } from '../score/fraction'
-import { type EventId, keyOf } from '../score/ids'
+import { type EventId, playbackKey } from '../score/ids'
 import type { NoteBase, Score, TupletGroup } from '../score/types'
+import { type PlaybackBar, unroll } from '../score/unroll'
 
 /**
  * Natural px: the geometry is computed once at this size and the engraver scales the whole row.
@@ -24,16 +25,6 @@ export const HEAD_PX = 83
 export const CLEF_PX = 37
 /** A meter change mid-row: what the signature takes before the bar's grid starts. Measured like HEAD_PX, on "12/8" alone: 48.2 px, plus 4 px of air. */
 export const METER_PX = 53
-/**
- * A begin repeat after the clef or a signature, on top of their room. Its dots end 25.5 px past
- * their ink — read from pixels: VexFlow's own note start does not count them — and the bar's first
- * note keeps 11 px from the dots, the air it keeps from a plain barline (`BAR_PAD` less the
- * barline's 1 px): 91.5 + 11 → 103 = HEAD_PX + 20 after the clef and "12/8", 45.5 + 11 → 57 =
- * CLEF_PX + 20 after the clef alone, 61.5 + 11 → 73 = METER_PX + 20 after "12/8" mid-row.
- */
-export const REPEAT_PX = 20
-/** A begin repeat where a plain barline would be, mid-row, on top of `BAR_PAD`: its dots end 10 px after the bar's start, the barline 1 px: 10 + 11 → 21 = BAR_PAD + 9. */
-export const REPEAT_BAR_PX = 9
 /**
  * A grace note on a bar's first note is drawn BEFORE it, and nothing on the time grid reserves that
  * space: across the barline, on the repeat's dots or on the clef, until the bar keeps it free before
@@ -125,9 +116,10 @@ export const INK_ABOVE: Record<'free' | 'tuplet', Record<'plain' | 'thirtySecond
   },
 }
 /**
- * The grey labels' ink above the top line (bar numbers 1 to 24, a repeat's "×N"), natural px: every row
- * has one. Measured with `INK_ABOVE`, in Academico 11 pt (engrave.ts): under a bare stem's tip
- * (`INK_ABOVE.free.plain.none`), so the stems decide even a plain piece's band; it stays the floor.
+ * The grey labels' ink above the top line (bar numbers: as drawn, so a long piece counts past 24 —
+ * a third digit adds width, not height), natural px: every row has one. Measured with `INK_ABOVE`,
+ * in Academico 11 pt (engrave.ts): under a bare stem's tip (`INK_ABOVE.free.plain.none`), so the
+ * stems decide even a plain piece's band; it stays the floor.
  */
 export const LABEL_INK_ABOVE = 19
 /** Notehead width at natural scale: the cursor is as wide as it, and the readability floor is measured on it. */
@@ -144,7 +136,7 @@ export const MIN_NOTEHEAD_PX = 8
 export const SNARE_LINE = 2.5
 export const restLine = (base: NoteBase): number => (base === 1 ? 3 : 2)
 
-/** How far above the top line the grey labels (bar numbers, a repeat's "×N") sit on their baseline, natural px. */
+/** How far above the top line the grey labels (bar numbers) sit on their baseline, natural px. */
 export const LABEL_ABOVE = 8
 
 /**
@@ -213,7 +205,7 @@ export interface EventBox {
   /** natural px: the event's slice of the time grid, not the glyph's extent */
   x: number
   width: number
-  /** written position from the start of the piece, whole-note units */
+  /** playback position from the start of the piece, whole-note units: the number `eventsOf` gives the event */
   position: Fraction
   /** sounding length: the written value scaled by the tuplet, if any */
   length: Fraction
@@ -221,7 +213,10 @@ export interface EventBox {
 }
 
 export interface BarLayout {
+  /** index in `Layout.playback`: the drawn order, what the bar's number and the transport bar's "bar N / M" count */
+  index: number
   barIndex: number
+  pass: number
   /** natural px: where the bar's time grid starts and how wide it is */
   x: number
   width: number
@@ -244,10 +239,16 @@ export interface RowLayout {
 
 export interface Layout {
   rows: RowLayout[]
-  /** keyOf(EventId) → box, one per written event */
+  /**
+   * The bars in drawn order: `unroll(score)`, every pass of a repeat its own bars. The page is drawn
+   * out — no repeat sign, no "×N" — so the viewport only ever goes down and a tap on any copy is a
+   * seek to that pass; `rows[rowOfPlayback[i]].bars` holds the i-th.
+   */
+  playback: PlaybackBar[]
+  /** playbackKey(id, pass) → box, one per playback event */
   boxes: Map<string, EventBox>
-  /** bar index → row index */
-  rowOfBar: number[]
+  /** playback index → row index */
+  rowOfPlayback: number[]
   /** the piece's band (`rowBand`): every row is `systemH` high, its top line `staffTop` from its top */
   staffTop: number
   systemH: number
@@ -257,28 +258,31 @@ export interface Layout {
 export interface BarHead {
   first: number
   after: number
-  /** the bar draws its time signature: the piece's first bar, and every bar whose meter differs from the previous one */
+  /** the bar draws its time signature: the first drawn bar, and every drawn bar whose meter differs from the one drawn before it */
   signature: boolean
 }
 
 /**
- * Each bar's head: the clef when it starts a row, its signature, a begin repeat, the grace notes of
- * its first note — each measured (the constants above), summed, and nothing else. `buildLayout`
- * picks one of the two per bar; `fit` bounds a row by the largest of each.
+ * Each drawn bar's head: the clef when it starts a row, its signature, the grace notes of its first
+ * note — each measured (the constants above), summed, and nothing else. One per bar of `playback`,
+ * not per written bar: a repeat that returns to a bar in another meter prints the signature again,
+ * as a reader needs, and a copy that follows its own meter prints nothing. `buildLayout` picks one
+ * of the two per bar; `fit` bounds a row by the largest of each.
  */
-export function barHeads(score: Score): BarHead[] {
+export function barHeads(score: Score, playback: PlaybackBar[]): BarHead[] {
   const meters = metersOf(score)
-  return score.bars.map((bar, b) => {
-    const meter = meters[b]
-    const previous = meters[b - 1]
+  return playback.map((pb, i) => {
+    const meter = meters[pb.barIndex]
+    const previous = i === 0 ? undefined : meters[playback[i - 1].barIndex]
     // A bar that restates the meter in force draws nothing.
     const signature = previous === undefined || meter[0] !== previous[0] || meter[1] !== previous[1]
-    const repeat = bar.repeat?.start === true
-    const kind = flattenBar(bar)[0]?.event.grace?.kind
+    const kind = flattenBar(score.bars[pb.barIndex])[0]?.event.grace?.kind
     const grace = kind === 'flam' ? FLAM_PX : kind === 'drag' ? DRAG_PX : 0
-    const first = (signature ? HEAD_PX : CLEF_PX) + (repeat ? REPEAT_PX : 0) + grace
-    const after = (signature ? METER_PX + (repeat ? REPEAT_PX : 0) : BAR_PAD + (repeat ? REPEAT_BAR_PX : 0)) + grace
-    return { first, after, signature }
+    return {
+      first: (signature ? HEAD_PX : CLEF_PX) + grace,
+      after: (signature ? METER_PX : BAR_PAD) + grace,
+      signature,
+    }
   })
 }
 
@@ -360,9 +364,11 @@ export function rowBand(score: Score): Band {
   return { staffTop, systemH: staffTop + STAFF_H + STAFF_BELOW }
 }
 
-/** A bar packed on a row, before the grid is stretched: what it prints before its grid and how long it lasts. */
+/** A bar packed on a row, before the grid is stretched: which drawn bar it is, what it prints before its grid and how long it lasts. */
 interface Packed {
+  index: number
   barIndex: number
+  pass: number
   /** whole-note units */
   len: number
   head: number
@@ -372,12 +378,12 @@ interface Packed {
 
 /**
  * Each row's stretch: the factor that brings it exactly to `fillWidth`, so every row ends on the same
- * right edge, as the systems of a printed page do. Rows keep different heads — a signature, a
- * repeat, a flam on the downbeat — so their factors differ by a few percent, and the cursor changes
- * speed a little at a row wrap, never inside a row. A row with fewer bars than the fullest (the
- * piece's last, or one a `newRow` mark cuts short) is not spread across the width: it takes the
- * smallest stretch of the full rows, or its own when that is smaller. Never below 1: the grid is
- * stretched to fill, not shrunk to fit — that is the scale's job, in `fit`.
+ * right edge, as the systems of a printed page do. Rows keep different heads — a signature, a flam
+ * on the downbeat — so their factors differ by a few percent, and the cursor changes speed a little
+ * at a row wrap, never inside a row. A row with fewer bars than the fullest (the piece's last, or one
+ * a `newRow` mark cuts short) is not spread across the width: it takes the smallest stretch of the
+ * full rows, or its own when that is smaller. Never below 1: the grid is stretched to fill, not
+ * shrunk to fit — that is the scale's job, in `fit`.
  */
 function stretches(packed: Packed[][], fillWidth: number | undefined): number[] {
   if (fillWidth === undefined || !Number.isFinite(fillWidth)) return packed.map(() => 1)
@@ -392,36 +398,47 @@ function stretches(packed: Packed[][], fillWidth: number | undefined): number[] 
 }
 
 /**
- * Rows of bars on the time grid, natural px, and one box per written event. Pure: the engraver
- * draws what this says, the overlay reads the boxes, nobody reads the DOM.
+ * Rows of bars on the time grid, natural px, and one box per playback event. The page is drawn
+ * out: the rows hold `unroll(score)`, every pass of a repeat its own bars, so a reader's eye and the
+ * cursor only ever go on. Pure: the engraver draws what this says, the overlay reads the boxes,
+ * nobody reads the DOM.
  */
 export function buildLayout(score: Score, spec: ViewSpec): Layout {
+  const playback = unroll(score)
   const meters = metersOf(score)
-  const heads = barHeads(score)
+  const heads = barHeads(score, playback)
   // A user preference is a positive integer by construction; the guard is here because the function is exported.
   const perRow = Number.isFinite(spec.barsPerRow) ? Math.max(1, Math.floor(spec.barsPerRow)) : 1
 
-  // Pass one: which bar goes on which row, and what each prints before its grid. The x positions
-  // wait for the stretches, which need every row packed first.
+  // Pass one: which drawn bar goes on which row, and what each prints before its grid. The x
+  // positions wait for the stretches, which need every row packed first.
   const packed: Packed[][] = []
   let row: Packed[] = []
-  score.bars.forEach((bar, b) => {
+  playback.forEach((pb, i) => {
+    const bar = score.bars[pb.barIndex]
+    // `newRow` is the written bar's hint and holds on every pass of it: the book's rows, drawn out.
     if (row.length >= perRow || (spec.auto && bar.newRow && row.length > 0)) {
       packed.push(row)
       row = []
     }
     const first = row.length === 0
-    const { signature } = heads[b]
-    const head = first ? heads[b].first : heads[b].after
-    row.push({ barIndex: b, len: toNumber(barLength(meters[b])), head, showClef: first, showMeter: signature })
+    row.push({
+      index: i,
+      barIndex: pb.barIndex,
+      pass: pb.pass,
+      len: toNumber(barLength(meters[pb.barIndex])),
+      head: first ? heads[i].first : heads[i].after,
+      showClef: first,
+      showMeter: heads[i].signature,
+    })
   })
   if (row.length > 0) packed.push(row)
   const stretchOf = stretches(packed, spec.fillWidth)
 
   // Pass two: the geometry, each row on its stretched grid.
   const rows: RowLayout[] = []
-  const rowOfBar: number[] = []
-  const layoutOfBar: BarLayout[] = []
+  const rowOfPlayback: number[] = []
+  const layoutOfPlayback: BarLayout[] = []
   for (const r of packed) {
     const stretch = stretchOf[rows.length]
     const bars: BarLayout[] = []
@@ -430,7 +447,9 @@ export function buildLayout(score: Score, spec: ViewSpec): Layout {
       x += p.head
       const width = p.len * PX_PER_WHOLE * stretch
       const lb: BarLayout = {
+        index: p.index,
         barIndex: p.barIndex,
+        pass: p.pass,
         x,
         width,
         head: p.head,
@@ -438,8 +457,8 @@ export function buildLayout(score: Score, spec: ViewSpec): Layout {
         showMeter: p.showMeter,
       }
       bars.push(lb)
-      layoutOfBar[p.barIndex] = lb
-      rowOfBar[p.barIndex] = rows.length
+      layoutOfPlayback[p.index] = lb
+      rowOfPlayback[p.index] = rows.length
       x += width
     }
     rows.push({ index: rows.length, bars, widthNatural: x + BARLINE_OVERHANG, rowEndX: x, stretch })
@@ -447,15 +466,15 @@ export function buildLayout(score: Score, spec: ViewSpec): Layout {
 
   const boxes = new Map<string, EventBox>()
   let position = ZERO
-  score.bars.forEach((bar, b) => {
-    const lb = layoutOfBar[b]
-    const { stretch } = rows[rowOfBar[b]]
-    for (const f of flattenBar(bar)) {
-      const id: EventId = { bar: b, item: f.item }
+  playback.forEach((pb, i) => {
+    const lb = layoutOfPlayback[i]
+    const { stretch } = rows[rowOfPlayback[i]]
+    for (const f of flattenBar(score.bars[pb.barIndex])) {
+      const id: EventId = { bar: pb.barIndex, item: f.item }
       if (f.sub !== undefined) id.sub = f.sub
-      boxes.set(keyOf(id), {
+      boxes.set(playbackKey(id, pb.pass), {
         id,
-        row: rowOfBar[b],
+        row: rowOfPlayback[i],
         x: lb.x + toNumber(f.offset) * PX_PER_WHOLE * stretch,
         width: toNumber(f.length) * PX_PER_WHOLE * stretch,
         position: add(position, f.offset),
@@ -463,8 +482,8 @@ export function buildLayout(score: Score, spec: ViewSpec): Layout {
         rest: f.event.rest === true,
       })
     }
-    position = add(position, barLength(meters[b]))
+    position = add(position, barLength(meters[pb.barIndex]))
   })
 
-  return { rows, boxes, rowOfBar, ...rowBand(score) }
+  return { rows, playback, boxes, rowOfPlayback, ...rowBand(score) }
 }

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'bun:test'
+import { SCORES } from '../data/scores'
 import { frac } from '../score/fraction'
 import type { Bar, Event, Item, NoteBase, Score } from '../score/types'
+import { eventsOf, unroll } from '../score/unroll'
 import {
   BAR_PAD,
   BARLINE_OVERHANG,
@@ -20,8 +22,6 @@ import {
   MIN_NOTEHEAD_PX,
   NOTEHEAD_PX,
   PX_PER_WHOLE,
-  REPEAT_BAR_PX,
-  REPEAT_PX,
   restLine,
   rowBand,
   SNARE_LINE,
@@ -34,6 +34,7 @@ import {
 
 const n = (base: NoteBase, dots?: 1 | 2): Event => (dots ? { duration: { base, dots } } : { duration: { base } })
 const quarters = (): Item[] => [n(4), n(4), n(4), n(4)]
+const eighths = (): Item[] => Array.from({ length: 8 }, () => n(8))
 const bar = (items: Item[], extra: Partial<Bar> = {}): Bar => ({ ...extra, items })
 const piece = (bars: Bar[]): Score => ({
   id: 'p',
@@ -66,10 +67,13 @@ describe('rows', () => {
     const layout = buildLayout(piece(Array.from({ length: 10 }, () => bar(quarters()))), { barsPerRow: 4, auto: true })
     expect(layout.rows.map((r) => r.bars.length)).toEqual([4, 4, 2])
     expect(layout.rows.map((r) => r.index)).toEqual([0, 1, 2])
-    expect(layout.rowOfBar).toEqual([0, 0, 0, 0, 1, 1, 1, 1, 2, 2])
+    expect(layout.playback).toEqual(unroll(piece(Array.from({ length: 10 }, () => bar(quarters())))))
+    expect(layout.rowOfPlayback).toEqual([0, 0, 0, 0, 1, 1, 1, 1, 2, 2])
     expect(layout.systemH).toBe(rowBand(piece([bar(quarters())])).systemH)
     expect(layout.rows[0].bars[0]).toEqual({
+      index: 0,
       barIndex: 0,
+      pass: 1,
       x: HEAD_PX,
       width: W,
       head: HEAD_PX,
@@ -78,7 +82,9 @@ describe('rows', () => {
     })
     // A bar with neither clef nor meter still starts `BAR_PAD` after its barline: the air the row head and the meter gutter already carry.
     expect(layout.rows[0].bars[1]).toEqual({
+      index: 1,
       barIndex: 1,
+      pass: 1,
       x: HEAD_PX + W + BAR_PAD,
       width: W,
       head: BAR_PAD,
@@ -168,7 +174,9 @@ describe('rows', () => {
     const bars = [bar(quarters()), bar(quarters()), bar([n(4), n(4), n(4)], { meter: [3, 4], newRow: true })]
     const layout = buildLayout(piece(bars), { barsPerRow: 4, auto: true })
     expect(layout.rows[1].bars[0]).toEqual({
+      index: 2,
       barIndex: 2,
+      pass: 1,
       x: HEAD_PX,
       width: (3 * W) / 4,
       head: HEAD_PX,
@@ -181,6 +189,69 @@ describe('rows', () => {
     const three = piece([bar(quarters()), bar(quarters()), bar(quarters())])
     expect(buildLayout(three, { barsPerRow: 0, auto: true }).rows.length).toBe(3)
     expect(buildLayout(three, { barsPerRow: Number.NaN, auto: true }).rows.length).toBe(3)
+  })
+
+  it('a repeat is drawn out: the bars in playback order, every pass its own bars and boxes, at the playback position', () => {
+    const score = piece([bar(quarters(), { repeat: { start: true } }), bar(eighths(), { repeat: { end: {} } })])
+    const layout = buildLayout(score, { barsPerRow: 4, auto: true })
+    expect(layout.playback).toEqual(unroll(score))
+    expect(layout.playback.map((pb) => [pb.barIndex, pb.pass])).toEqual([
+      [0, 1],
+      [1, 1],
+      [0, 2],
+      [1, 2],
+    ])
+    expect(layout.rows).toHaveLength(1)
+    expect(layout.rows[0].bars.map((b) => [b.index, b.barIndex, b.pass])).toEqual([
+      [0, 0, 1],
+      [1, 1, 1],
+      [2, 0, 2],
+      [3, 1, 2],
+    ])
+    expect(layout.rowOfPlayback).toEqual([0, 0, 0, 0])
+    // The second pass has its own boxes, further along the grid, at its playback position.
+    expect(layout.boxes.get('b0/0@1')).toMatchObject({ row: 0, x: HEAD_PX, position: frac(0) })
+    expect(layout.boxes.get('b0/0@2')).toMatchObject({ row: 0, x: HEAD_PX + 2 * W + 2 * BAR_PAD, position: frac(2) })
+    expect(layout.boxes.get('b1/7@2')).toMatchObject({
+      x: HEAD_PX + 3 * W + 3 * BAR_PAD + (7 * W) / 8,
+      position: frac(31, 8),
+    })
+    expect(layout.boxes.size).toBe(24)
+    // A box's position is the number `eventsOf` gives the same event: the transport and the page agree.
+    for (const e of eventsOf(score, layout.playback)) expect(layout.boxes.get(e.key)?.position).toEqual(e.position)
+  })
+
+  it('newRow is the written bar’s hint and holds on every pass of it', () => {
+    const bars = [
+      bar(quarters(), { repeat: { start: true } }),
+      bar(quarters(), { newRow: true }),
+      bar(quarters(), { repeat: { end: {} } }),
+    ]
+    // Drawn: 1 2 3 1 2 3; bar 2 opens a row each time it is drawn.
+    expect(buildLayout(piece(bars), { barsPerRow: 4, auto: true }).rows.map((r) => r.bars.map((b) => b.index))).toEqual(
+      [[0], [1, 2, 3], [4, 5]],
+    )
+    expect(
+      buildLayout(piece(bars), { barsPerRow: 4, auto: false }).rows.map((r) => r.bars.map((b) => b.index)),
+    ).toEqual([
+      [0, 1, 2, 3],
+      [4, 5],
+    ])
+  })
+
+  it('draws every library piece in its playback order: one drawn bar per emitted bar, every event boxed', () => {
+    for (const score of SCORES) {
+      const playback = unroll(score)
+      const layout = buildLayout(score, { barsPerRow: 4, auto: true })
+      expect(layout.playback).toEqual(playback)
+      expect(layout.rows.flatMap((r) => r.bars).map((b) => [b.index, b.barIndex, b.pass])).toEqual(
+        playback.map((pb, i) => [i, pb.barIndex, pb.pass]),
+      )
+      expect(layout.rowOfPlayback).toHaveLength(playback.length)
+      const events = eventsOf(score, playback)
+      expect(layout.boxes.size).toBe(events.length)
+      for (const e of events) expect(layout.boxes.get(e.key)?.position).toEqual(e.position)
+    }
   })
 })
 
@@ -203,7 +274,7 @@ describe('justification', () => {
     expect(layout.rows[0].bars[0]).toMatchObject({ x: HEAD_PX, width: W * s, head: HEAD_PX })
     expect(layout.rows[0].bars[1]).toMatchObject({ x: HEAD_PX + W * s + BAR_PAD, width: W * s, head: BAR_PAD })
     // The boxes are the stretched grid's slices: the second quarter of bar 2 starts a quarter (stretched) into it.
-    expect(layout.boxes.get('b1/1')).toMatchObject({
+    expect(layout.boxes.get('b1/1@1')).toMatchObject({
       x: HEAD_PX + W * s + BAR_PAD + (W / 4) * s,
       width: (W / 4) * s,
       position: frac(5, 4),
@@ -227,7 +298,7 @@ describe('justification', () => {
     expect(layout.rows[0].stretch).toBeCloseTo((1000 - HEAD_PX - BAR_PAD - BARLINE_OVERHANG) / (2 * W), 10)
     expect(layout.rows[1].stretch).toBeCloseTo((1000 - CLEF_PX - BAR_PAD - BARLINE_OVERHANG) / (2 * W), 10)
     // Inside a row every box is on that row's grid.
-    expect(layout.boxes.get('b3/1')?.width).toBeCloseTo((W / 4) * layout.rows[1].stretch, 10)
+    expect(layout.boxes.get('b3/1@1')?.width).toBeCloseTo((W / 4) * layout.rows[1].stretch, 10)
   })
 
   it('a row with fewer bars than the full ones is not spread across the width: it takes the tightest full stretch', () => {
@@ -266,7 +337,7 @@ describe('boxes', () => {
   it("are the event's slice of the grid: dotted values take their dotted width", () => {
     const layout = buildLayout(piece([bar([n(4, 1), n(8), n(4), n(4)])]), { barsPerRow: 4, auto: true })
     const box = (k: string) => layout.boxes.get(k)
-    expect(box('b0/0')).toEqual({
+    expect(box('b0/0@1')).toEqual({
       id: { bar: 0, item: 0 },
       row: 0,
       x: HEAD_PX,
@@ -275,9 +346,9 @@ describe('boxes', () => {
       length: frac(3, 8),
       rest: false,
     })
-    expect(box('b0/1')).toMatchObject({ x: HEAD_PX + (3 * W) / 8, width: W / 8, position: frac(3, 8) })
-    expect(box('b0/2')).toMatchObject({ x: HEAD_PX + W / 2, width: W / 4, position: frac(1, 2) })
-    expect(box('b0/3')).toMatchObject({ x: HEAD_PX + (3 * W) / 4, width: W / 4, position: frac(3, 4) })
+    expect(box('b0/1@1')).toMatchObject({ x: HEAD_PX + (3 * W) / 8, width: W / 8, position: frac(3, 8) })
+    expect(box('b0/2@1')).toMatchObject({ x: HEAD_PX + W / 2, width: W / 4, position: frac(1, 2) })
+    expect(box('b0/3@1')).toMatchObject({ x: HEAD_PX + (3 * W) / 4, width: W / 4, position: frac(3, 4) })
     expect(layout.boxes.size).toBe(4)
   })
 
@@ -286,33 +357,33 @@ describe('boxes', () => {
       barsPerRow: 4,
       auto: true,
     })
-    expect(layout.boxes.get('b0/1')).toMatchObject({ x: HEAD_PX + W / 4, width: W / 4, rest: true })
-    expect(layout.boxes.get('b0/2')).toMatchObject({ x: HEAD_PX + W / 2, width: W / 2, rest: false })
+    expect(layout.boxes.get('b0/1@1')).toMatchObject({ x: HEAD_PX + W / 4, width: W / 4, rest: true })
+    expect(layout.boxes.get('b0/2@1')).toMatchObject({ x: HEAD_PX + W / 2, width: W / 2, rest: false })
     expect(layout.boxes.size).toBe(3)
   })
 
   it('a tuplet scales its items and keys them with their sub index', () => {
     const triplet: Item = { tuplet: { actual: 3, normal: 2 }, items: [n(8), n(8), n(8)] }
     const layout = buildLayout(piece([bar([triplet, n(4), n(4), n(4)])]), { barsPerRow: 4, auto: true })
-    expect(layout.boxes.get('b0/0.0')).toMatchObject({
+    expect(layout.boxes.get('b0/0.0@1')).toMatchObject({
       id: { bar: 0, item: 0, sub: 0 },
       x: HEAD_PX,
       width: W / 12,
       length: frac(1, 12),
     })
-    expect(layout.boxes.get('b0/0.1')).toMatchObject({ x: HEAD_PX + W / 12, position: frac(1, 12) })
-    expect(layout.boxes.get('b0/0.2')).toMatchObject({ x: HEAD_PX + W / 6, position: frac(1, 6) })
-    expect(layout.boxes.get('b0/1')).toMatchObject({ x: HEAD_PX + W / 4, position: frac(1, 4) })
+    expect(layout.boxes.get('b0/0.1@1')).toMatchObject({ x: HEAD_PX + W / 12, position: frac(1, 12) })
+    expect(layout.boxes.get('b0/0.2@1')).toMatchObject({ x: HEAD_PX + W / 6, position: frac(1, 6) })
+    expect(layout.boxes.get('b0/1@1')).toMatchObject({ x: HEAD_PX + W / 4, position: frac(1, 4) })
   })
 
-  it('across rows a box carries its row, its x inside the row and its written position in the piece', () => {
+  it('across rows a box carries its row, its x inside the row and its playback position in the piece', () => {
     const layout = buildLayout(piece([bar(quarters()), bar(quarters()), bar(quarters()), bar(quarters())]), {
       barsPerRow: 2,
       auto: true,
     })
-    expect(layout.boxes.get('b1/0')).toMatchObject({ row: 0, x: HEAD_PX + W + BAR_PAD, position: frac(1) })
-    expect(layout.boxes.get('b2/0')).toMatchObject({ row: 1, x: CLEF_PX, position: frac(2) })
-    expect(layout.boxes.get('b3/3')).toMatchObject({
+    expect(layout.boxes.get('b1/0@1')).toMatchObject({ row: 0, x: HEAD_PX + W + BAR_PAD, position: frac(1) })
+    expect(layout.boxes.get('b2/0@1')).toMatchObject({ row: 1, x: CLEF_PX, position: frac(2) })
+    expect(layout.boxes.get('b3/3@1')).toMatchObject({
       row: 1,
       x: CLEF_PX + W + BAR_PAD + (3 * W) / 4,
       position: frac(15, 4),
@@ -324,43 +395,58 @@ describe('heads', () => {
   const flam = (base: NoteBase = 4): Event => ({ duration: { base }, grace: { kind: 'flam' } })
   const drag = (base: NoteBase = 4): Event => ({ duration: { base }, grace: { kind: 'drag' } })
 
-  it('a bar keeps room for what it prints and nothing else: clef or signature, begin repeat, grace notes on its first note', () => {
-    const heads = barHeads(
-      piece([
-        bar(quarters()),
-        bar(quarters(), { repeat: { start: true, end: {} } }),
-        bar([flam(), n(4), n(4), n(4)]),
-        bar([drag(), n(4), n(4), n(4)], { repeat: { start: true, end: {} } }),
-        bar([drag(), n(4), n(4)], { meter: [3, 4], repeat: { start: true, end: {} } }),
-      ]),
-    )
-    expect(heads).toEqual([
-      { first: HEAD_PX, after: METER_PX, signature: true },
-      { first: CLEF_PX + REPEAT_PX, after: BAR_PAD + REPEAT_BAR_PX, signature: false },
-      { first: CLEF_PX + FLAM_PX, after: BAR_PAD + FLAM_PX, signature: false },
-      { first: CLEF_PX + REPEAT_PX + DRAG_PX, after: BAR_PAD + REPEAT_BAR_PX + DRAG_PX, signature: false },
-      { first: HEAD_PX + REPEAT_PX + DRAG_PX, after: METER_PX + REPEAT_PX + DRAG_PX, signature: true },
+  it('a bar keeps room for what it prints and nothing else: clef or signature, grace notes on its first note', () => {
+    const score = piece([
+      bar(quarters()),
+      bar([flam(), n(4), n(4), n(4)]),
+      bar([drag(), n(4), n(4)], { meter: [3, 4] }),
     ])
+    expect(barHeads(score, unroll(score))).toEqual([
+      { first: HEAD_PX, after: METER_PX, signature: true },
+      { first: CLEF_PX + FLAM_PX, after: BAR_PAD + FLAM_PX, signature: false },
+      { first: HEAD_PX + DRAG_PX, after: METER_PX + DRAG_PX, signature: true },
+    ])
+  })
+
+  it('the head is per drawn bar: a repeat back to another meter prints the signature again, a copy in its own meter prints nothing', () => {
+    const across = piece([
+      bar(
+        Array.from({ length: 6 }, () => n(8)),
+        { meter: [6, 8], repeat: { start: true } },
+      ),
+      bar(quarters(), { meter: [4, 4], repeat: { end: {} } }),
+    ])
+    // Drawn: 6/8, 4/4, 6/8, 4/4 — each differs from the drawn bar before it.
+    expect(barHeads(across, unroll(across))).toEqual([
+      { first: HEAD_PX, after: METER_PX, signature: true },
+      { first: HEAD_PX, after: METER_PX, signature: true },
+      { first: HEAD_PX, after: METER_PX, signature: true },
+      { first: HEAD_PX, after: METER_PX, signature: true },
+    ])
+    const layout = buildLayout(across, { barsPerRow: 4, auto: true })
+    expect(layout.rows[0].bars.map((b) => b.showMeter)).toEqual([true, true, true, true])
+    expect(layout.rows[0].bars[2].x).toBe(HEAD_PX + (3 * W) / 4 + METER_PX + W + METER_PX)
+    const same = piece([bar(quarters(), { repeat: { start: true } }), bar(quarters(), { repeat: { end: {} } })])
+    expect(barHeads(same, unroll(same)).map((h) => h.signature)).toEqual([true, false, false, false])
   })
 
   it('only the first note counts: a grace later in the bar, or a first event that is a rest, keeps the plain head', () => {
     const rest: Event = { duration: { base: 4 }, rest: true }
     const triplet: Item = { tuplet: { actual: 3, normal: 2 }, items: [flam(8), n(8), n(8)] }
-    const heads = barHeads(
-      piece([
-        bar(quarters()),
-        bar([n(4), flam(), n(4), n(4)]),
-        bar([rest, flam(), n(4), n(4)]),
-        bar([triplet, n(4), n(4), n(4)]),
-      ]),
-    )
+    const score = piece([
+      bar(quarters()),
+      bar([n(4), flam(), n(4), n(4)]),
+      bar([rest, flam(), n(4), n(4)]),
+      bar([triplet, n(4), n(4), n(4)]),
+    ])
+    const heads = barHeads(score, unroll(score))
     expect(heads.map((h) => h.after)).toEqual([METER_PX, BAR_PAD, BAR_PAD, BAR_PAD + FLAM_PX])
   })
 
   it('the layout puts each bar behind its head: a flam on a downbeat mid-row sits after the barline, its note FLAM_PX later', () => {
     const layout = buildLayout(piece([bar(quarters()), bar([flam(), n(4), n(4), n(4)])]), { barsPerRow: 2, auto: true })
     expect(layout.rows[0].bars[1]).toMatchObject({ head: BAR_PAD + FLAM_PX, x: HEAD_PX + W + BAR_PAD + FLAM_PX })
-    expect(layout.boxes.get('b1/0')?.x).toBe(HEAD_PX + W + BAR_PAD + FLAM_PX)
+    expect(layout.boxes.get('b1/0@1')?.x).toBe(HEAD_PX + W + BAR_PAD + FLAM_PX)
   })
 })
 
