@@ -1,6 +1,7 @@
 import { barLength, metersOf } from '../score/events'
 import { toNumber } from '../score/fraction'
 import type { Score } from '../score/types'
+import { unroll } from '../score/unroll'
 import { BARLINE_OVERHANG, barHeads, PX_PER_WHOLE, rowBand } from './layout'
 
 export type Pref = number | 'auto'
@@ -23,7 +24,7 @@ const pref = (p: Pref): number | 'auto' => (p === 'auto' || !Number.isFinite(p) 
  * the width nor a preference changes it. Bars per row is the longest candidate whose widest possible
  * row — that many bars of the piece's largest meter, each behind the largest head a bar of the piece
  * takes in its place (`barHeads`: the first on the row, the others after it), and the end barline —
- * fits the width, never more bars than the piece has; the width left over is the layout's to fill,
+ * fits the width, never more bars than the piece draws (`unroll`: a repeat is its copies); the width left over is the layout's to fill,
  * by stretching the time grid (`buildLayout`, `fillWidth`), never the scale's. Halving candidates
  * keep a two-bar pattern whole on the row. A number the user fixed is a ceiling on that: fewer bars
  * when they ask for fewer, never more than fit.
@@ -41,8 +42,10 @@ export function fit(availW: number, availH: number, barsPerRowPref: Pref, score:
   const w = Number.isFinite(availW) ? Math.max(0, availW) : 0
   const h = Number.isFinite(availH) ? Math.max(0, availH) : 0
   const bars = pref(barsPerRowPref)
-  const total = Math.max(1, score.bars.length)
-  const heads = barHeads(score)
+  const playback = unroll(score)
+  // The row counts the bars as drawn: a piece of two bars repeated four times fills a row of eight.
+  const total = Math.max(1, playback.length)
+  const heads = barHeads(score, playback)
   // `Math.max(0, …)`: a piece with no bars has no head; it does not happen past `parseScore`, but the function is exported.
   const firstHead = Math.max(0, ...heads.map((head) => head.first))
   // The piece's first bar never follows another: it always starts the first row.

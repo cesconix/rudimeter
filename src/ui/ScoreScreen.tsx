@@ -116,7 +116,7 @@ export function ScoreScreen() {
       <TransportBar
         transport={transport}
         bar={bar}
-        bars={score.bars.length}
+        bars={transport.playback.length}
         prefs={prefs}
         onPlay={play}
         onPrefs={update}

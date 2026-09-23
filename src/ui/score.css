@@ -1,7 +1,7 @@
 /* The engraved score's colours, the only ones it has. Every row draws in `currentColor` (engrave.ts):
-   the notes, beams, barlines, repeat signs, sticking letters and texts take the text colour of
+   the notes, beams, barlines, sticking letters and texts take the text colour of
    whatever holds the score. Two roles are the theme's secondary text: the staff lines are a guide
-   under the notes, the labels (bar numbers, "×N") a note beside them. Loaded by the app and by the
+   under the notes, the labels (bar numbers) a note beside them. Loaded by the app and by the
    gallery, which draws its figures with these same rules. */
 .score-host .vf-stave-lines {
   stroke: var(--sub);

@@ -1,10 +1,10 @@
 import { barLength, flattenBar, metersOf } from '../score/events'
 import { add, toNumber, ZERO } from '../score/fraction'
-import { type EventId, keyOf, playbackKey } from '../score/ids'
+import { type EventId, playbackKey } from '../score/ids'
 import type { Score } from '../score/types'
-import type { PlaybackBar, PlaybackEvent } from '../score/unroll'
+import type { PlaybackEvent } from '../score/unroll'
 import type { CursorPoint } from './cursor'
-import { type BarLayout, HEAD_INK, type Layout, LINE_PX, REST_INK, restLine, SNARE_LINE, STAFF_LINES } from './layout'
+import { HEAD_INK, type Layout, LINE_PX, REST_INK, restLine, SNARE_LINE, STAFF_LINES } from './layout'
 
 /**
  * Everything here is in PLAYBACK POSITION (whole-note units), never seconds: inside a row x is
@@ -25,52 +25,45 @@ export function playbackBarAt(starts: number[], position: number): number {
 }
 
 /**
- * One point per event of every emitted bar, plus one at each bar's END (x = where the bar's grid
- * ends: the row's `rowEndX` on the row's last bar). Rows differ in width and a playback jump is
- * not always a row wrap — back to a repeat's start, over a meter gutter — so the cursor slides to
- * the bar's end during its last event and jumps from there, instead of interpolating across the
- * score towards wherever it lands. The end point and the next bar's first point share one `t`:
- * `cursorAt` lands on the later of the two at that instant, and never has an interval that
- * crosses rows. Natural px.
+ * One point per event of every drawn bar, plus one at each bar's END (x = where the bar's grid
+ * ends: the row's `rowEndX` on the row's last bar). Rows differ in width and a meter gutter mid-row
+ * is a jump, so the cursor slides to the bar's end during its last event and jumps from there,
+ * instead of interpolating across the score towards wherever it lands. The end point and the next
+ * bar's first point share one `t`: `cursorAt` lands on the later of the two at that instant, and
+ * never has an interval that crosses rows. Natural px.
  *
- * One exception to "the grid's end": when the bar that plays next is the next written bar on the
- * same row and draws no signature, the end point sits at that bar's grid start instead, so the last
- * event's slide crosses the barline and the bar's head in one motion: the pad, a begin repeat, the
- * grace notes of its first note (`barHeads`). A 12 px jump on every barline would read as a tick;
- * the slide adds the head to the last event's run instead — 12 px to a quarter's 96 at natural size
- * on a plain barline, up to 50 before a drag behind a repeat, half again the speed — only inside
- * that event: a speed-up reads better than a jump. A meter gutter keeps the jump: 53 px in one
- * sixteenth is a lurch, not a slide.
+ * One exception to "the grid's end": when the bar drawn next sits on the same row and draws no
+ * signature, the end point sits at that bar's grid start instead, so the last event's slide crosses
+ * the barline and the bar's head in one motion: the pad, the grace notes of its first note
+ * (`barHeads`). A 12 px jump on every barline would read as a tick; the slide adds the head to the
+ * last event's run instead — 12 px to a quarter's 96 at natural size on a plain barline, up to 41
+ * before a drag, half again the speed — only inside that event: a speed-up reads better than a
+ * jump. A meter gutter keeps the jump: 53 px in one sixteenth is a lurch, not a slide.
  *
- * The points come out in time order by construction — one voice, walked bar by bar in playback
- * order — so nothing is sorted or deduplicated; `overlay.test.ts` pins that over the library.
+ * The page is drawn out (`Layout.playback`): a pass boundary is a barline or a row wrap like any
+ * other, and nothing here knows a repeat. The points come out in time order by construction — one
+ * voice, walked bar by bar in drawn order — so nothing is sorted or deduplicated; `overlay.test.ts`
+ * pins that over the library.
  */
-export function cursorPoints(layout: Layout, score: Score, playback: PlaybackBar[]): CursorPoint[] {
+export function cursorPoints(layout: Layout, score: Score): CursorPoint[] {
   const meters = metersOf(score)
-  const barOf = new Map<number, BarLayout>()
-  for (const row of layout.rows) for (const b of row.bars) barOf.set(b.barIndex, b)
+  // The rows are packed in drawn order, so the flattened bars are indexed by playback index.
+  const bars = layout.rows.flatMap((row) => row.bars)
   const out: CursorPoint[] = []
   let start = ZERO
-  playback.forEach((pb, i) => {
-    const lb = barOf.get(pb.barIndex)
-    const row = layout.rowOfBar[pb.barIndex]
+  layout.playback.forEach((pb, i) => {
+    const lb = bars[i]
+    const row = layout.rowOfPlayback[i]
     for (const f of flattenBar(score.bars[pb.barIndex])) {
       const id: EventId = { bar: pb.barIndex, item: f.item }
       if (f.sub !== undefined) id.sub = f.sub
-      const box = layout.boxes.get(keyOf(id))
+      const box = layout.boxes.get(playbackKey(id, pb.pass))
       if (box) out.push({ t: toNumber(add(start, f.offset)), x: box.x, row })
     }
     const end = add(start, barLength(meters[pb.barIndex]))
-    // `lb` is always found — every playback bar has a `BarLayout` — but the guard stays loud
-    // instead of a non-null assertion: were it ever missing, the bar-end point would be dropped
-    // and the wrap branch (`cursorAt`'s unused `rowEndX = 0`) would reappear; `overlay.test.ts`
-    // guards this invariant over the whole library.
-    if (lb) {
-      const next = playback[i + 1]
-      const nb = next && next.barIndex === pb.barIndex + 1 ? barOf.get(next.barIndex) : undefined
-      const slides = nb !== undefined && layout.rowOfBar[nb.barIndex] === row && !nb.showMeter
-      out.push({ t: toNumber(end), x: slides ? nb.x : lb.x + lb.width, row })
-    }
+    const nb = bars[i + 1]
+    const slides = nb !== undefined && layout.rowOfPlayback[i + 1] === row && !nb.showMeter
+    out.push({ t: toNumber(end), x: slides ? nb.x : lb.x + lb.width, row })
     start = end
   })
   return out
@@ -117,24 +110,25 @@ export const HIGHLIGHT_PAD = 3
 const lineY = (staffTop: number, line: number): number => staffTop + (STAFF_LINES - 1 - line) * LINE_PX
 
 /**
- * One rectangle per event of every emitted bar, keyed by playback key: the ink of a stroke's head on
+ * One rectangle per event of every drawn bar, keyed by playback key: the ink of a stroke's head on
  * the snare's line, of a rest on its rest line (`HEAD_INK`, `REST_INK`), plus the pad — the note that
  * sounds, never its time: the cursor band says where the time is. A dot, a flam's grace notes, a
  * roll's slashes stay outside: they belong to the note, but the box marks where it is. Geometry
  * only: nothing here reads the SVG.
  */
-export function highlightRects(score: Score, layout: Layout, playback: PlaybackBar[]): Map<string, HighlightRect> {
+export function highlightRects(score: Score, layout: Layout): Map<string, HighlightRect> {
   const out = new Map<string, HighlightRect>()
-  for (const pb of playback) {
+  for (const pb of layout.playback) {
     for (const f of flattenBar(score.bars[pb.barIndex])) {
       const id: EventId = { bar: pb.barIndex, item: f.item }
       if (f.sub !== undefined) id.sub = f.sub
-      const box = layout.boxes.get(keyOf(id))
+      const key = playbackKey(id, pb.pass)
+      const box = layout.boxes.get(key)
       if (!box) continue
       const { base } = f.event.duration
       const ink = f.event.rest ? REST_INK[base] : HEAD_INK[base]
       const y = lineY(layout.staffTop, f.event.rest ? restLine(base) : SNARE_LINE)
-      out.set(playbackKey(id, pb.pass), {
+      out.set(key, {
         row: box.row,
         x: box.x + ink.left - HIGHLIGHT_PAD,
         width: ink.right - ink.left + 2 * HIGHLIGHT_PAD,

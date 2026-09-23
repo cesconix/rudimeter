@@ -41,7 +41,7 @@ Exercises can also be written in the sticking language of `src/data/exercises.ts
 | `z` `t` prefix | buzz roll / tremolo (measured roll) |
 | `(L)` `(R)` | hand of the grace notes — accepted by the language, not part of the score |
 
-A beat is split evenly among its tokens: `RL` is two eighths, `RLRL` four sixteenths, `RLR` a triplet, `RLRLRLRL` eight thirty-seconds. Only x/4 time signatures, 1 to 8 tokens per beat. `repeats` becomes a repeat sign around the piece. Tempo is not part of the piece: the same score runs at any bpm.
+A beat is split evenly among its tokens: `RL` is two eighths, `RLRL` four sixteenths, `RLR` a triplet, `RLRLRLRL` eight thirty-seconds. Only x/4 time signatures, 1 to 8 tokens per beat. `repeats` draws the piece that many times: the page is drawn out, with no repeat signs. Tempo is not part of the piece: the same score runs at any bpm.
 
 ## Architecture
 

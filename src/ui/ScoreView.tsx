@@ -25,8 +25,8 @@ interface Props {
   mode: ViewMode
   /** the one layout preference: a change here is a re-layout, a bpm change is not one */
   barsPerRow: Pref
-  /** the written bar the cursor is on, called when it changes */
-  onBar: (barIndex: number) => void
+  /** the drawn bar the cursor is on, 0-based: its index in `Layout.playback` (a pass of a repeat is its own bar) */
+  onBar: (index: number) => void
 }
 
 /** Rotating the iPad emits many resizes in a row, and every measurement costs a whole re-layout. */
@@ -184,15 +184,15 @@ export function ScoreView({ score, transport, now, mode, barsPerRow, onBar }: Pr
           pool,
           ensure: deferred.ensure,
           cancel: deferred.cancel,
-          points: cursorPoints(layout, score, transport.playback),
-          rects: highlightRects(score, layout, transport.playback),
+          points: cursorPoints(layout, score),
+          rects: highlightRects(score, layout),
           highlights: transportHighlights(transport.events),
           hostH: layout.rows.length * rowH,
           viewportH: mode === 'pages' ? f.rowsVisible * rowH : size.h,
         }
         // The rows around the cursor now, synchronously: a frame with an empty viewport is a flash.
         const pos = transport.positionAt(now())
-        const row = layout.rowOfBar[transport.playback[playbackBarAt(transport.starts, pos)].barIndex]
+        const row = layout.rowOfPlayback[playbackBarAt(transport.starts, pos)]
         const top = mode === 'pages' ? Math.floor(row / f.rowsVisible) * f.rowsVisible * rowH : row * rowH
         pool.ensure(...rowWindow(mode, b, top, vp.clientHeight || f.rowsVisible * rowH, row))
         built.current = b
@@ -259,11 +259,11 @@ export function ScoreView({ score, transport, now, mode, barsPerRow, onBar }: Pr
         el.style.height = `${r.height * scale}px`
       })
 
-      // The bar for the transport bar, only when it changes: a React update per bar, never per frame.
-      const barIndex = transport.playback[playbackBarAt(transport.starts, pos)].barIndex
-      if (barIndex !== lastBar) {
-        lastBar = barIndex
-        onBar(barIndex)
+      // The drawn bar for the transport bar, only when it changes: a React update per bar, never per frame.
+      const index = playbackBarAt(transport.starts, pos)
+      if (index !== lastBar) {
+        lastBar = index
+        onBar(index)
       }
 
       // The viewport. Pages: the page the cursor's row is on, turned at once. Scroll: the current
@@ -321,7 +321,8 @@ export function ScoreView({ score, transport, now, mode, barsPerRow, onBar }: Pr
     }
   }, [follow, mode])
 
-  // A tap on a bar seeks the transport to it (first pass) and hands the scrolling back to the cursor.
+  // A tap on a bar seeks the transport to it — the copy under the finger, on its own pass — and
+  // hands the scrolling back to the cursor.
   // `click`, not `pointerdown`: a pan on iOS never produces a click, a tap does.
   const onTap = (e: MouseEvent<HTMLDivElement>) => {
     const b = built.current
@@ -333,7 +334,7 @@ export function ScoreView({ score, transport, now, mode, barsPerRow, onBar }: Pr
     const row = b.layout.rows[Math.floor(y / b.rowH)]
     const bar = row?.bars.find((bar) => x >= bar.x - bar.head && x < bar.x + bar.width)
     if (!bar) return
-    transport.seek(bar.barIndex)
+    transport.seek(bar.barIndex, bar.pass)
     follow(true)
   }
 

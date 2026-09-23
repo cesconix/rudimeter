@@ -75,6 +75,15 @@ describe('fit: bars per row', () => {
     expect(f.scale).toBe(1)
   })
 
+  it('the row counts the bars as drawn: a two-bar piece repeated four times fills a row of eight', () => {
+    // 1720 px holds eight bars of 2/4 (1704 px). Written, the piece is two bars; drawn out, eight.
+    const drawnOut = piece(2, 2)
+    drawnOut.bars[0].repeat = { start: true }
+    drawnOut.bars[1].repeat = { end: { times: 4 } }
+    expect(fit(1720, 600, AUTO, drawnOut)).toMatchObject({ barsPerRow: 8, scale: 1 })
+    expect(fit(1720, 600, AUTO, piece(2, 2))).toMatchObject({ barsPerRow: 2, scale: 1 })
+  })
+
   it('narrower than one bar: one bar per row, shrunk to fit — the one scaling the fit does on its own', () => {
     const f = fit(150, 600, AUTO, STONE)
     expect(f.barsPerRow).toBe(1)
