@@ -310,11 +310,8 @@ function engraveBar(
   if (bar.showClef) stave.addClef('percussion')
   if (bar.showMeter) stave.addTimeSignature(`${meter[0]}/${meter[1]}`)
   // The page is drawn out (`Layout.playback`): a repeat is its copies, behind plain barlines, with no
-  // sign and no "×N". The thick final barline closes the last drawn bar; a double barline closes
-  // every copy of a bar that carries `repeat.end` — where the exercise starts again, the way a book
-  // marks a section's end.
+  // sign and no "×N". The thick final barline closes the last drawn bar.
   if (bar.index === layout.playback.length - 1) stave.setEndBarType(BarlineType.END)
-  else if (written.repeat?.end) stave.setEndBarType(BarlineType.DOUBLE)
   stave.setContext(ctx).draw()
   // Only at the start of the row: with twenty copies of one bar it is the only thing that says WHERE
   // you are. Above the staff, not to the left — the left has the clef — and starting where the
