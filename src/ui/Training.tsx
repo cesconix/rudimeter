@@ -1,22 +1,30 @@
+import { Link, useLoaderData } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { audibleTime } from '../audio/clock'
 import { createAudioContext, ensureRunning } from '../audio/context'
 import { type Clock, Transport } from '../audio/transport'
-import { SCORES } from '../data/scores'
+import type { Score } from '../score/types'
 import { loadPrefs, savePrefs, type ViewPrefs } from './prefs'
-import { ScorePicker } from './ScorePicker'
 import { ScoreView } from './ScoreView'
 import { TransportBar } from './TransportBar'
 
 /**
- * The app's one screen: the picker, the score, the transport bar. Owns the audio context (created
- * on the first Play, inside the gesture — iOS starts a context only there; no node, it is a clock),
- * the transport of the current piece and the preferences.
+ * The `/score/$id` screen. The piece comes from the route's loader (an unknown id never gets here:
+ * the loader sends it to the library). Keyed by the id so that a change of address between two
+ * pieces starts a fresh screen: the bar counter, the transport and the audio context.
  */
-export function ScoreScreen() {
+export function Training() {
+  const score = useLoaderData({ from: '/score/$id' })
+  return <TrainingScreen key={score.id} score={score} />
+}
+
+/**
+ * The training screen: a way back to the library, the piece's title, the score, the transport bar.
+ * Owns the audio context (created on the first Play, inside the gesture — iOS starts a context only
+ * there; no node, it is a clock), the transport of the piece and the tempo.
+ */
+function TrainingScreen({ score }: { score: Score }) {
   const [prefs, setPrefs] = useState<ViewPrefs>(() => loadPrefs(localStorage))
-  const [scoreId, setScoreId] = useState(SCORES[0].id)
-  const score = SCORES.find((s) => s.id === scoreId) ?? SCORES[0]
   // The context in a ref for the clock (read every frame, never a re-render) and in state for the
   // effect that listens to it: state, because the effect must re-run once the first Play created it.
   const ctxRef = useRef<AudioContext | null>(null)
@@ -33,7 +41,7 @@ export function ScoreScreen() {
     }),
     [],
   )
-  // One transport per piece; the bpm follows the preferences from then on (see `update`).
+  // One transport per piece; the bpm follows the preferences from then on (see `setBpm`).
   // biome-ignore lint/correctness/useExhaustiveDependencies: prefs.bpm seeds the transport, it does not rebuild it — setBpm keeps the position.
   const transport = useMemo(() => new Transport(clock, score, prefs.bpm), [clock, score])
   // The AUDIBLE clock for the drawing (src/audio/clock.ts): the cursor stays with the sound going out.
@@ -50,6 +58,17 @@ export function ScoreScreen() {
       document.removeEventListener('visibilitychange', check)
     }
   }, [ctx])
+
+  // Leaving the screen silences it: the transport stops and the context closes, releasing the
+  // hardware (iOS caps the contexts alive at once). The next visit creates its own on its first Play.
+  useEffect(
+    () => () => {
+      transport.stop()
+      ctxRef.current?.close().catch(() => {})
+      ctxRef.current = null
+    },
+    [transport],
+  )
 
   const play = async () => {
     try {
@@ -72,23 +91,18 @@ export function ScoreScreen() {
     transport.play()
   }
 
-  const update = (patch: Partial<ViewPrefs>) => {
-    const next = { ...prefs, ...patch }
+  const setBpm = (bpm: number) => {
+    const next = { ...prefs, bpm }
     setPrefs(next)
     savePrefs(localStorage, next)
-    if (patch.bpm !== undefined) transport.setBpm(patch.bpm)
-  }
-
-  const pick = (id: string) => {
-    transport.stop()
-    setScoreId(id)
-    setBar(0)
+    transport.setBpm(bpm)
   }
 
   return (
-    <main className="score-screen">
+    <main className="training">
       <div className="row">
-        <ScorePicker value={scoreId} onChange={pick} />
+        <Link to="/">Library</Link>
+        <h1 className="training__title">{score.title}</h1>
         {suspended && ctx && (
           <button
             type="button"
@@ -117,9 +131,9 @@ export function ScoreScreen() {
         transport={transport}
         bar={bar}
         bars={transport.playback.length}
-        prefs={prefs}
+        bpm={prefs.bpm}
         onPlay={play}
-        onPrefs={update}
+        onBpm={setBpm}
       />
     </main>
   )

@@ -6,5 +6,8 @@
   "outputDirectory": "dist",
   "bunVersion": "1.4.x",
   "regions": ["fra1"],
-  "rewrites": [{ "source": "/api/(.*)", "destination": "/api/server" }]
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/server" },
+    { "source": "/((?!api/|dashboard|assets/).*)", "destination": "/index.html" }
+  ]
 }

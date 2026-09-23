@@ -1,16 +1,18 @@
+import { RouterProvider } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 import type { Remote } from '../dev/remote'
 import { remoteNameFrom } from '../dev/remote-name'
 import { APP_INFO } from '../telemetry/app-info'
 import type { Telemetry } from '../telemetry/client'
 import { forgetTester, readTester, rememberTester, type Tester, withoutTester } from '../telemetry/tester'
-import { ScoreScreen } from './ScoreScreen'
+import { createAppRouter } from './router'
 
 /**
- * The shell: the score screen, plus the plumbing that lets a page be seen from the Mac (the
- * `?remote` channel, dev server only) or share what it does with the store behind rudimeter.com
- * (a `?tester=` key). The session flow — microphone, calibration, judge — lives on
- * dev/session.html until it comes back on top of the score; its events simply never fire here.
+ * The shell: the router's screens — the library, the training screen, the settings — plus the
+ * plumbing that lets a page be seen from the Mac (the `?remote` channel, dev server only) or share
+ * what it does with the store behind rudimeter.com (a `?tester=` key). The session flow —
+ * microphone, calibration, judge — lives on dev/session.html until it comes back on top of the
+ * score; its events simply never fire here.
  */
 export function App() {
   // `?remote[=name]`, dev server only: the client is loaded on demand so that none of it is in the production bundle.
@@ -29,6 +31,9 @@ export function App() {
       window.history.replaceState(null, '', withoutTester(window.location.href))
     return t
   }, [])
+  // After the tester memo on purpose: the key has left the address by the time the router's
+  // history reads it (router.tsx).
+  const router = useMemo(() => createAppRouter(), [])
   const [remote, setRemote] = useState<Remote | null>(null)
   const [telemetry, setTelemetry] = useState<Telemetry | null>(null)
   // The name the server settled on, which is not always the one asked for. A tester's stored name
@@ -103,7 +108,7 @@ export function App() {
     <>
       {telemetryBadge}
       {overlay}
-      <ScoreScreen />
+      <RouterProvider router={router} />
     </>
   )
 }

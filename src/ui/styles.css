@@ -227,15 +227,61 @@ select {
   z-index: 10;
   pointer-events: none;
 }
-/* The score screen: picker on top, the score filling the middle, the transport bar at the bottom.
-   The full height sits on the root container, as the session flow did, so the viewport gets a real
-   height to fit rows into. */
-#root:has(main.score-screen) {
+/* The library and the settings are pages under the base `main` rule; a link is the accent. */
+a {
+  color: var(--main);
+}
+.library__nav {
+  justify-content: space-between;
+}
+.library__nav h1 {
+  margin: 0;
+}
+/* The cards: links on the secondary surface, a grid that folds to one column on a phone. */
+.library__cards {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: 10px;
+}
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: var(--sub-alt);
+  color: var(--text);
+  text-decoration: none;
+}
+.card:focus-visible {
+  outline: 2px solid var(--main);
+  outline-offset: 2px;
+}
+.card__title {
+  font-weight: 600;
+}
+.card__source,
+.card__meta {
+  font-size: 0.9rem;
+  color: var(--sub);
+}
+.settings__view label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+/* The training screen: the way back and the title on top, the score filling the middle, the
+   transport bar at the bottom. The full height sits on the root container, as the session flow
+   did, so the viewport gets a real height to fit rows into. */
+#root:has(main.training) {
   display: flex;
   flex-direction: column;
   height: 100dvh;
 }
-main.score-screen {
+main.training {
   flex: 1;
   min-height: 0;
   display: flex;
@@ -245,23 +291,27 @@ main.score-screen {
   margin: 0;
   padding: 8px 12px;
 }
+.training__title {
+  font-size: 1.1rem;
+  margin: 0;
+}
 /* The frame around the music: its padding is the air on every side of it, the only air there — a
    row has none on its perimeter, its ink runs from its box's edge to its edge (the first row's
    labels at its top). ScoreView lays the rows out in what is inside the padding. No background:
    the score is transparent over the page, whatever the theme. */
-main.score-screen .score-frame {
+main.training .score-frame {
   position: relative;
   flex: 1;
   min-height: 160px;
   display: flex;
   padding: 16px;
 }
-main.score-screen .score-viewport {
+main.training .score-viewport {
   flex: 1;
 }
 /* Pages: the viewport keeps the frame's width; its height is set by ScoreView; it never scrolls by
    hand — the page turns with the cursor and a tap seeks. */
-main.score-screen .score-frame--pages .score-viewport {
+main.training .score-frame--pages .score-viewport {
   overflow-y: hidden;
 }
 /* A highlight box: the sounding note's head, or its rest, framed (`highlightRects`), translucent
@@ -281,7 +331,7 @@ main.score-screen .score-frame--pages .score-viewport {
   will-change: transform;
 }
 
-/* The transport bar: one row of big controls at the bottom, the settings folded under "View". */
+/* The transport bar: one row of big controls at the bottom. */
 .transport-bar {
   border-top: 1px solid var(--sub-alt);
   padding: 8px 0 0;
@@ -298,13 +348,8 @@ main.score-screen .score-frame--pages .score-viewport {
   margin-left: auto;
   font-variant-numeric: tabular-nums;
 }
-.transport-bar__settings label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
 
-/* The theme picker (View panel): System, then the light and the dark themes, each tile painted in
+/* The theme picker (Settings): System, then the light and the dark themes, each tile painted in
    its own theme by a face that carries its `data-theme` (ThemePicker). The button around the face
    stays in the page's theme: its ring is the page's secondary surface, the page's accent when chosen. */
 .theme-picker {

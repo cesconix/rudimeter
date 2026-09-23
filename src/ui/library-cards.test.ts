@@ -2,7 +2,7 @@ import { describe, expect, it } from 'bun:test'
 import { SCORES } from '../data/scores'
 import { metersOf } from '../score/events'
 import { unroll } from '../score/unroll'
-import { libraryCards } from './library'
+import { libraryCards } from './library-cards'
 
 describe('libraryCards', () => {
   it('one card per piece, in the library’s order: title, source, the first bar’s meter, the drawn bars', () => {
