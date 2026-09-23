@@ -11,7 +11,7 @@ import { Training } from './Training'
  */
 const rootRoute = createRootRoute({
   component: Outlet,
-  notFoundComponent: () => <Navigate to="/" />,
+  notFoundComponent: () => <Navigate to="/" replace />,
 })
 
 const libraryRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: Library })
