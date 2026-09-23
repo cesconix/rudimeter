@@ -51,7 +51,7 @@ src/score      pure model of a pad piece: written durations, one staff, one voic
 src/audio      Web Audio: the transport on the audio clock; click scheduling, microphone capture, onset-detection worklet, calibration (the session flow).
 src/notation   the score on screen: rows on a time grid, the fit to the viewport, the cursor and highlight geometry (pure); VexFlow engraving one SVG per row through a pool; plus the old exercise renderer the session flow still uses.
 src/session    the runner that ties grid, judge and progression together while you play.
-src/ui         React: the score screen (viewport, transport bar, picker, preferences); the session screens, mounted by dev/session.html.
+src/ui         React: the routes — the library, the training screen (viewport, transport bar), the settings; the session screens, mounted by dev/session.html.
 src/data       the score library: JSON pieces and the sticking exercises compiled into them.
 dev/           notation gallery, the old session flow (dev/session.html), the audio lab, the MusicXML importer, the remote debug CLI.
 ```
