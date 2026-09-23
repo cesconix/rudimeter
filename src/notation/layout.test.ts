@@ -12,6 +12,7 @@ import {
   CURSOR_OVERHANG,
   DRAG_PX,
   FLAM_PX,
+  followsInWriting,
   HEAD_PX,
   INK_ABOVE,
   inkAbove,
@@ -447,6 +448,27 @@ describe('heads', () => {
     const layout = buildLayout(piece([bar(quarters()), bar([flam(), n(4), n(4), n(4)])]), { barsPerRow: 2, auto: true })
     expect(layout.rows[0].bars[1]).toMatchObject({ head: BAR_PAD + FLAM_PX, x: HEAD_PX + W + BAR_PAD + FLAM_PX })
     expect(layout.boxes.get('b1/0@1')?.x).toBe(HEAD_PX + W + BAR_PAD + FLAM_PX)
+  })
+})
+
+describe('ties across a barline', () => {
+  it('follow the drawn order: across onto the written successor only, never from a pass back to its section', () => {
+    // Written 0 | 1–2 twice | 3: drawn 0, 1, 2, 1, 2, 3.
+    const score = piece([
+      bar(quarters()),
+      bar(quarters(), { repeat: { start: true } }),
+      bar(quarters(), { repeat: { end: {} } }),
+      bar(quarters()),
+    ])
+    const playback = unroll(score)
+    expect(playback.map((pb) => pb.barIndex)).toEqual([0, 1, 2, 1, 2, 3])
+    expect(playback.map((_, i) => followsInWriting(playback, i))).toEqual([true, true, false, true, true, false])
+  })
+  it('a one-bar section drawn twice is followed by itself, not its successor', () => {
+    const score = piece([bar(quarters(), { repeat: { start: true, end: {} } }), bar(quarters())])
+    const playback = unroll(score)
+    expect(playback.map((pb) => pb.barIndex)).toEqual([0, 0, 1])
+    expect(playback.map((_, i) => followsInWriting(playback, i))).toEqual([false, true, false])
   })
 })
 

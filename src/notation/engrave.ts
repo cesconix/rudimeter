@@ -26,10 +26,12 @@ import { resolveBeams } from '../score/beaming'
 import { type FlatEvent, flattenBar, metersOf } from '../score/events'
 import { type EventId, playbackKey } from '../score/ids'
 import type { Bar, Event, Meter, NoteBase, Score } from '../score/types'
+import type { PlaybackBar } from '../score/unroll'
 import { BuzzRoll } from './buzz-roll'
 import {
   type BarLayout,
   type EventBox,
+  followsInWriting,
   type Ink,
   LABEL_ABOVE,
   type Layout,
@@ -250,21 +252,26 @@ interface BarSpan {
   tie?: StaveNote
 }
 
-/** Whether the previous written bar's last event is tied into bar `b`: at a row start the tie arrives as a half tie. */
-function tiedInto(score: Score, b: number): boolean {
-  if (b === 0) return false
-  const flat = flattenBar(score.bars[b - 1])
+/**
+ * Whether a tie arrives into drawn bar `i`: the drawn bar before it is its written predecessor
+ * (`followsInWriting`) and that bar's last event is tied. At a row start the tie enters as a half tie.
+ */
+function tiedInto(score: Score, playback: PlaybackBar[], i: number): boolean {
+  if (i === 0 || !followsInWriting(playback, i - 1)) return false
+  const flat = flattenBar(score.bars[playback[i].barIndex - 1])
   return flat[flat.length - 1]?.event.tie === true
 }
 
 /**
  * The ties of one bar, as elements to draw after the notes. A tie to the next event stays in the
- * bar; to the next bar it waits in `span` for that bar's first note, or — on the row's last bar —
- * is drawn as a half tie to the stave end; on the row's first bar a tie from the previous row
+ * bar; to the next bar it is drawn only when the next drawn bar is the written one it ties into
+ * (`followsInWriting`), and then waits in `span` for that bar's first note, or — on the row's last
+ * bar — is drawn as a half tie to the stave end; on the row's first bar a tie from the previous row
  * enters as a half tie into the first note. Read from the score, never from the previous row's DOM.
  */
 function spanBar(
   score: Score,
+  layout: Layout,
   bar: BarLayout,
   built: BuiltBar,
   span: BarSpan,
@@ -275,7 +282,7 @@ function spanBar(
   const head = built.placed[0]?.note
   if (head) {
     if (first) {
-      if (tiedInto(score, bar.barIndex)) out.push(new StaveTie({ lastNote: head }))
+      if (tiedInto(score, layout.playback, bar.index)) out.push(new StaveTie({ lastNote: head }))
     } else if (span.tie) out.push(new StaveTie({ firstNote: span.tie, lastNote: head }))
   }
   span.tie = undefined
@@ -283,6 +290,8 @@ function spanBar(
     if (!built.flat[i].event.tie) return
     const next = built.placed[i + 1]
     if (next) out.push(new StaveTie({ firstNote: p.note, lastNote: next.note }))
+    // Across the barline only onto the written successor: otherwise nothing leaves, and `span.tie` stays empty.
+    else if (!followsInWriting(layout.playback, bar.index)) return
     else if (lastBar) out.push(new StaveTie({ firstNote: p.note }))
     else span.tie = p.note
   })
@@ -337,7 +346,7 @@ function engraveBar(
   const first = row.bars[0] === bar
   const lastBar = row.bars[row.bars.length - 1] === bar
   // Ties are drawn after the notes so they sit over the noteheads, not under them.
-  const spanned = spanBar(score, bar, built, span, first, lastBar)
+  const spanned = spanBar(score, layout, bar, built, span, first, lastBar)
   // Last, just before any stem is drawn — the voice draws the free ones, the beams the rest.
   for (const p of built.placed) anchorStems(p.note)
   built.vf.draw(ctx, stave)

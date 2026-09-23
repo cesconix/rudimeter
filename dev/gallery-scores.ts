@@ -181,13 +181,16 @@ export const GALLERY: Figure[] = [
   ),
   figure(
     'ties',
-    'Ties: inside a bar, across a bar, across a row end; a five-stroke roll',
-    'Bar 1: quarter tied to quarter, then two quarters. Bar 2 ends on a quarter tied into bar 3: the tie crosses the barline. Bar 3 ends on a half tied into bar 4, which starts a new row: a half tie leaves the first row to the right edge and a half tie enters the second row from the left. Bar 4: the half the tie enters, then a quarter with two slashes tied to an accented quarter — a five-stroke roll as the books write it. (four bars per row, fixed, so the barline and the row end fall where the sentence says at every width).',
+    'Ties: inside a bar, across a bar, across a row end; a five-stroke roll; a tie out of a section drawn twice',
+    "Bar 1: quarter tied to quarter, then two quarters. Bar 2 ends on a quarter tied into bar 3: the tie crosses the barline. Bar 3 ends on a half tied into bar 4, which starts a new row: a half tie leaves the first row to the right edge and a half tie enters the second row from the left. Bar 4: the half the tie enters, then a quarter with two slashes tied to an accented quarter — a five-stroke roll as the books write it. Bars 5–8: a section of two bars — four quarters, then two quarters and a half tied into the bar after the section — drawn twice, its first bar opening a row each time (bars 5–6, then 7–9 on the last row). Bar 6, the section's end on its first pass, ends on a half tied, in writing, into the bar after the section; but what is drawn next is the section's first bar again, a fresh stroke, so no half tie leaves the third row and none enters bar 7. Bar 8, the section's end on its second pass, ties into bar 9 mid-row: the tie crosses the barline into bar 9's half, then two quarters. Nine drawn bars on four rows (four bars per row, fixed, so the barline and the row end fall where the sentence says at every width).",
     [
       bar([N(4, { tie: true }), N(4), N(4), N(4)]),
       bar([N(4), N(4), N(4), N(4, { tie: true })]),
       bar([N(4), N(4), N(2, { tie: true })]),
       bar([N(2), N(4, { roll: { kind: 'tremolo', slashes: 2 }, tie: true }), N(4, { accent: true })], { newRow: true }),
+      bar([N(4), N(4), N(4), N(4)], { repeat: { start: true }, newRow: true }),
+      bar([N(4), N(4), N(2, { tie: true })], { repeat: { end: {} } }),
+      bar([N(2), N(4), N(4)]),
     ],
     4,
   ),

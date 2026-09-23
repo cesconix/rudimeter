@@ -286,6 +286,17 @@ export function barHeads(score: Score, playback: PlaybackBar[]): BarHead[] {
   })
 }
 
+/**
+ * Whether drawn bar `i + 1` is the written successor of drawn bar `i`: the one condition under which
+ * a tie on bar `i`'s last event is drawn across to the next drawn bar. The page shows what is played:
+ * at the end of a pass that is not the last, what is drawn next is the section's first bar, struck
+ * afresh, so the tie written into the bar after the section is drawn only on the copy that goes on to it.
+ */
+export function followsInWriting(playback: PlaybackBar[], i: number): boolean {
+  const next = playback[i + 1]
+  return next !== undefined && next.barIndex === playback[i].barIndex + 1
+}
+
 /** What one stack carries (a stroke, a rest, or a tuplet's whole group): its stems' class and its marks. */
 interface Stack {
   thirtySecond: boolean
