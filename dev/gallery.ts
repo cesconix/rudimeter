@@ -196,8 +196,8 @@ new ResizeObserver(() => {
 
 // --- Measurements: dev-only, `performance.now()` is fine here (nothing in the app reads these) ---
 
-/** The piece with the most bars: the pyramids, thirty bars of sixteenths. */
-const LONGEST = SCORES.reduce((a, b) => (b.bars.length > a.bars.length ? b : a))
+/** The piece with the most drawn bars (`unroll`): Stick Control #1, two written bars drawn twenty times, forty bars. */
+const LONGEST = SCORES.reduce((a, b) => (unroll(b).length > unroll(a).length ? b : a))
 
 function on(id: string, handler: () => void): void {
   // biome-ignore lint/style/noNonNullAssertion: the id is hardcoded in gallery.html; a missing one must break the dev page loudly.

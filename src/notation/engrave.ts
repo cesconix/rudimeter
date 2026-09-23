@@ -230,19 +230,16 @@ function placeOnGrid(formatter: Formatter, built: BuiltBar): void {
 }
 
 /**
- * Small grey text in the band above the staff, `LABEL_ABOVE` px above the top line: the bar numbers. `x` is where the text is anchored, as CSS `text-align` would:
- * `start` puts its left edge there and a longer text grows rightwards, `end` puts its right edge
- * there and it grows leftwards — so a label on a row's edge never leaves the row, whatever it says.
- * The width comes from the context's own `measureText` in the label's font, so the SVG the app
- * draws and the canvas `measureInk` reads agree. No colour: the text sits in a `vf-label` group,
- * which the theme paints in `--sub` (score.css); the measuring canvas has no groups.
+ * Small grey text in the band above the staff, `LABEL_ABOVE` px above the top line: the bar number.
+ * `x` is the text's left edge, and a longer number grows rightwards, into the row. No colour: the
+ * text sits in a `vf-label` group, which the theme paints in `--sub` (score.css); the measuring
+ * canvas has no groups.
  */
-function label(ctx: RenderContext, stave: Stave, text: string, x: number, align: 'start' | 'end'): void {
+function label(ctx: RenderContext, stave: Stave, text: string, x: number): void {
   ctx.save()
   ctx.openGroup('label')
   ctx.setFont(TEXT_FONT.family, TEXT_FONT.size, TEXT_FONT.weight)
-  const left = align === 'start' ? x : x - ctx.measureText(text).width
-  ctx.fillText(text, left, stave.getYForLine(0) - LABEL_ABOVE)
+  ctx.fillText(text, x, stave.getYForLine(0) - LABEL_ABOVE)
   ctx.closeGroup()
   ctx.restore()
 }
@@ -326,7 +323,7 @@ function engraveBar(
   // you are. Above the staff, not to the left — the left has the clef — and starting where the
   // stave starts, the row's left edge. Numbered as drawn, 1-based over `layout.playback`: there is
   // no book on the stand, and it is the count the transport bar shows as "bar N / M".
-  if (bar.showClef) label(ctx, stave, String(bar.index + 1), stave.getX(), 'start')
+  if (bar.showClef) label(ctx, stave, String(bar.index + 1), stave.getX())
 
   const built = buildBar(layout, bar, meter, written)
   // Validation refuses an empty bar; the guard keeps VexFlow's formatter from throwing on a hand-built one.

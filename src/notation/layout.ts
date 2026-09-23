@@ -27,8 +27,8 @@ export const CLEF_PX = 37
 export const METER_PX = 53
 /**
  * A grace note on a bar's first note is drawn BEFORE it, and nothing on the time grid reserves that
- * space: across the barline, on the repeat's dots or on the clef, until the bar keeps it free before
- * its grid — the grace notes then sit where the note alone would, as clear of what precedes them.
+ * space: across the barline or on the clef, until the bar keeps it free before its grid — the grace
+ * notes then sit where the note alone would, as clear of what precedes them.
  * Read from pixels, from the grace ink's left edge to its note's head: 24.2 px for a flam, 28.2 for
  * a drag. Outside the grid like every head, so the grid's speed is untouched; a grace note later in
  * the bar is drawn in the time before its note.

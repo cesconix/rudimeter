@@ -321,7 +321,8 @@ export function ScoreView({ score, transport, now, mode, barsPerRow, onBar }: Pr
     }
   }, [follow, mode])
 
-  // A tap on a bar seeks the transport to it — the copy under the finger, on its own pass — and hands the scrolling back to the cursor.
+  // A tap on a bar seeks the transport to it — the copy under the finger, on its own pass — and
+  // hands the scrolling back to the cursor.
   // `click`, not `pointerdown`: a pan on iOS never produces a click, a tap does.
   const onTap = (e: MouseEvent<HTMLDivElement>) => {
     const b = built.current
